@@ -7,10 +7,21 @@ import { MaterialType } from '../game/Materials';
 
 interface BuildingSceneProps {
   selectedMaterial?: MaterialType;
+  // TODO: Callback when block is placed (not yet implemented)
   onBlockPlaced?: () => void;
+  // TODO: Callback when block is removed (not yet implemented)
   onBlockRemoved?: () => void;
 }
 
+/**
+ * BuildingScene - React wrapper for the minecraft-inspired game engine.
+ *
+ * Manages lifecycle for Core, Materials, BlockManager, and Controls classes.
+ *
+ * @param selectedMaterial - Currently selected building material (defaults to OakWood)
+ * @param onBlockPlaced - TODO: Callback when block is placed (not yet implemented)
+ * @param onBlockRemoved - TODO: Callback when block is removed (not yet implemented)
+ */
 const BuildingScene: React.FC<BuildingSceneProps> = ({
   selectedMaterial = MaterialType.OakWood,
   onBlockPlaced,
