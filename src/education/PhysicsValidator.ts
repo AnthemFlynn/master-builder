@@ -71,13 +71,21 @@ export default class PhysicsValidator {
           Math.pow(position.z - originalPosition.z, 2)
         );
 
-        if (displacement > 0.5 && !collapseTime) {
-          collapseTime = i * timeStep;
-          failurePoints.push({
-            x: originalPosition.x,
-            y: originalPosition.y,
-            z: originalPosition.z
-          });
+        if (displacement > 0.5) {
+          if (!collapseTime) {
+            collapseTime = i * timeStep;
+          }
+          // Check if this failure point hasn't been recorded yet
+          const alreadyRecorded = failurePoints.some(
+            p => p.x === originalPosition.x && p.y === originalPosition.y && p.z === originalPosition.z
+          );
+          if (!alreadyRecorded) {
+            failurePoints.push({
+              x: originalPosition.x,
+              y: originalPosition.y,
+              z: originalPosition.z
+            });
+          }
         }
       });
 
