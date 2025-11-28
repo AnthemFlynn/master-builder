@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import BuildingGame from './BuildingGame';
 import { MaterialType } from '../game/Materials';
 
@@ -312,8 +312,6 @@ describe('BuildingGame', () => {
 
     it('awards gold when challenge is completed', () => {
       render(<BuildingGame />);
-
-      const initialGold = 100;
 
       // Complete first challenge (5 blocks, 50 gold reward)
       for (let i = 0; i < 5; i++) {

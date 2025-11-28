@@ -14,10 +14,8 @@ export enum MaterialType {
 
 export default class Materials {
   private materials: Map<MaterialType, THREE.Material | THREE.Material[]>;
-  private textureLoader: THREE.TextureLoader;
 
   constructor() {
-    this.textureLoader = new THREE.TextureLoader();
     this.materials = new Map();
     this.loadMaterials();
   }

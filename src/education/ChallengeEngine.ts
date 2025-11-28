@@ -388,7 +388,6 @@ export default class ChallengeEngine {
     let deckLevel = yLevels[0];
 
     // Check for support pillars (vertical structures at edges)
-    const groundLevel = Math.min(...blocks.map(b => b.position.y));
     const leftSupport = blocks.filter(b =>
       (isXSpan ? b.position.x === minX : b.position.z === minZ) && b.position.y < deckLevel
     );

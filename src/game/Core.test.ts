@@ -62,7 +62,7 @@ describe('Core', () => {
   });
 
   it('should handle window resize', () => {
-    const initialAspect = core.camera.aspect;
+    // const initialAspect = core.camera.aspect;
 
     // Mock window dimensions
     Object.defineProperty(window, 'innerWidth', { value: 1920, writable: true });

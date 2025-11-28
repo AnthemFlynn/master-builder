@@ -1,4 +1,4 @@
-import { expect, afterEach, vi } from "vitest";
+import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
@@ -70,7 +70,7 @@ class AudioContextMock {
 
 // Set up global AudioContext mock
 global.AudioContext = AudioContextMock as any;
-global.webkitAudioContext = AudioContextMock as any;
+(global as any).webkitAudioContext = AudioContextMock as any;
 
 afterEach(() => {
   cleanup();

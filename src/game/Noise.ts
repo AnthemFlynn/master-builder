@@ -1,4 +1,4 @@
-import { ImprovedNoise } from 'three/examples/jsm/math/ImprovedNoise'
+import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js'
 
 export default class Noise {
   noise = new ImprovedNoise()

@@ -57,7 +57,7 @@ describe('Audio', () => {
     });
 
     it('should cycle through sound indices', () => {
-      const initialIndex = audio['currentIndex'];
+      // const initialIndex = audio['currentIndex'];
 
       // Mock the sound map with fake sounds
       const mockAudio1 = new THREE.Audio(audio['listener']);

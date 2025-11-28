@@ -80,7 +80,7 @@ describe('HUD Component', () => {
   });
 
   it('should apply correct title color class', () => {
-    const { container } = render(
+    render(
       <HUD
         score={2000}
         gold={1000}

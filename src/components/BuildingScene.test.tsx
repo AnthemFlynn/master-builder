@@ -50,7 +50,7 @@ vi.mock('../game/BlockManager', () => {
       private onBlockPlaced?: () => void;
       private onBlockRemoved?: () => void;
 
-      constructor(scene: any, materials: any, onBlockPlaced?: () => void, onBlockRemoved?: () => void) {
+      constructor(_scene: any, _materials: any, onBlockPlaced?: () => void, onBlockRemoved?: () => void) {
         this.onBlockPlaced = onBlockPlaced;
         this.onBlockRemoved = onBlockRemoved;
       }

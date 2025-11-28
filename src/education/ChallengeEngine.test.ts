@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import ChallengeEngine, { ChallengeRequirement, ValidationResult } from './ChallengeEngine';
+import ChallengeEngine, { ChallengeRequirement } from './ChallengeEngine';
 import PhysicsValidator from './PhysicsValidator';
 import { BlockData } from '../game/BlockManager';
 import { MaterialType } from '../game/Materials';

@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import AICoach, { BuildAnalysis, CoachConfig } from './AICoach';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import AICoach, { CoachConfig } from './AICoach';
 import { BlockData } from '../game/BlockManager';
 import { MaterialType } from '../game/Materials';
-import Anthropic from '@anthropic-ai/sdk';
 
 // Mock the Anthropic SDK
 const mockCreate = vi.fn();
@@ -11,15 +10,13 @@ const mockStream = vi.fn();
 vi.mock('@anthropic-ai/sdk', () => {
   class MockAPIError extends Error {
     status: number;
-    constructor(message: string, statusOrOptions?: number | { status?: number }) {
-      super(message);
-      if (typeof statusOrOptions === 'number') {
-        this.status = statusOrOptions;
-      } else if (statusOrOptions && typeof statusOrOptions === 'object') {
-        this.status = statusOrOptions.status || 500;
-      } else {
-        this.status = 500;
-      }
+    error: any;
+    headers: any;
+    constructor(status: number, error: any, message?: string, headers?: any) {
+      super(message || String(status));
+      this.status = status;
+      this.error = error;
+      this.headers = headers;
       this.name = 'APIError';
     }
   }
@@ -426,7 +423,6 @@ describe('AICoach', () => {
 
     it('should stream response chunks', async () => {
       const chunks = ['Hello', ' there', ' student', '!'];
-      let chunkIndex = 0;
 
       // Mock async iterator
       const mockAsyncIterator = {
@@ -527,7 +523,7 @@ describe('AICoach', () => {
 
     it('should handle 401 authentication errors', async () => {
       const { APIError } = await import('@anthropic-ai/sdk');
-      const apiError = new APIError('Unauthorized', 401);
+      const apiError = new APIError(401, { message: 'Unauthorized' }, 'Unauthorized', undefined);
       mockCreate.mockRejectedValue(apiError);
 
       await expect(coach.askQuestion('test')).rejects.toThrow('Invalid API key');
@@ -535,7 +531,7 @@ describe('AICoach', () => {
 
     it('should handle 429 rate limit errors', async () => {
       const { APIError } = await import('@anthropic-ai/sdk');
-      const apiError = new APIError('Rate limited', 429);
+      const apiError = new APIError(429, { message: 'Rate limited' }, 'Rate limited', undefined);
       mockCreate.mockRejectedValue(apiError);
 
       await expect(coach.askQuestion('test')).rejects.toThrow('Rate limit exceeded');
@@ -543,7 +539,7 @@ describe('AICoach', () => {
 
     it('should handle other API errors', async () => {
       const { APIError } = await import('@anthropic-ai/sdk');
-      const apiError = new APIError('Server error', 500);
+      const apiError = new APIError(500, { message: 'Server error' }, 'Server error', undefined);
       mockCreate.mockRejectedValue(apiError);
 
       await expect(coach.askQuestion('test')).rejects.toThrow('API Error');

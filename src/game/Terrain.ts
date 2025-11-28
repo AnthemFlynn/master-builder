@@ -8,7 +8,7 @@ export default class Terrain {
   private noise: Noise;
 
   // Terrain mesh using InstancedMesh
-  private terrainMesh: THREE.InstancedMesh;
+  private terrainMesh!: THREE.InstancedMesh;
   private terrainSize = 128; // 128x128 block area
   private baseHeight = 30; // Base Y level
 

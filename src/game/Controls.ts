@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import BlockManager from './BlockManager';
 import { MaterialType } from './Materials';
 import Player, { Mode } from './Player';
@@ -151,7 +151,7 @@ export default class Controls {
 
   private removeBlock(): void {
     // Raycast from camera center
-    this.raycaster.setFromCamera({ x: 0, y: 0 }, this.camera);
+    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
 
     const intersects = this.raycaster.intersectObjects(
       this.blockManager.getAllMeshes()
@@ -182,7 +182,7 @@ export default class Controls {
 
   private placeBlock(): void {
     // Raycast from camera center
-    this.raycaster.setFromCamera({ x: 0, y: 0 }, this.camera);
+    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
 
     const intersects = this.raycaster.intersectObjects(
       this.blockManager.getAllMeshes()

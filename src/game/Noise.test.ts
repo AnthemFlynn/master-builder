@@ -112,8 +112,8 @@ describe('Noise', () => {
       const noise1 = new Noise()
       const noise2 = new Noise()
 
-      const values1 = []
-      const values2 = []
+      const values1: number[] = []
+      const values2: number[] = []
 
       // Use fractional coordinates to get non-zero values
       for (let i = 0; i < 10; i++) {

@@ -1,127 +1,181 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-Kingdom Builder is a 3D building game where players construct structures to impress King Reginald. It's built with React, Three.js for 3D rendering, and uses Claude AI (via Anthropic API) to power two AI characters: King Reginald (who judges builds) and Master Aldric (who provides building advice).
-
-## Development Commands
-
-### Essential Commands
-- `npm run dev` - Start the Vite development server (typically runs on http://localhost:5173)
-- `npm run build` - Build for production (compiles TypeScript first, then bundles with Vite)
-- `npm run preview` - Preview the production build locally
-
-### Environment Setup
-The app requires an Anthropic API key to enable AI features:
-1. Copy `.env.example` to `.env`
-2. Set `ANTHROPIC_API_KEY=sk-ant-xxx...` with a valid key
-
-Note: The Vite config (`vite.config.ts`) exposes environment variables with `ANTHROPIC_` prefix to the client via `envPrefix: ['VITE_', 'ANTHROPIC_']`.
-
-## Architecture Overview
-
-### Single-Component Architecture
-The entire game logic lives in `src/KingdomBuilder.tsx` (~1500 lines). This is an intentional design choice for a small, self-contained game. The main component handles:
-- Three.js scene initialization and rendering
-- Game state management (blocks, materials, tools, score, gold)
-- User input (keyboard, mouse for 3D interaction)
-- AI character interactions via Anthropic API
-- Sound effects via Tone.js
-- Tutorial system and achievements
-
-### Supporting Files
-- `src/components/TutorialOverlay.tsx` - Tutorial UI overlay for new players
-- `src/components/AchievementPopup.tsx` - Achievement notification popups
-- `src/components/SaveLoadModal.tsx` - Save/load game functionality UI
-- `src/utils/achievements.ts` - Achievement system logic and definitions
-- `src/utils/storage.ts` - LocalStorage-based save/load utilities
-- `src/main.tsx` - React entry point
-- `src/index.css` - Global styles and Tailwind imports
-
-### Key Technical Patterns
-
-#### Three.js Integration
-- Scene, camera, and renderer are managed via refs (`sceneRef`, `cameraRef`, `rendererRef`)
-- All blocks are stored in `blocksRef.current` as an array of Three.js meshes
-- Each block mesh has `userData.mi` (material index) and `userData.ti` (type index)
-- Raycaster is used for mouse picking to determine where to place/remove blocks
-- Glowing blocks are tracked separately in `glowsRef` for lighting effects
-
-#### State Management
-Uses React `useState` and `useRef` exclusively - no external state management:
-- `useState` for UI-reactive state (gold, score, materials, tools)
-- `useRef` for Three.js objects and arrays that shouldn't trigger re-renders
-- `useCallback` for expensive operations (stats calculation, AI calls)
-
-#### AI Integration Pattern
-Both AI characters (King Reginald and Master Aldric) use direct API calls to Anthropic's Messages API:
-- Model: `claude-sonnet-4-20250514`
-- API endpoint: `https://api.anthropic.com/v1/messages`
-- API key comes from `import.meta.env.ANTHROPIC_API_KEY`
-- System prompts are defined as constants: `KING_PROMPT` and `MENTOR_PROMPT`
-- King Reginald scores builds by parsing "Architecture: X" and "Creativity: Y" from responses
-- See `callKing()` around line 400 and `askMentor()` around line 443 for implementation details
-
-#### Browser Audio
-Tone.js is initialized on first user interaction (click "Start Building!"):
-- `Sounds` class wraps Tone.js synthesizers
-- Sounds must be initialized via `await Tone.start()` before playing
-- Sound effects: place, destroy, fanfare, achieve
-
-#### LocalStorage Usage
-- Tutorial completion: `kb_tutorialComplete`
-- Achievements: `kb_achievements` (array of achievement IDs)
-- Total gold earned: `kb_totalGoldEarned`
-- Save slots: `kb_save_slot_1`, `kb_save_slot_2`, `kb_save_slot_3`
-
-## Data Structures
-
-### Materials Array
-`MATERIALS` array defines all block materials with properties:
-- `name`, `color`, `icon`, `tier` (1-4 for unlock system)
-- Optional: `opacity` (for transparent blocks), `glow` (for light emission), `metalness`
-
-### Block Types Array
-`BLOCK_TYPES` defines shape variations (cube, slab, pillar, wide, beam, arch, stairs, fence)
-
-### Tools Array
-`TOOLS` defines player actions: place, destroy, bomb, paint, copy
-
-### Challenges Array
-`CHALLENGES` defines in-game quests with check functions that evaluate game stats
-
-## Security Considerations
-
-**WARNING**: The current implementation exposes the Anthropic API key in the browser (client-side). This is acceptable for demos but NOT for production. For production use:
-- Implement a backend proxy server
-- Move API calls to the backend
-- Never expose API keys in client code
-
-## Adding New Features
-
-### Adding a New Block Type
-1. Add to `BLOCK_TYPES` array with shape properties
-2. Geometry creation logic is in the `createBlock()` function (handles different shapes)
-
-### Adding a New Material
-1. Add to `MATERIALS` array with color, tier, and optional properties
-2. Material properties automatically apply to block meshes
-
-### Adding a New Challenge
-1. Add to `CHALLENGES` array with a check function
-2. Check function receives stats object with: `blocks`, `height`, `matCount`, `glows`, `mats`
-
-### Adding a New Achievement
-1. Add to `ACHIEVEMENTS` array in `src/utils/achievements.ts`
-2. Define check function that evaluates `GameStats`
-3. Achievement system automatically handles display and persistence
-
-## TypeScript Configuration
-
-- Strict mode enabled
-- Target: ES2020
-- Module resolution: bundler mode (Vite)
-- React JSX transform
-- Unused locals/parameters checks enabled
+   1 # Master Builder - Claude Context Management
+   2 
+   3 **Project**: Master Builder (Minecraft-inspired voxel game)
+   4 **Tech Stack**: TypeScript, Three.js 0.181, Vite 6.4.1
+   5 **Status**: Active Development
+   6 **Dev Server**: http://localhost:3000
+   7 
+   8 ---
+   9 
+  10 ## CRITICAL: Read This First
+  11 
+  12 ### Current Working State (2025-11-28)
+  13 ✅ **Splash screen working** - Image at `/src/static/master-builder-splash.png` (3.2MB)
+  14 ✅ **Game states functioning** - Splash → Menu → Play → Pause
+  15 ✅ **Controls properly gated** - Only active during gameplay
+  16 ✅ **Dependencies modernized** - Three.js 0.181, Vite 6.4.1, TypeScript 5.7
+  17 
+  18 ### What Was Just Fixed
+  19 1. Event listeners in `Bag` class now only active during gameplay (`enable()`/`disable()` methods)
+  20 2. Splash screen z-index set to 10000 (top layer)
+  21 3. All in-game UI hidden initially (crosshair, FPS, inventory)
+  22 4. Camera mouse look controls implemented with proper sensitivity
+  23 
+  24 ### Known Issues
+  25 - None critical, game is playable
+  26 - Performance optimization needed for high render distances
+  27 - Legacy React code in `/src/components/` can be removed
+  28 
+  29 ---
+  30 
+  31 ## Mandatory Workflow for AI Agents
+  32 
+  33 ### 1. ALWAYS Start with Exploration
+  34 ```
+  35 User Request → Use Explore Agent → Understand Full System → Then Code
+  36 ```
+  37 **NEVER** make changes without understanding the complete architecture first.
+  38 
+  39 ### 2. Verify Every Change
+  40 ```
+  41 Make Change → Check Dev Server → User Confirms in Browser → Mark Complete
+  42 ```
+  43 **NEVER** assume something works. Always verify.
+  44 
+  45 ### 3. Persist Assets Immediately
+  46 ```
+  47 User Provides File → Save to Disk → Verify Exists → Reference in Code
+  48 ```
+  49 **NEVER** lose assets during context truncation.
+  50 
+  51 ### 4. Use TodoWrite
+  52 ```
+  53 Create Checklist → Work Through Items → Mark Complete → Verify All Done
+  54 ```
+  55 **NEVER** skip steps or batch completions.
+  56 
+  57 ---
+  58 
+  59 ## Project Architecture
+  60 
+  61 ### Entry Point Flow
+  62 ```
+  63 index.html → src/main.ts → Initializes in order:
+  64 1. Core (Three.js renderer/camera/scene)
+  65 2. Player (mode, speed, body)
+  66 3. Audio (music and SFX)
+  67 4. Terrain (procedural generation)
+  68 5. Control (input, physics, collision)
+  69 6. UI (state machine, HUD)
+  70 7. Animation loop starts
+  71 ```
+  72 
+  73 ### Game State Machine
+  74 ```
+  75 SPLASH (initial)
+  76   ↓ (any key/click)
+  77 MENU
+  78   ↓ (Play button)
+  79 PLAYING (pointer locked)
+  80   ↓ (E key or unlock)
+  81 PAUSE (menu overlay)
+  82   ↓ (Resume)
+  83 PLAYING
+  84   ↓ (Exit button)
+  85 SPLASH
+  86 ```
+  87 
+  88 ### Event Listener Management (CRITICAL)
+  89 
+  90 **Problem We Just Fixed:**
+  91 The `Bag` class was registering keyboard and wheel listeners **on construction**, meaning they were always active even on splash screen.
+  92 
+  93 **Solution:**
+  94 ```typescript
+  95 // src/ui/bag/index.ts now has:
+  96 enable()  - Called when entering play mode
+  97 disable() - Called when leaving play mode
+  98 ```
+  99 
+ 100 **When Listeners Are Active:**
+ 101 - **Always**: pointerlockchange, fullscreen toggle, context menu prevention
+ 102 - **Only During Pointer Lock**: Movement keys, mouse, building
+ 103 - **Only When Bag Enabled**: Number keys 1-9, mouse wheel
+ 104 
+ 105 ---
+ 106 
+ 107 ## File Structure
+ 108 
+ 109 ### Core (`/`)
+ 110 - `index.html` - DOM structure
+ 111 - `package.json` - Dependencies (three@0.181, vite@6.4.1, typescript@5.7)
+ 112 - `vite.config.ts` - Dev server config
+ 113 - `PROJECT_STATE.md` - Detailed documentation
+ 114 
+ 115 ### Source (`/src/`)
+ 116 - `main.ts` (35 lines) - Entry point
+ 117 - `style.css` (292 lines) - All styling
+ 118 - `core/` - Three.js setup
+ 119 - `player/` - Player state
+ 120 - `terrain/` - World generation
+ 121 - `control/` (1178 lines) - Input, physics, collision
+ 122 - `ui/` (323 lines) - State machine + HUD
+ 123   - `bag/` - Inventory (**has enable/disable**)
+ 124   - `fps/` - FPS counter
+ 125   - `joystick/` - Mobile controls
+ 126 
+ 127 ### Assets (`/src/static/`)
+ 128 - `master-builder-splash.png` ✅ (3.2MB)
+ 129 - `mc-font.otf` - Minecraft font
+ 130 - `block-icon/*.png` - 7 block icons
+ 131 - `textures/*.png` - Block textures
+ 132 
+ 133 ---
+ 134 
+ 135 ## Testing Protocol
+ 136 
+ 137 ### Manual State Test
+ 138 1. Load → Splash with image visible
+ 139 2. Any key → Menu with 5 buttons
+ 140 3. Play → Pointer locks, HUD appears
+ 141 4. Mouse → Camera rotates
+ 142 5. WASD → Movement
+ 143 6. 1-9 → Block selection
+ 144 7. Clicks → Build/destroy
+ 145 8. E → Menu overlay
+ 146 9. Resume → Back to game
+ 147 10. Exit → Back to splash
+ 148 
+ 149 ### Performance Targets
+ 150 - 60fps at render distance 3
+ 151 - <100ms chunk generation
+ 152 - <500MB memory
+ 153 
+ 154 ---
+ 155 
+ 156 ## Next Steps
+ 157 
+ 158 1. ✅ Splash image installed
+ 159 2. Run full state transition test
+ 160 3. Performance profiling
+ 161 4. Clean up legacy code
+ 162 5. Optimize if needed
+ 163 
+ 164 ---
+ 165 
+ 166 ## Key Learnings
+ 167 
+ 168 ### What Failed Before
+ 169 - Started coding without understanding
+ 170 - Fixed symptoms not root causes
+ 171 - No verification loop
+ 172 - Lost assets in context
+ 173 
+ 174 ### What Works Now
+ 175 - Explore agent first
+ 176 - Root cause identified
+ 177 - Verification after each change
+ 178 - Assets persisted immediately
+ 179 - Comprehensive docs
+ 180 
+ 181 **Last Updated**: 2025-11-28

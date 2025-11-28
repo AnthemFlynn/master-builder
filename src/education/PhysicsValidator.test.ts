@@ -34,7 +34,7 @@ describe('PhysicsValidator', () => {
     it('should throw error if physics not initialized', async () => {
       const uninitializedValidator = new PhysicsValidator();
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       await expect(
@@ -44,7 +44,7 @@ describe('PhysicsValidator', () => {
 
     it('should validate a single grounded block as stable', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result = await validator.validateStructure(blocks);
@@ -56,9 +56,9 @@ describe('PhysicsValidator', () => {
 
     it('should validate a stable tower structure', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 0, y: 1, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 0, y: 2, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 0, y: 1, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 0, y: 2, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result = await validator.validateStructure(blocks);
@@ -70,7 +70,7 @@ describe('PhysicsValidator', () => {
 
     it('should detect unstable floating block', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result = await validator.validateStructure(blocks);
@@ -84,11 +84,11 @@ describe('PhysicsValidator', () => {
 
     it('should detect unstable overhanging structure', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 1, y: 1, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 2, y: 2, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 3, y: 3, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 4, y: 4, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 1, y: 1, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 2, y: 2, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 3, y: 3, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 4, y: 4, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result = await validator.validateStructure(blocks);
@@ -102,12 +102,12 @@ describe('PhysicsValidator', () => {
     it('should validate stable pyramid structure', async () => {
       const blocks: BlockData[] = [
         // Base layer
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 1, y: 0, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 0, y: 0, z: 1 }, materialType: MaterialType.Stone },
-        { position: { x: 1, y: 0, z: 1 }, materialType: MaterialType.Stone },
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 1, y: 0, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 0, y: 0, z: 1 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 1, y: 0, z: 1 }, materialType: MaterialType.Cobblestone },
         // Top layer
-        { position: { x: 0, y: 1, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 1, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result = await validator.validateStructure(blocks);
@@ -129,9 +129,9 @@ describe('PhysicsValidator', () => {
 
     it('should track multiple failure points in unstable structure', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 5, y: 5, z: 0 }, materialType: MaterialType.Stone },
-        { position: { x: 10, y: 5, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 5, y: 5, z: 0 }, materialType: MaterialType.Cobblestone },
+        { position: { x: 10, y: 5, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result = await validator.validateStructure(blocks);
@@ -143,7 +143,7 @@ describe('PhysicsValidator', () => {
 
     it('should detect collapse time within simulation period', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 10, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 10, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result = await validator.validateStructure(blocks);
@@ -157,7 +157,7 @@ describe('PhysicsValidator', () => {
 
     it('should not modify original block data', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const originalBlocks = JSON.parse(JSON.stringify(blocks));
@@ -182,7 +182,7 @@ describe('PhysicsValidator', () => {
       validator.dispose();
 
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       await expect(
@@ -194,11 +194,11 @@ describe('PhysicsValidator', () => {
   describe('multiple validations', () => {
     it('should support consecutive validations', async () => {
       const blocks1: BlockData[] = [
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const blocks2: BlockData[] = [
-        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 5, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       const result1 = await validator.validateStructure(blocks1);
@@ -210,7 +210,7 @@ describe('PhysicsValidator', () => {
 
     it('should clean up bodies between validations', async () => {
       const blocks: BlockData[] = [
-        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Stone }
+        { position: { x: 0, y: 0, z: 0 }, materialType: MaterialType.Cobblestone }
       ];
 
       // Run multiple validations to ensure cleanup works

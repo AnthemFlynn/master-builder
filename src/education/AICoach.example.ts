@@ -175,8 +175,8 @@ async function errorHandlingExample() {
   }
 
   try {
-    // Missing API key
-    const coach = new AICoach({ apiKey: '' });
+    // Missing API key - will throw error
+    new AICoach({ apiKey: '' });
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     // Output: "API key is required. Please provide an Anthropic API key."

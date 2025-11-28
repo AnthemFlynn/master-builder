@@ -142,7 +142,7 @@ const BuildingGame: React.FC = () => {
     selectedMaterialIndex: 0,
     selectedTypeIndex: 0,
     unlockedTiers: [0], // Start with tier 0 unlocked
-    activeChallengeId: 1, // Start with first challenge active
+    activeChallengeId: null, // Start in free build mode - user can choose challenges
     completedChallenges: [],
     stats: {
       blocks: 0,

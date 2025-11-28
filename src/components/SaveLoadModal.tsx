@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SaveData, getSaveSlots, saveBuild, loadBuild, deleteSave } from '../utils/storage';
+import { getSaveSlots, deleteSave } from '../utils/storage';
 
 interface SaveLoadModalProps {
     mode: 'save' | 'load';

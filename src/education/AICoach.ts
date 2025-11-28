@@ -222,8 +222,13 @@ Celebrate their success with enthusiasm and encouragement!`;
     } catch (error) {
       console.error('Error streaming response:', error);
       if (error && typeof error === 'object' && 'status' in error) {
-        const apiError = error as { message: string };
-        throw new Error(`API Error: ${apiError.message}`);
+        const apiError = error as { status: number };
+        if (apiError.status === 401) {
+          throw new Error('Invalid API key. Please check your Anthropic API key.');
+        } else if (apiError.status === 429) {
+          throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+        }
+        throw new Error(`API Error: ${apiError.status}`);
       }
       throw new Error('Failed to stream response. Please try again.');
     }
@@ -262,13 +267,13 @@ Celebrate their success with enthusiasm and encouragement!`;
     } catch (error) {
       // Check if it's an API error by checking for status property
       if (error && typeof error === 'object' && 'status' in error) {
-        const apiError = error as { status: number; message: string };
+        const apiError = error as { status: number };
         if (apiError.status === 401) {
           throw new Error('Invalid API key. Please check your Anthropic API key.');
         } else if (apiError.status === 429) {
           throw new Error('Rate limit exceeded. Please wait a moment and try again.');
         }
-        throw new Error(`API Error: ${apiError.message}`);
+        throw new Error(`API Error: ${apiError.status}`);
       }
       throw error;
     }
