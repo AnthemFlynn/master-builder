@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as THREE from 'three';
 import BlockManager from './BlockManager';
 import Materials, { MaterialType } from './Materials';
@@ -151,5 +151,83 @@ describe('BlockManager', () => {
 
     // Meshes should be removed from scene
     expect(scene.children.length).toBeLessThan(childrenBeforeDispose);
+  });
+
+  it('should call onBlockPlaced callback when a block is placed', () => {
+    const onBlockPlaced = vi.fn();
+    const blockManagerWithCallback = new BlockManager(scene, materials, onBlockPlaced);
+
+    blockManagerWithCallback.placeBlock({ x: 1, y: 2, z: 3 }, MaterialType.OakWood);
+
+    expect(onBlockPlaced).toHaveBeenCalledTimes(1);
+
+    blockManagerWithCallback.dispose();
+  });
+
+  it('should not call onBlockPlaced callback if block placement fails (duplicate position)', () => {
+    const onBlockPlaced = vi.fn();
+    const blockManagerWithCallback = new BlockManager(scene, materials, onBlockPlaced);
+
+    blockManagerWithCallback.placeBlock({ x: 1, y: 2, z: 3 }, MaterialType.OakWood);
+    blockManagerWithCallback.placeBlock({ x: 1, y: 2, z: 3 }, MaterialType.Brick);
+
+    // Should only be called once, not for the duplicate
+    expect(onBlockPlaced).toHaveBeenCalledTimes(1);
+
+    blockManagerWithCallback.dispose();
+  });
+
+  it('should call onBlockRemoved callback when a block is removed', () => {
+    const onBlockRemoved = vi.fn();
+    const blockManagerWithCallback = new BlockManager(scene, materials, undefined, onBlockRemoved);
+
+    blockManagerWithCallback.placeBlock({ x: 5, y: 5, z: 5 }, MaterialType.Gold);
+    blockManagerWithCallback.removeBlock({ x: 5, y: 5, z: 5 });
+
+    expect(onBlockRemoved).toHaveBeenCalledTimes(1);
+
+    blockManagerWithCallback.dispose();
+  });
+
+  it('should not call onBlockRemoved callback if removal fails (block does not exist)', () => {
+    const onBlockRemoved = vi.fn();
+    const blockManagerWithCallback = new BlockManager(scene, materials, undefined, onBlockRemoved);
+
+    blockManagerWithCallback.removeBlock({ x: 99, y: 99, z: 99 });
+
+    expect(onBlockRemoved).not.toHaveBeenCalled();
+
+    blockManagerWithCallback.dispose();
+  });
+
+  it('should work without callbacks (callbacks are optional)', () => {
+    const blockManagerWithoutCallbacks = new BlockManager(scene, materials);
+
+    // Should not throw errors when callbacks are not provided
+    expect(() => {
+      blockManagerWithoutCallbacks.placeBlock({ x: 1, y: 1, z: 1 }, MaterialType.Brick);
+      blockManagerWithoutCallbacks.removeBlock({ x: 1, y: 1, z: 1 });
+    }).not.toThrow();
+
+    blockManagerWithoutCallbacks.dispose();
+  });
+
+  it('should call callbacks multiple times for multiple operations', () => {
+    const onBlockPlaced = vi.fn();
+    const onBlockRemoved = vi.fn();
+    const blockManagerWithCallbacks = new BlockManager(scene, materials, onBlockPlaced, onBlockRemoved);
+
+    blockManagerWithCallbacks.placeBlock({ x: 1, y: 0, z: 0 }, MaterialType.OakWood);
+    blockManagerWithCallbacks.placeBlock({ x: 2, y: 0, z: 0 }, MaterialType.Brick);
+    blockManagerWithCallbacks.placeBlock({ x: 3, y: 0, z: 0 }, MaterialType.Gold);
+
+    expect(onBlockPlaced).toHaveBeenCalledTimes(3);
+
+    blockManagerWithCallbacks.removeBlock({ x: 1, y: 0, z: 0 });
+    blockManagerWithCallbacks.removeBlock({ x: 2, y: 0, z: 0 });
+
+    expect(onBlockRemoved).toHaveBeenCalledTimes(2);
+
+    blockManagerWithCallbacks.dispose();
   });
 });

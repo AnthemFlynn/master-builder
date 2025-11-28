@@ -7,9 +7,7 @@ import { MaterialType } from '../game/Materials';
 
 interface BuildingSceneProps {
   selectedMaterial?: MaterialType;
-  // TODO: Callback when block is placed (not yet implemented)
   onBlockPlaced?: () => void;
-  // TODO: Callback when block is removed (not yet implemented)
   onBlockRemoved?: () => void;
 }
 
@@ -19,8 +17,8 @@ interface BuildingSceneProps {
  * Manages lifecycle for Core, Materials, BlockManager, and Controls classes.
  *
  * @param selectedMaterial - Currently selected building material (defaults to OakWood)
- * @param onBlockPlaced - TODO: Callback when block is placed (not yet implemented)
- * @param onBlockRemoved - TODO: Callback when block is removed (not yet implemented)
+ * @param onBlockPlaced - Callback when block is placed
+ * @param onBlockRemoved - Callback when block is removed
  */
 const BuildingScene: React.FC<BuildingSceneProps> = ({
   selectedMaterial = MaterialType.OakWood,
@@ -40,7 +38,7 @@ const BuildingScene: React.FC<BuildingSceneProps> = ({
     // Create core systems
     const core = new Core(canvasRef.current);
     const materials = new Materials();
-    const blockManager = new BlockManager(core.scene, materials);
+    const blockManager = new BlockManager(core.scene, materials, onBlockPlaced, onBlockRemoved);
     const controls = new Controls(core.camera, canvasRef.current, blockManager);
 
     coreRef.current = core;

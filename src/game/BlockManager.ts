@@ -13,10 +13,14 @@ export default class BlockManager {
   private scene: THREE.Scene;
   private maxBlocksPerMaterial = 10000;
   private placedBlocks: BlockData[] = [];
+  private onBlockPlaced?: () => void;
+  private onBlockRemoved?: () => void;
 
-  constructor(scene: THREE.Scene, materials: Materials) {
+  constructor(scene: THREE.Scene, materials: Materials, onBlockPlaced?: () => void, onBlockRemoved?: () => void) {
     this.scene = scene;
     this.materials = materials;
+    this.onBlockPlaced = onBlockPlaced;
+    this.onBlockRemoved = onBlockRemoved;
     this.instancedMeshes = new Map();
     this.blockCounts = new Map();
     this.initializeInstancedMeshes();
@@ -75,6 +79,11 @@ export default class BlockManager {
       position: gridPos,
       materialType
     });
+
+    // Trigger callback
+    if (this.onBlockPlaced) {
+      this.onBlockPlaced();
+    }
   }
 
   removeBlock(position: { x: number; y: number; z: number }): boolean {
@@ -106,6 +115,11 @@ export default class BlockManager {
 
     this.placedBlocks.splice(blockIndex, 1);
     this.blockCounts.set(block.materialType, count - 1);
+
+    // Trigger callback
+    if (this.onBlockRemoved) {
+      this.onBlockRemoved();
+    }
 
     return true;
   }
