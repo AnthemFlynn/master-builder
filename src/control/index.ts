@@ -7,6 +7,7 @@ import Block from '../terrain/mesh/block'
 import Noise from '../terrain/noise'
 import Audio from '../audio'
 import { isMobile } from '../utils'
+import { getBlockFromCategory, BLOCK_CATEGORIES } from './BlockCategories'
 enum Side {
   front,
   back,
@@ -95,6 +96,11 @@ export default class Control {
   ]
   holdingIndex = 0
   wheelGap = false
+
+  // Category-based selection state
+  currentCategory: string | null = null
+  categoryTimeout: ReturnType<typeof setTimeout> | null = null
+  categoryMode: boolean = false
   clickInterval?: ReturnType<typeof setInterval>
   jumpInterval?: ReturnType<typeof setInterval>
   mouseHolding = false
@@ -124,6 +130,39 @@ export default class Control {
   }
   setMovementHandler = (e: KeyboardEvent) => {
     if (e.repeat) {
+      return
+    }
+
+    // Toggle category mode with C or Tab
+    if (e.key === 'c' || e.key === 'C' || e.key === 'Tab') {
+      this.categoryMode = !this.categoryMode
+      if (this.categoryMode) {
+        console.log('🔧 Category Mode ON - Press category letter (G/S/W/I/M/T) then number, or ESC to cancel')
+        // Dispatch event for UI to show indicator
+        window.dispatchEvent(new CustomEvent('categoryModeChange', { detail: { active: true } }))
+      } else {
+        console.log('🎮 Normal Mode - WASD movement active')
+        this.currentCategory = null
+        if (this.categoryTimeout) clearTimeout(this.categoryTimeout)
+        window.dispatchEvent(new CustomEvent('categoryModeChange', { detail: { active: false } }))
+      }
+      e.preventDefault()
+      return
+    }
+
+    // ESC cancels category mode
+    if (e.key === 'Escape' && this.categoryMode) {
+      this.categoryMode = false
+      this.currentCategory = null
+      if (this.categoryTimeout) clearTimeout(this.categoryTimeout)
+      console.log('🎮 Category Mode cancelled')
+      window.dispatchEvent(new CustomEvent('categoryModeChange', { detail: { active: false } }))
+      e.preventDefault()
+      return
+    }
+
+    // Block movement keys if in category mode
+    if (this.categoryMode && ['w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key)) {
       return
     }
 
@@ -458,12 +497,84 @@ export default class Control {
   }
 
   changeHoldingBlockHandler = (e: KeyboardEvent) => {
-    if (isNaN(parseInt(e.key)) || e.key === '0') {
+    const key = e.key.toLowerCase()
+
+    // OPTION C: Shift + Letter for quick category access (works in normal mode)
+    if (e.shiftKey && BLOCK_CATEGORIES[key]) {
+      this.currentCategory = key
+      if (this.categoryTimeout) clearTimeout(this.categoryTimeout)
+
+      // Auto-clear after 2 seconds
+      this.categoryTimeout = setTimeout(() => {
+        this.currentCategory = null
+        window.dispatchEvent(new CustomEvent('categorySelected', { detail: { category: null } }))
+      }, 2000)
+
+      console.log(`📦 ${BLOCK_CATEGORIES[key].name} (Shift+${key.toUpperCase()}) - Press 1-9`)
+
+      // Dispatch event to update inventory display
+      window.dispatchEvent(new CustomEvent('categorySelected', {
+        detail: {
+          category: key,
+          blocks: BLOCK_CATEGORIES[key].blocks
+        }
+      }))
+
+      e.preventDefault()
       return
     }
-    this.holdingIndex = parseInt(e.key) - 1
 
-    this.holdingBlock = this.holdingBlocks[this.holdingIndex] ?? BlockType.grass
+    // OPTION B: Category Mode - letters work when mode is active
+    if (this.categoryMode && BLOCK_CATEGORIES[key]) {
+      this.currentCategory = key
+      console.log(`📦 ${BLOCK_CATEGORIES[key].name} (${key.toUpperCase()}) - Press 1-9`)
+
+      // Dispatch event to update inventory display
+      window.dispatchEvent(new CustomEvent('categorySelected', {
+        detail: {
+          category: key,
+          blocks: BLOCK_CATEGORIES[key].blocks
+        }
+      }))
+
+      e.preventDefault()
+      return
+    }
+
+    // Number key - select from category or inventory
+    if (!isNaN(parseInt(e.key)) && e.key !== '0') {
+      const number = parseInt(e.key)
+
+      if (this.currentCategory) {
+        // Category-based selection
+        const block = getBlockFromCategory(this.currentCategory, number)
+        if (block !== null) {
+          this.holdingBlock = block
+          console.log(`✓ Selected: ${BLOCK_CATEGORIES[this.currentCategory].name} ${number}`)
+        }
+
+        // Clear category state
+        this.currentCategory = null
+        if (this.categoryTimeout) {
+          clearTimeout(this.categoryTimeout)
+          this.categoryTimeout = null
+        }
+
+        // Auto-exit category mode after selection
+        if (this.categoryMode) {
+          this.categoryMode = false
+          console.log('🎮 Returned to Normal Mode')
+          window.dispatchEvent(new CustomEvent('categoryModeChange', { detail: { active: false } }))
+        }
+
+        // Restore default inventory icons
+        window.dispatchEvent(new CustomEvent('categorySelected', { detail: { category: null } }))
+      } else {
+        // Direct 1-9 selection (backward compatible)
+        this.holdingIndex = number - 1
+        this.holdingBlock = this.holdingBlocks[this.holdingIndex] ?? BlockType.grass
+      }
+    }
   }
 
   wheelHandler = (e: WheelEvent) => {

@@ -18,6 +18,20 @@ export default class UI {
     this.crossHair.innerHTML = '+'
     document.body.appendChild(this.crossHair)
 
+    // Mode indicator for category selection
+    this.modeIndicator.className = 'mode-indicator hidden'
+    this.modeIndicator.innerHTML = '🔧 CATEGORY MODE - G/S/W/I/M/T + 1-9 (ESC to cancel)'
+    document.body.appendChild(this.modeIndicator)
+
+    // Listen for category mode changes
+    window.addEventListener('categoryModeChange', ((e: CustomEvent) => {
+      if (e.detail.active) {
+        this.modeIndicator.classList.remove('hidden')
+      } else {
+        this.modeIndicator.classList.add('hidden')
+      }
+    }) as EventListener)
+
     // play
     this.play?.addEventListener('click', () => {
       if (this.play?.innerHTML === 'Play') {
@@ -200,6 +214,7 @@ export default class UI {
 
   menu = document.querySelector('.menu')
   crossHair = document.createElement('div')
+  modeIndicator = document.createElement('div')
 
   // buttons
   play = document.querySelector('#play')

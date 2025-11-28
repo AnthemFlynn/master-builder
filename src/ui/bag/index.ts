@@ -8,6 +8,25 @@ import glass from '../../static/block-icon/glass.png'
 import glowstone from '../../static/block-icon/glowstone.png'
 import redstone_lamp from '../../static/block-icon/redstone_lamp.png'
 import { isMobile } from '../../utils'
+import { BlockType } from '../../terrain'
+
+// Map BlockType to icon images
+const BLOCK_ICONS: Record<number, string> = {
+  [BlockType.grass]: grass,
+  [BlockType.sand]: stone, // TODO: Add sand icon
+  [BlockType.tree]: tree,
+  [BlockType.leaf]: grass, // TODO: Add leaf icon
+  [BlockType.dirt]: grass, // TODO: Add dirt icon
+  [BlockType.stone]: stone,
+  [BlockType.coal]: stone, // TODO: Add coal icon
+  [BlockType.wood]: wood,
+  [BlockType.diamond]: diamond,
+  [BlockType.quartz]: quartz,
+  [BlockType.glass]: glass,
+  [BlockType.bedrock]: stone,
+  [BlockType.glowstone]: glowstone,
+  [BlockType.redstone_lamp]: redstone_lamp
+}
 
 export default class Bag {
   constructor() {
@@ -36,10 +55,41 @@ export default class Bag {
 
     // Mouse wheel disabled - use keyboard number keys 1-9 instead
     // document.body.addEventListener('wheel', ...)
+
+    // Listen for category selection to update icons
+    window.addEventListener('categorySelected', ((e: CustomEvent) => {
+      if (e.detail.category && e.detail.blocks) {
+        this.updateIcons(e.detail.blocks)
+      } else {
+        this.restoreDefaultIcons()
+      }
+    }) as EventListener)
   }
+
+  // Update icons to show category blocks
+  updateIcons(blocks: BlockType[]) {
+    for (let i = 0; i < this.items.length && i < blocks.length; i++) {
+      const img = this.items[i].querySelector('img')
+      if (img && BLOCK_ICONS[blocks[i]]) {
+        img.src = BLOCK_ICONS[blocks[i]]
+      }
+    }
+  }
+
+  // Restore default inventory icons
+  restoreDefaultIcons() {
+    for (let i = 0; i < this.items.length && i < this.defaultIcons.length; i++) {
+      const img = this.items[i].querySelector('img')
+      if (img && this.defaultIcons[i]) {
+        img.src = this.defaultIcons[i]
+      }
+    }
+  }
+
   wheelGap = false
   current = 0
   icon = [grass, stone, tree, wood, diamond, quartz, glass, glowstone, redstone_lamp]
+  defaultIcons = [grass, stone, tree, wood, diamond, quartz, glass, glowstone, redstone_lamp]
   iconIndex = 0
   y = 0
 
