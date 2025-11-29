@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import TimeOfDay from './TimeOfDay'
 
 export default class Core {
   constructor() {
@@ -8,11 +9,13 @@ export default class Core {
     this.initScene()
     this.initRenderer()
     this.initCamera()
+    this.timeOfDay = new TimeOfDay(this.scene)
   }
 
   camera: THREE.PerspectiveCamera
   scene: THREE.Scene
   renderer: THREE.Renderer
+  timeOfDay: TimeOfDay
 
   initCamera = () => {
     this.camera.fov = 50
@@ -51,10 +54,18 @@ export default class Core {
 
   initRenderer = () => {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
+
+    // Enable shadow mapping
+    const webGLRenderer = this.renderer as THREE.WebGLRenderer
+    webGLRenderer.shadowMap.enabled = true
+    webGLRenderer.shadowMap.type = THREE.PCFSoftShadowMap // Soft shadows
+
     document.body.appendChild(this.renderer.domElement)
 
     window.addEventListener('resize', () => {
       this.renderer.setSize(window.innerWidth, window.innerHeight)
     })
+
+    console.log('🎨 Renderer initialized with shadow mapping')
   }
 }

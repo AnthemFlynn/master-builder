@@ -8,6 +8,7 @@ import Noise from '../terrain/noise'
 import Audio from '../audio'
 import { isMobile } from '../utils'
 import { getBlockFromCategory, BLOCK_CATEGORIES } from './BlockCategories'
+import TimeOfDay from '../core/TimeOfDay'
 enum Side {
   front,
   back,
@@ -23,7 +24,8 @@ export default class Control {
     camera: THREE.PerspectiveCamera,
     player: Player,
     terrain: Terrain,
-    audio: Audio
+    audio: Audio,
+    timeOfDay: TimeOfDay
   ) {
     this.scene = scene
     this.camera = camera
@@ -31,6 +33,7 @@ export default class Control {
     this.terrain = terrain
     this.control = new PointerLockControls(camera, document.body)
     this.audio = audio
+    this.timeOfDay = timeOfDay
 
     this.raycaster = new THREE.Raycaster()
     this.raycaster.far = 8
@@ -47,6 +50,7 @@ export default class Control {
   terrain: Terrain
   control: PointerLockControls
   audio: Audio
+  timeOfDay: TimeOfDay
   velocity = new THREE.Vector3(0, 0, 0)
 
   // collide and jump properties
@@ -101,6 +105,11 @@ export default class Control {
   currentCategory: string | null = null
   categoryTimeout: ReturnType<typeof setTimeout> | null = null
   categoryMode: boolean = false
+
+  // Time override state (Option+T mode)
+  timeOverrideMode: boolean = false
+  timeOverrideTimeout: ReturnType<typeof setTimeout> | null = null
+  timeOverrideDigits: string = ''
   clickInterval?: ReturnType<typeof setInterval>
   jumpInterval?: ReturnType<typeof setInterval>
   mouseHolding = false
@@ -157,6 +166,30 @@ export default class Control {
       if (this.categoryTimeout) clearTimeout(this.categoryTimeout)
       console.log('🎮 Category Mode cancelled')
       window.dispatchEvent(new CustomEvent('categoryModeChange', { detail: { active: false } }))
+      e.preventDefault()
+      return
+    }
+
+    // Option+T activates time override mode (use e.code for Mac compatibility)
+    if (e.altKey && (e.code === 'KeyT')) {
+      console.log('✓ Option+T detected!')
+      this.timeOverrideMode = true
+      this.timeOverrideDigits = ''
+
+      // Clear any existing timeout
+      if (this.timeOverrideTimeout) {
+        clearTimeout(this.timeOverrideTimeout)
+        this.timeOverrideTimeout = null
+      }
+
+      // Auto-cancel after 5 seconds
+      this.timeOverrideTimeout = setTimeout(() => {
+        this.timeOverrideMode = false
+        this.timeOverrideDigits = ''
+        console.log('⏰ Time override cancelled (timeout)')
+      }, 5000)
+
+      console.log('⏰ Time Override Mode - Options: 0-23 (hour), + (forward), - (back), C (current time)')
       e.preventDefault()
       return
     }
@@ -498,6 +531,93 @@ export default class Control {
 
   changeHoldingBlockHandler = (e: KeyboardEvent) => {
     const key = e.key.toLowerCase()
+
+    // TIME OVERRIDE: Handle special keys in time override mode
+    if (this.timeOverrideMode) {
+      // + or = key (advance hour)
+      if (e.key === '+' || e.key === '=') {
+        this.timeOfDay.advanceHour()
+        this.timeOverrideMode = false
+        if (this.timeOverrideTimeout) {
+          clearTimeout(this.timeOverrideTimeout)
+          this.timeOverrideTimeout = null
+        }
+        e.preventDefault()
+        return
+      }
+
+      // - or _ key (rewind hour)
+      if (e.key === '-' || e.key === '_') {
+        this.timeOfDay.rewindHour()
+        this.timeOverrideMode = false
+        if (this.timeOverrideTimeout) {
+          clearTimeout(this.timeOverrideTimeout)
+          this.timeOverrideTimeout = null
+        }
+        e.preventDefault()
+        return
+      }
+
+      // C key (reset to current real time)
+      if (e.key === 'c' || e.key === 'C') {
+        this.timeOfDay.setHour(null)
+        this.timeOverrideMode = false
+        if (this.timeOverrideTimeout) {
+          clearTimeout(this.timeOverrideTimeout)
+          this.timeOverrideTimeout = null
+        }
+        e.preventDefault()
+        return
+      }
+    }
+
+    // TIME OVERRIDE: Handle digit input when in time override mode
+    if (this.timeOverrideMode && e.key >= '0' && e.key <= '9') {
+      this.timeOverrideDigits += e.key
+      console.log('⏰ Digit entered:', e.key, 'Accumulated:', this.timeOverrideDigits)
+
+      // Clear any existing timeout
+      if (this.timeOverrideTimeout) {
+        clearTimeout(this.timeOverrideTimeout)
+        this.timeOverrideTimeout = null
+      }
+
+      const hour = parseInt(this.timeOverrideDigits)
+
+      // Check if we have a complete hour
+      if (this.timeOverrideDigits.length === 2) {
+        // Two digits entered - set immediately
+        if (hour >= 0 && hour <= 23) {
+          console.log('⏰ Setting hour to:', hour)
+          this.timeOfDay.setHour(hour)
+          this.timeOverrideMode = false
+          this.timeOverrideDigits = ''
+        } else {
+          console.log('⏰ Invalid hour (must be 0-23)')
+          this.timeOverrideMode = false
+          this.timeOverrideDigits = ''
+        }
+      } else if (hour >= 0 && hour <= 2) {
+        // Single digit 0-2: could be 0, 1, 2 OR 10-23
+        // Wait 800ms for second digit, then assume single digit
+        console.log('⏰ Press another digit for 10-23, or wait 800ms for', hour)
+        this.timeOverrideTimeout = setTimeout(() => {
+          console.log('⏰ Setting hour to:', hour)
+          this.timeOfDay.setHour(hour)
+          this.timeOverrideMode = false
+          this.timeOverrideDigits = ''
+        }, 800)
+      } else if (hour >= 3 && hour <= 9) {
+        // Single digit 3-9: definitely single digit hour
+        console.log('⏰ Setting hour to:', hour)
+        this.timeOfDay.setHour(hour)
+        this.timeOverrideMode = false
+        this.timeOverrideDigits = ''
+      }
+
+      e.preventDefault()
+      return
+    }
 
     // OPTION C: Shift + Letter for quick category access (works in normal mode)
     if (e.shiftKey && BLOCK_CATEGORIES[key]) {

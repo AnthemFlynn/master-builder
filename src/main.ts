@@ -11,12 +11,13 @@ const core = new Core()
 const camera = core.camera
 const scene = core.scene
 const renderer = core.renderer
+const timeOfDay = core.timeOfDay
 
 const player = new Player()
 const audio = new Audio(camera)
 
 const terrain = new Terrain(scene, camera)
-const control = new Control(scene, camera, player, terrain, audio)
+const control = new Control(scene, camera, player, terrain, audio, timeOfDay)
 
 const ui = new UI(terrain, control)
 
@@ -28,6 +29,7 @@ const ui = new UI(terrain, control)
   control.update()
   terrain.update()
   ui.update()
+  timeOfDay.update()
 
   renderer.render(scene, camera)
   // console.log(performance.now()-p1)

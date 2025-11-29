@@ -135,6 +135,8 @@ export default class Terrain {
         this.maxCount * this.blocksFactor[i]
       )
       block.name = BlockType[i]
+      block.castShadow = true
+      block.receiveShadow = true
       this.blocks.push(block)
       this.scene.add(block)
     }
