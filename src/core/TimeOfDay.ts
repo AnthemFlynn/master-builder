@@ -69,6 +69,9 @@ export default class TimeOfDay {
   requestLocation() {
     console.log('📍 Using San Francisco (37.77, -122.42) as default location')
 
+    // FIXED: Calculate sun times for default location immediately
+    this.calculateSunTimes()
+
     if ('geolocation' in navigator) {
       console.log('📍 Requesting actual location permission...')
       navigator.geolocation.getCurrentPosition(
@@ -328,7 +331,15 @@ export default class TimeOfDay {
     const ambientIntensity = this.getAmbientIntensity()
 
     this.scene.background = skyColor
-    this.scene.fog = new THREE.Fog(skyColor, 1, 96)
+
+    // FIXED: Update existing fog color instead of replacing fog instance
+    // This preserves custom fog.far settings from render distance slider
+    if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.color = skyColor
+    } else {
+      // Create fog if it doesn't exist
+      this.scene.fog = new THREE.Fog(skyColor, 1, 96)
+    }
 
     // Update ambient light
     const ambientLight = this.scene.children.find(

@@ -685,7 +685,9 @@ export default class Control {
     }
 
     // OPTION C: Shift + Letter for quick category access (works in normal mode)
-    if (e.shiftKey && BLOCK_CATEGORIES[key]) {
+    // FIXED: Exclude WASD to prevent conflict with sneaking
+    const isMovementKey = ['w', 'a', 's', 'd'].includes(key)
+    if (e.shiftKey && BLOCK_CATEGORIES[key] && !isMovementKey) {
       this.currentCategory = key
       if (this.categoryTimeout) clearTimeout(this.categoryTimeout)
 
