@@ -1,18 +1,22 @@
 import FPS from './fps'
 import Bag from './bag'
+// import PortalGateway from './portal' // DISABLED: Causing performance issues
 import Terrain from '../terrain'
+import Stonehenge from '../terrain/stonehenge'
 import Block from '../terrain/mesh/block'
 import Control from '../control'
 import { Mode } from '../player'
 import Joystick from './joystick'
 import { isMobile } from '../utils'
 import * as THREE from 'three'
+import TimeOfDay from '../core/TimeOfDay'
 
 export default class UI {
-  constructor(terrain: Terrain, control: Control) {
+  constructor(terrain: Terrain, control: Control, timeOfDay: TimeOfDay) {
     this.fps = new FPS()
     this.bag = new Bag()
     this.joystick = new Joystick(control)
+    // this.portal = new PortalGateway(timeOfDay) // DISABLED
 
     this.crossHair.className = 'cross-hair'
     this.crossHair.innerHTML = '+'
@@ -48,6 +52,11 @@ export default class UI {
         terrain.generate()
         terrain.camera.position.y = 40
         control.player.setMode(Mode.walking)
+
+        // DISABLED: Auto-spawn Stonehenge (fixing building logic first)
+        // Stonehenge.build(8, -42, terrain.customBlocks)
+        // terrain.initBlocks()
+        // terrain.generate()
       }
       !isMobile && control.control.lock()
     })
@@ -180,6 +189,20 @@ export default class UI {
           document.body.requestFullscreen()
         }
       }
+
+      // Cmd+B or Ctrl+B: Spawn Stonehenge at current location
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b' && document.pointerLockElement) {
+        e.preventDefault()
+        const playerX = Math.round(terrain.camera.position.x)
+        const playerZ = Math.round(terrain.camera.position.z)
+
+        // Build Stonehenge at player location
+        Stonehenge.build(terrain, playerX, playerZ)
+
+        // Update terrain to show new blocks
+        terrain.initBlocks()
+        terrain.generate()
+      }
     })
 
     // exit
@@ -211,6 +234,7 @@ export default class UI {
   fps: FPS
   bag: Bag
   joystick: Joystick
+  // portal: PortalGateway // DISABLED
 
   menu = document.querySelector('.menu')
   crossHair = document.createElement('div')

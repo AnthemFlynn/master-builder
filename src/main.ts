@@ -19,7 +19,7 @@ const audio = new Audio(camera)
 const terrain = new Terrain(scene, camera)
 const control = new Control(scene, camera, player, terrain, audio, timeOfDay)
 
-const ui = new UI(terrain, control)
+const ui = new UI(terrain, control, timeOfDay)
 
 // animation
 ;(function animate() {

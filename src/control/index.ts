@@ -135,8 +135,15 @@ export default class Control {
     a: false,
     d: false,
     w: false,
-    s: false
+    s: false,
+    i: false, // Look up
+    k: false, // Look down
+    j: false, // Look right (switched from left)
+    l: false  // Look left (switched from right)
   }
+
+  // Camera rotation speed for keyboard controls
+  cameraRotationSpeed = 0.03
   setMovementHandler = (e: KeyboardEvent) => {
     if (e.repeat) {
       return
@@ -189,7 +196,15 @@ export default class Control {
         console.log('⏰ Time override cancelled (timeout)')
       }, 5000)
 
-      console.log('⏰ Time Override Mode - Options: 0-23 (hour), + (forward), - (back), C (current time)')
+      console.log('⏰ Time Override Mode - Options:')
+      console.log('   0-23: Set hour | +: Forward | -: Back | C: Current time | N: Solar Noon')
+      e.preventDefault()
+      return
+    }
+
+    // Option+L cycles through location presets for sun testing
+    if (e.altKey && (e.code === 'KeyL')) {
+      this.timeOfDay.cycleLocation()
       e.preventDefault()
       return
     }
@@ -230,6 +245,25 @@ export default class Control {
         this.downKeys.d = true
         this.velocity.z = this.player.speed
         break
+
+      // IJKL: Keyboard camera controls (for testing without mouse)
+      case 'i':
+      case 'I':
+        this.downKeys.i = true
+        break
+      case 'k':
+      case 'K':
+        this.downKeys.k = true
+        break
+      case 'j':
+      case 'J':
+        this.downKeys.j = true
+        break
+      case 'l':
+      case 'L':
+        this.downKeys.l = true
+        break
+
       case ' ':
         if (this.player.mode === Mode.sneaking && !this.isJumping) {
           return
@@ -308,6 +342,25 @@ export default class Control {
         this.downKeys.d = false
         this.velocity.z = 0
         break
+
+      // IJKL camera control keyup
+      case 'i':
+      case 'I':
+        this.downKeys.i = false
+        break
+      case 'k':
+      case 'K':
+        this.downKeys.k = false
+        break
+      case 'j':
+      case 'J':
+        this.downKeys.j = false
+        break
+      case 'l':
+      case 'L':
+        this.downKeys.l = false
+        break
+
       case ' ':
         if (this.player.mode === Mode.sneaking && !this.isJumping) {
           return
@@ -561,6 +614,18 @@ export default class Control {
       // C key (reset to current real time)
       if (e.key === 'c' || e.key === 'C') {
         this.timeOfDay.setHour(null)
+        this.timeOverrideMode = false
+        if (this.timeOverrideTimeout) {
+          clearTimeout(this.timeOverrideTimeout)
+          this.timeOverrideTimeout = null
+        }
+        e.preventDefault()
+        return
+      }
+
+      // N key (set to solar noon - when sun is highest)
+      if (e.key === 'n' || e.key === 'N') {
+        this.timeOfDay.setSolarNoon()
         this.timeOverrideMode = false
         if (this.timeOverrideTimeout) {
           clearTimeout(this.timeOverrideTimeout)
@@ -921,6 +986,27 @@ export default class Control {
   update = () => {
     this.p1 = performance.now()
     const delta = (this.p1 - this.p2) / 1000
+
+    // Apply keyboard camera rotation (IJKL keys)
+    // Simulate mouse movement to work with PointerLockControls
+    const rotationSpeed = 3 // Smooth rotation speed
+
+    if (this.downKeys.i || this.downKeys.k || this.downKeys.j || this.downKeys.l) {
+      // Mouse right (+X) = look right, Mouse up (-Y) = look up
+      const movementX = (this.downKeys.j ? rotationSpeed : 0) + (this.downKeys.l ? -rotationSpeed : 0)
+      const movementY = (this.downKeys.k ? rotationSpeed : 0) + (this.downKeys.i ? -rotationSpeed : 0)
+
+      if (movementX !== 0 || movementY !== 0) {
+        // Dispatch synthetic mousemove event - triggers PointerLockControls
+        const mouseEvent = new MouseEvent('mousemove', {
+          movementX: movementX,
+          movementY: movementY,
+          bubbles: true
+        })
+        document.dispatchEvent(mouseEvent)
+      }
+    }
+
     if (
       // dev mode
       this.player.mode === Mode.flying

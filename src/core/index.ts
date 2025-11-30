@@ -8,14 +8,13 @@ export default class Core {
     this.scene = new THREE.Scene()
     this.initScene()
     this.initRenderer()
-    this.initCamera()
-    this.timeOfDay = new TimeOfDay(this.scene)
+    this.initCamera() // Now initializes TimeOfDay with camera
   }
 
   camera: THREE.PerspectiveCamera
   scene: THREE.Scene
   renderer: THREE.Renderer
-  timeOfDay: TimeOfDay
+  timeOfDay!: TimeOfDay // Initialized in initCamera()
 
   initCamera = () => {
     this.camera.fov = 50
@@ -26,6 +25,9 @@ export default class Core {
     this.camera.position.set(8, 50, 8)
 
     this.camera.lookAt(100, 30, 100)
+
+    // Initialize TimeOfDay after camera is set up
+    this.timeOfDay = new TimeOfDay(this.scene, this.camera)
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight
