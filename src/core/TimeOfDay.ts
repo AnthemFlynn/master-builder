@@ -2,16 +2,21 @@ import * as THREE from 'three'
 import * as SunCalc from 'suncalc'
 
 export default class TimeOfDay {
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, camera: THREE.Camera) {
     this.scene = scene
+    this.camera = camera
     this.createSunLight()
     this.requestLocation()
     this.updateLighting()
   }
 
   scene: THREE.Scene
+  camera: THREE.Camera
   overrideHour: number | null = null
   overrideMinute: number | null = null
+  overrideMonth: number | null = null // 1-12
+  overrideDay: number | null = null   // 1-31
+  overrideYear: number | null = null  // Full year
   timeScale = 1.0 // 1.0 = real-time, higher = faster
 
   // Sun directional light
@@ -25,35 +30,47 @@ export default class TimeOfDay {
   goldenHourMorning: number = 7
   goldenHourEvening: number = 17
 
+  // Location presets for testing
+  private locationPresets = [
+    { name: 'Equator (Quito)', lat: 0, lon: -78.5 },
+    { name: 'Tropic (Mumbai)', lat: 19, lon: 73 },
+    { name: 'Mid-Latitude (Portland)', lat: 45, lon: -122 },
+    { name: 'Arctic (Reykjavik)', lat: 64, lon: -22 }
+  ]
+  private currentPresetIndex = 2 // Start with Portland
+
   // Create directional light for sun
   createSunLight() {
     this.sunLight = new THREE.DirectionalLight(0xffffff, 0.8)
     this.sunLight.position.set(100, 100, 100)
     this.sunLight.castShadow = true
 
-    // Configure shadow camera
-    this.sunLight.shadow.camera.left = -80
-    this.sunLight.shadow.camera.right = 80
-    this.sunLight.shadow.camera.top = 80
-    this.sunLight.shadow.camera.bottom = -80
+    // OPTIMIZED: Tighter shadow camera for sharper shadows
+    this.sunLight.shadow.camera.left = -40
+    this.sunLight.shadow.camera.right = 40
+    this.sunLight.shadow.camera.top = 40
+    this.sunLight.shadow.camera.bottom = -40
     this.sunLight.shadow.camera.near = 0.5
     this.sunLight.shadow.camera.far = 300
 
-    // Shadow map resolution
-    this.sunLight.shadow.mapSize.width = 2048
-    this.sunLight.shadow.mapSize.height = 2048
+    // OPTIMIZED: Higher resolution for crisper shadows
+    this.sunLight.shadow.mapSize.width = 4096
+    this.sunLight.shadow.mapSize.height = 4096
 
-    // Simple shadow settings
-    this.sunLight.shadow.bias = -0.0005
+    // OPTIMIZED: Reduced bias for voxel blocks
+    this.sunLight.shadow.bias = -0.0001
 
     this.scene.add(this.sunLight)
 
-    console.log('☀️ Sun directional light added with shadows')
+    console.log('☀️ Sun directional light added with optimized shadows (4096px, 40x40 bounds)')
   }
 
   // Request user's location
   requestLocation() {
     console.log('📍 Using San Francisco (37.77, -122.42) as default location')
+
+    // FIXED: Calculate sun times for default location immediately
+    this.calculateSunTimes()
 
     if ('geolocation' in navigator) {
       console.log('📍 Requesting actual location permission...')
@@ -75,8 +92,8 @@ export default class TimeOfDay {
 
   // Calculate actual sunrise/sunset times for location
   calculateSunTimes() {
-    const now = new Date()
-    const times = SunCalc.getTimes(now, this.latitude, this.longitude)
+    const date = this.getDate()
+    const times = SunCalc.getTimes(date, this.latitude, this.longitude)
 
     this.sunriseTod = times.sunrise.getHours() + times.sunrise.getMinutes() / 60
     this.sunsetTod = times.sunset.getHours() + times.sunset.getMinutes() / 60
@@ -99,6 +116,24 @@ export default class TimeOfDay {
     const hour = this.overrideHour !== null ? this.overrideHour : now.getHours()
     const minute = this.overrideMinute !== null ? this.overrideMinute : now.getMinutes()
     return { hour, minute }
+  }
+
+  // Get current game date
+  getDate(): Date {
+    const now = new Date()
+
+    if (this.overrideYear !== null || this.overrideMonth !== null || this.overrideDay !== null) {
+      const year = this.overrideYear !== null ? this.overrideYear : now.getFullYear()
+      const month = this.overrideMonth !== null ? this.overrideMonth - 1 : now.getMonth() // JS months are 0-11
+      const day = this.overrideDay !== null ? this.overrideDay : now.getDate()
+      const { hour, minute } = this.getTime()
+
+      return new Date(year, month, day, hour, minute, 0, 0)
+    }
+
+    const { hour, minute } = this.getTime()
+    now.setHours(hour, minute, 0, 0)
+    return now
   }
 
   // Set override hour (null = sync with real time)
@@ -248,22 +283,29 @@ export default class TimeOfDay {
 
   // Calculate sun position and update directional light
   updateSunPosition() {
-    const { hour, minute } = this.getTime()
-    const now = new Date()
-    now.setHours(hour, minute, 0, 0)
-
-    const position = SunCalc.getPosition(now, this.latitude, this.longitude)
+    const date = this.getDate()
+    const position = SunCalc.getPosition(date, this.latitude, this.longitude)
 
     // Convert spherical coordinates (azimuth, altitude) to Cartesian (x, y, z)
     const azimuth = position.azimuth // Radians from south
     const altitude = position.altitude // Radians above horizon
 
+    // Make shadow camera follow player
+    const playerPos = this.camera.position
+    this.sunLight.target.position.set(playerPos.x, playerPos.y, playerPos.z)
+    this.sunLight.target.updateMatrixWorld()
+
     // Only show sun if it's above horizon
     if (altitude > 0) {
       const distance = 200
-      const x = distance * Math.cos(altitude) * Math.sin(azimuth)
-      const y = distance * Math.sin(altitude)
-      const z = distance * Math.cos(altitude) * Math.cos(azimuth)
+
+      // FIXED: Correct spherical to Cartesian conversion
+      // SunCalc: azimuth from SOUTH (-π to π), altitude above horizon
+      // Three.js: +X = east, +Y = up, +Z = south
+      // Negate X and Z to align geographic coords with scene coords
+      const x = -distance * Math.cos(altitude) * Math.sin(azimuth) + playerPos.x
+      const y = distance * Math.sin(altitude) + playerPos.y
+      const z = -distance * Math.cos(altitude) * Math.cos(azimuth) + playerPos.z
 
       this.sunLight.position.set(x, y, z)
       this.sunLight.intensity = Math.max(0.3, Math.sin(altitude)) // Brighter when higher
@@ -274,11 +316,12 @@ export default class TimeOfDay {
       // Debug logging
       const azimuthDeg = (azimuth * 180 / Math.PI).toFixed(1)
       const altitudeDeg = (altitude * 180 / Math.PI).toFixed(1)
-      console.log(`☀️ Sun: az=${azimuthDeg}° alt=${altitudeDeg}° pos=(${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)})`)
+      console.log(`☀️ Sun altitude: ${altitudeDeg}° (90° = directly overhead)`)
+      console.log(`   Position: (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)}) relative to player`)
     } else {
       // Sun below horizon (night) - disable sun light
       this.sunLight.intensity = 0
-      console.log('🌙 Sun below horizon (night)')
+      // console.log('🌙 Sun below horizon (night)')
     }
   }
 
@@ -288,7 +331,15 @@ export default class TimeOfDay {
     const ambientIntensity = this.getAmbientIntensity()
 
     this.scene.background = skyColor
-    this.scene.fog = new THREE.Fog(skyColor, 1, 96)
+
+    // FIXED: Update existing fog color instead of replacing fog instance
+    // This preserves custom fog.far settings from render distance slider
+    if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.color = skyColor
+    } else {
+      // Create fog if it doesn't exist
+      this.scene.fog = new THREE.Fog(skyColor, 1, 96)
+    }
 
     // Update ambient light
     const ambientLight = this.scene.children.find(
@@ -312,11 +363,8 @@ export default class TimeOfDay {
 
   // Get light color based on sun altitude (golden hour effect)
   getSunColor(): THREE.Color {
-    const { hour, minute } = this.getTime()
-    const now = new Date()
-    now.setHours(hour, minute, 0, 0)
-
-    const position = SunCalc.getPosition(now, this.latitude, this.longitude)
+    const date = this.getDate()
+    const position = SunCalc.getPosition(date, this.latitude, this.longitude)
     const altitude = position.altitude // Radians
 
     // Convert altitude to degrees for easier logic
@@ -340,6 +388,78 @@ export default class TimeOfDay {
 
     // High sun - neutral white
     return new THREE.Color(0xffffff)
+  }
+
+  // Cycle through location presets
+  cycleLocation() {
+    this.currentPresetIndex = (this.currentPresetIndex + 1) % this.locationPresets.length
+    const preset = this.locationPresets[this.currentPresetIndex]
+
+    this.latitude = preset.lat
+    this.longitude = preset.lon
+
+    console.log(`📍 Location set to: ${preset.name} (${preset.lat}°, ${preset.lon}°)`)
+    this.calculateSunTimes()
+    this.updateLighting()
+  }
+
+  // Set location
+  setLocation(lat: number, lon: number, name?: string) {
+    this.latitude = lat
+    this.longitude = lon
+    console.log(`📍 Location set to: ${name || `${lat}°, ${lon}°`}`)
+    this.calculateSunTimes()
+    this.updateLighting()
+  }
+
+  // Set date (month 1-12, day 1-31)
+  setDate(month: number, day: number, year?: number) {
+    this.overrideMonth = month
+    this.overrideDay = day
+    this.overrideYear = year || new Date().getFullYear()
+    console.log(`📅 Date set to: ${year || new Date().getFullYear()}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`)
+    this.calculateSunTimes()
+    this.updateLighting()
+  }
+
+  // Reset to current real date
+  resetDate() {
+    this.overrideMonth = null
+    this.overrideDay = null
+    this.overrideYear = null
+    console.log('📅 Date reset to current day')
+    this.calculateSunTimes()
+    this.updateLighting()
+  }
+
+  // Set time to solar noon (when sun is highest)
+  setSolarNoon() {
+    const date = this.getDate()
+    const times = SunCalc.getTimes(date, this.latitude, this.longitude)
+    const solarNoon = times.solarNoon
+
+    this.setHour(solarNoon.getHours())
+    console.log(`☀️ Time set to solar noon: ${solarNoon.toLocaleTimeString()}`)
+  }
+
+  // Set time to sunrise
+  setSunrise() {
+    const date = this.getDate()
+    const times = SunCalc.getTimes(date, this.latitude, this.longitude)
+    const sunrise = times.sunrise
+
+    this.setHour(sunrise.getHours())
+    console.log(`🌅 Time set to sunrise: ${sunrise.toLocaleTimeString()}`)
+  }
+
+  // Set time to sunset
+  setSunset() {
+    const date = this.getDate()
+    const times = SunCalc.getTimes(date, this.latitude, this.longitude)
+    const sunset = times.sunset
+
+    this.setHour(sunset.getHours())
+    console.log(`🌇 Time set to sunset: ${sunset.toLocaleTimeString()}`)
   }
 
   // Call this every frame to update lighting smoothly

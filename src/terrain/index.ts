@@ -137,6 +137,12 @@ export default class Terrain {
       block.name = BlockType[i]
       block.castShadow = true
       block.receiveShadow = true
+
+      // CRITICAL: InstancedMesh requires customDepthMaterial for proper shadow support
+      block.customDepthMaterial = new THREE.MeshDepthMaterial({
+        depthPacking: THREE.RGBADepthPacking
+      })
+
       this.blocks.push(block)
       this.scene.add(block)
     }
@@ -248,15 +254,18 @@ export default class Terrain {
     this.blocks[type].instanceMatrix.needsUpdate = true
   }
 
-  buildBlock = (position: THREE.Vector3, type: BlockType) => {
+  buildBlock = (position: THREE.Vector3, type: BlockType, ignoreHeightCheck = false) => {
     const noise = this.noise
-    // check if it's natural terrain
-    const yOffset = Math.floor(
-      noise.get(position.x / noise.gap, position.z / noise.gap, noise.seed) *
-        noise.amp
-    )
-    if (position.y >= 30 + yOffset || position.y < 0) {
-      return
+
+    // check if it's natural terrain (unless ignoreHeightCheck is true for structures)
+    if (!ignoreHeightCheck) {
+      const yOffset = Math.floor(
+        noise.get(position.x / noise.gap, position.z / noise.gap, noise.seed) *
+          noise.amp
+      )
+      if (position.y >= 30 + yOffset || position.y < 0) {
+        return
+      }
     }
 
     position.y === 0 && (type = BlockType.bedrock)
