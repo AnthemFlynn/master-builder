@@ -9,6 +9,7 @@ import Audio from '../audio'
 import { isMobile } from '../utils'
 import { getBlockFromCategory, BLOCK_CATEGORIES } from './BlockCategories'
 import TimeOfDay from '../core/TimeOfDay'
+import InputManager, { GameState, ActionEventType } from '../input/InputManager'
 enum Side {
   front,
   back,
@@ -25,7 +26,8 @@ export default class Control {
     player: Player,
     terrain: Terrain,
     audio: Audio,
-    timeOfDay: TimeOfDay
+    timeOfDay: TimeOfDay,
+    inputManager?: InputManager
   ) {
     this.scene = scene
     this.camera = camera
@@ -34,6 +36,7 @@ export default class Control {
     this.control = new PointerLockControls(camera, document.body)
     this.audio = audio
     this.timeOfDay = timeOfDay
+    this.inputManager = inputManager
 
     this.raycaster = new THREE.Raycaster()
     this.raycaster.far = 8
@@ -41,6 +44,12 @@ export default class Control {
 
     this.initRayCaster()
     this.initEventListeners()
+
+    // Setup InputManager actions if available
+    if (inputManager) {
+      this.setupInputManagerActions()
+      console.log('✅ Control class using InputManager')
+    }
   }
 
   // core properties
@@ -51,6 +60,7 @@ export default class Control {
   control: PointerLockControls
   audio: Audio
   timeOfDay: TimeOfDay
+  inputManager?: InputManager
   velocity = new THREE.Vector3(0, 0, 0)
 
   // collide and jump properties
@@ -149,8 +159,8 @@ export default class Control {
       return
     }
 
-    // Toggle category mode with C or Tab
-    if (e.key === 'c' || e.key === 'C' || e.key === 'Tab') {
+    // Toggle category mode with Tab (C now used for building)
+    if (e.key === 'Tab') {
       this.categoryMode = !this.categoryMode
       if (this.categoryMode) {
         console.log('🔧 Category Mode ON - Press category letter (G/S/W/I/M/T) then number, or ESC to cancel')
@@ -773,26 +783,28 @@ export default class Control {
     // add / remove handler when pointer lock / unlock
     document.addEventListener('pointerlockchange', () => {
       if (document.pointerLockElement) {
+        // NOTE: WASD movement now handled by InputManager
+        // Only register non-movement handlers here
         document.body.addEventListener(
           'keydown',
           this.changeHoldingBlockHandler
         )
         document.body.addEventListener('wheel', this.wheelHandler)
-        document.body.addEventListener('keydown', this.setMovementHandler)
-        document.body.addEventListener('keyup', this.resetMovementHandler)
         document.body.addEventListener('mousedown', this.mousedownHandler)
         document.body.addEventListener('mouseup', this.mouseupHandler)
+
+        console.log('🔒 Pointer locked - legacy handlers registered (mouse/wheel/inventory only)')
       } else {
         document.body.removeEventListener(
           'keydown',
           this.changeHoldingBlockHandler
         )
         document.body.removeEventListener('wheel', this.wheelHandler)
-        document.body.removeEventListener('keydown', this.setMovementHandler)
-        document.body.removeEventListener('keyup', this.resetMovementHandler)
         document.body.removeEventListener('mousedown', this.mousedownHandler)
         document.body.removeEventListener('mouseup', this.mouseupHandler)
         this.velocity = new THREE.Vector3(0, 0, 0)
+
+        console.log('🔓 Pointer unlocked - legacy handlers removed')
       }
     })
   }
@@ -1010,14 +1022,38 @@ export default class Control {
     }
 
     if (
-      // dev mode
+      // flying mode - now with collision
       this.player.mode === Mode.flying
     ) {
-      this.control.moveForward(this.velocity.x * delta)
-      this.control.moveRight(this.velocity.z * delta)
-      this.camera.position.y += this.velocity.y * delta
+      // Check collisions
+      this.collideCheckAll(
+        this.camera.position,
+        this.terrain.noise,
+        this.terrain.customBlocks,
+        this.far - this.velocity.y * delta
+      )
+
+      // Apply movement if not colliding
+      if (!this.frontCollide || this.velocity.x < 0) {
+        if (!this.backCollide || this.velocity.x > 0) {
+          this.control.moveForward(this.velocity.x * delta)
+        }
+      }
+
+      if (!this.leftCollide || this.velocity.z > 0) {
+        if (!this.rightCollide || this.velocity.z < 0) {
+          this.control.moveRight(this.velocity.z * delta)
+        }
+      }
+
+      // Vertical movement with ceiling/floor collision
+      if (!this.upCollide || this.velocity.y < 0) {
+        if (!this.downCollide || this.velocity.y > 0) {
+          this.camera.position.y += this.velocity.y * delta
+        }
+      }
     } else {
-      // normal mode
+      // walking mode
       this.collideCheckAll(
         this.camera.position,
         this.terrain.noise,
@@ -1475,5 +1511,186 @@ export default class Control {
       }
     }
     this.p2 = this.p1
+  }
+
+  /**
+   * Setup InputManager action subscriptions
+   * Replaces direct keyboard event listeners with action-based handlers
+   */
+  setupInputManagerActions(): void {
+    if (!this.inputManager) return
+
+    const context = [GameState.PLAYING] // Only active during gameplay
+
+    // WASD Movement - handle press and release
+    this.inputManager.onAction('move_forward', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.w = true
+        this.velocity.x = this.player.speed
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.w = false
+        this.velocity.x = 0
+      }
+    }, { context })
+
+    this.inputManager.onAction('move_backward', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.s = true
+        this.velocity.x = -this.player.speed
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.s = false
+        this.velocity.x = 0
+      }
+    }, { context })
+
+    this.inputManager.onAction('move_left', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.a = true
+        this.velocity.z = -this.player.speed
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.a = false
+        this.velocity.z = 0
+      }
+    }, { context })
+
+    this.inputManager.onAction('move_right', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.d = true
+        this.velocity.z = this.player.speed
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.d = false
+        this.velocity.z = 0
+      }
+    }, { context })
+
+    // Jump (walking mode only)
+    this.inputManager.onAction('jump', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        if (this.player.mode === Mode.sneaking && !this.isJumping) return
+        if (this.player.mode === Mode.walking && !this.isJumping) {
+          this.velocity.y = 8
+          this.isJumping = true
+          this.downCollide = false
+          this.far = 0
+          setTimeout(() => {
+            this.far = this.player.body.height
+          }, 300)
+        }
+      }
+    }, { context })
+
+    // Sneak (walking mode only)
+    this.inputManager.onAction('sneak', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        if (this.player.mode === Mode.walking && !this.isJumping) {
+          this.player.setMode(Mode.sneaking)
+          if (this.downKeys.w) this.velocity.x = this.player.speed
+          if (this.downKeys.s) this.velocity.x = -this.player.speed
+          if (this.downKeys.a) this.velocity.z = -this.player.speed
+          if (this.downKeys.d) this.velocity.z = this.player.speed
+          this.camera.position.setY(this.camera.position.y - 0.2)
+        }
+      } else if (eventType === ActionEventType.RELEASED) {
+        if (this.player.mode === Mode.sneaking) {
+          this.player.setMode(Mode.walking)
+          this.camera.position.setY(this.camera.position.y + 0.2)
+        }
+      }
+    }, { context })
+
+    // Toggle flying mode
+    this.inputManager.onAction('toggle_flying', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        if (this.player.mode === Mode.walking) {
+          this.player.setMode(Mode.flying)
+        } else {
+          this.player.setMode(Mode.walking)
+        }
+        this.velocity.y = 0
+        this.velocity.x = 0
+        this.velocity.z = 0
+      }
+    }, { context })
+
+    // Fly up (flying mode only)
+    this.inputManager.onAction('fly_up', (eventType) => {
+      if (this.player.mode !== Mode.flying) return
+
+      if (eventType === ActionEventType.PRESSED) {
+        this.velocity.y = this.player.speed
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.velocity.y = 0
+      }
+    }, { context })
+
+    // Fly down (flying mode only)
+    this.inputManager.onAction('fly_down', (eventType) => {
+      if (this.player.mode !== Mode.flying) return
+
+      if (eventType === ActionEventType.PRESSED) {
+        this.velocity.y = -this.player.speed
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.velocity.y = 0
+      }
+    }, { context })
+
+    // Camera controls (IJKL)
+    this.inputManager.onAction('camera_up', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.i = true
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.i = false
+      }
+    }, { context })
+
+    this.inputManager.onAction('camera_down', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.k = true
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.k = false
+      }
+    }, { context })
+
+    this.inputManager.onAction('camera_left', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.j = true
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.j = false
+      }
+    }, { context })
+
+    this.inputManager.onAction('camera_right', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.downKeys.l = true
+      } else if (eventType === ActionEventType.RELEASED) {
+        this.downKeys.l = false
+      }
+    }, { context })
+
+    // Building - C key to place block (same as right mouse)
+    this.inputManager.onAction('build_block', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        // Create synthetic mouse event
+        const syntheticEvent = new MouseEvent('mousedown', { button: 2 })
+        this.mousedownHandler(syntheticEvent)
+      } else if (eventType === ActionEventType.RELEASED) {
+        const syntheticEvent = new MouseEvent('mouseup', { button: 2 })
+        this.mouseupHandler(syntheticEvent)
+      }
+    }, { context })
+
+    // Destroying - N key to destroy block (same as left mouse)
+    this.inputManager.onAction('destroy_block', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        // Create synthetic mouse event
+        const syntheticEvent = new MouseEvent('mousedown', { button: 0 })
+        this.mousedownHandler(syntheticEvent)
+      } else if (eventType === ActionEventType.RELEASED) {
+        const syntheticEvent = new MouseEvent('mouseup', { button: 0 })
+        this.mouseupHandler(syntheticEvent)
+      }
+    }, { context })
+
+    console.log('🎮 InputManager actions configured for Control (Movement + Flying + Camera + Building)')
   }
 }

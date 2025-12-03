@@ -1,6 +1,7 @@
 import FPS from './fps'
 import Bag from './bag'
 // import PortalGateway from './portal' // DISABLED: Causing performance issues
+import ControlsUI from './controls'
 import Terrain from '../terrain'
 import Stonehenge from '../terrain/stonehenge'
 import Block from '../terrain/mesh/block'
@@ -10,13 +11,22 @@ import Joystick from './joystick'
 import { isMobile } from '../utils'
 import * as THREE from 'three'
 import TimeOfDay from '../core/TimeOfDay'
+import InputManager, { GameState, ActionEventType } from '../input/InputManager'
 
 export default class UI {
-  constructor(terrain: Terrain, control: Control, timeOfDay: TimeOfDay) {
+  constructor(terrain: Terrain, control: Control, timeOfDay: TimeOfDay, inputManager?: InputManager) {
     this.fps = new FPS()
     this.bag = new Bag()
     this.joystick = new Joystick(control)
     // this.portal = new PortalGateway(timeOfDay) // DISABLED
+
+    // Initialize ControlsUI if inputManager is available
+    if (inputManager) {
+      this.inputManager = inputManager
+      this.controlsUI = new ControlsUI(inputManager)
+      this.setupInputManagerActions(control)
+      console.log('✅ UI received InputManager and initialized ControlsUI')
+    }
 
     this.crossHair.className = 'cross-hair'
     this.crossHair.innerHTML = '+'
@@ -24,7 +34,7 @@ export default class UI {
 
     // Mode indicator for category selection
     this.modeIndicator.className = 'mode-indicator hidden'
-    this.modeIndicator.innerHTML = '🔧 CATEGORY MODE - G/S/W/I/M/T + 1-9 (ESC to cancel)'
+    this.modeIndicator.innerHTML = '🔧 CATEGORY MODE - Tab then G/S/W/I/M/T + 1-9 (ESC to cancel)'
     document.body.appendChild(this.modeIndicator)
 
     // Listen for category mode changes
@@ -176,19 +186,19 @@ export default class UI {
 
     // menu and fullscreen
     document.body.addEventListener('keydown', (e: KeyboardEvent) => {
-      // menu
-      if (e.key === 'e' && document.pointerLockElement) {
-        !isMobile && control.control.unlock()
-      }
+      // menu - DISABLED: Now handled by InputManager 'pause' action
+      // if (e.key === 'e' && document.pointerLockElement) {
+      //   !isMobile && control.control.unlock()
+      // }
 
-      // fullscreen
-      if (e.key === 'f') {
-        if (document.fullscreenElement) {
-          document.exitFullscreen()
-        } else {
-          document.body.requestFullscreen()
-        }
-      }
+      // fullscreen - DISABLED: Now handled by InputManager 'fullscreen' action
+      // if (e.key === 'f') {
+      //   if (document.fullscreenElement) {
+      //     document.exitFullscreen()
+      //   } else {
+      //     document.body.requestFullscreen()
+      //   }
+      // }
 
       // Cmd+B or Ctrl+B: Spawn Stonehenge at current location
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b' && document.pointerLockElement) {
@@ -235,6 +245,8 @@ export default class UI {
   bag: Bag
   joystick: Joystick
   // portal: PortalGateway // DISABLED
+  inputManager?: InputManager
+  controlsUI?: ControlsUI
 
   menu = document.querySelector('.menu')
   crossHair = document.createElement('div')
@@ -276,6 +288,9 @@ export default class UI {
     this.crossHair.classList.remove('hidden')
     this.github && this.github.classList.add('hidden')
     this.feature?.classList.add('hidden')
+
+    // Notify InputManager of state change
+    this.inputManager?.setState(GameState.PLAYING)
   }
 
   onPause = () => {
@@ -283,6 +298,9 @@ export default class UI {
     this.crossHair.classList.add('hidden')
     this.save && (this.save.innerHTML = 'Save and Exit')
     this.github && this.github.classList.remove('hidden')
+
+    // Notify InputManager of state change
+    this.inputManager?.setState(GameState.PAUSE)
   }
 
   onExit = () => {
@@ -290,6 +308,9 @@ export default class UI {
     this.play && (this.play.innerHTML = 'Play')
     this.save && (this.save.innerHTML = 'Load Game')
     this.feature?.classList.remove('hidden')
+
+    // Notify InputManager of state change
+    this.inputManager?.setState(GameState.MENU)
   }
 
   onSave = () => {
@@ -318,6 +339,33 @@ export default class UI {
     setTimeout(() => {
       this.loadModal?.classList.add('hidden')
     }, 1350)
+  }
+
+  /**
+   * Setup InputManager action subscriptions for UI controls
+   */
+  setupInputManagerActions(control: Control): void {
+    if (!this.inputManager) return
+
+    // Pause menu (Escape key)
+    this.inputManager.onAction('pause', (eventType) => {
+      if (eventType === ActionEventType.PRESSED && document.pointerLockElement) {
+        !isMobile && control.control.unlock()
+      }
+    }, { context: [GameState.PLAYING] })
+
+    // Fullscreen toggle
+    this.inputManager.onAction('fullscreen', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen()
+        } else {
+          document.body.requestFullscreen()
+        }
+      }
+    })
+
+    console.log('✅ UI InputManager actions configured (pause, fullscreen)')
   }
 
   update = () => {

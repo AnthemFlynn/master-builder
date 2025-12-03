@@ -313,11 +313,11 @@ export default class TimeOfDay {
       // Apply warm color during golden hours
       this.sunLight.color = this.getSunColor()
 
-      // Debug logging
-      const azimuthDeg = (azimuth * 180 / Math.PI).toFixed(1)
-      const altitudeDeg = (altitude * 180 / Math.PI).toFixed(1)
-      console.log(`☀️ Sun altitude: ${altitudeDeg}° (90° = directly overhead)`)
-      console.log(`   Position: (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)}) relative to player`)
+      // Debug logging (disabled - too noisy)
+      // const azimuthDeg = (azimuth * 180 / Math.PI).toFixed(1)
+      // const altitudeDeg = (altitude * 180 / Math.PI).toFixed(1)
+      // console.log(`☀️ Sun altitude: ${altitudeDeg}° (90° = directly overhead)`)
+      // console.log(`   Position: (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)}) relative to player`)
     } else {
       // Sun below horizon (night) - disable sun light
       this.sunLight.intensity = 0
