@@ -9,6 +9,10 @@ import { DEFAULT_ACTIONS } from './input/defaultBindings'
 
 import './style.css'
 
+// Initialize BlockRegistry
+import { initializeBlockRegistry } from './blocks'
+initializeBlockRegistry()
+
 // Initialize InputManager
 const inputManager = new InputManager()
 inputManager.registerActions(DEFAULT_ACTIONS)

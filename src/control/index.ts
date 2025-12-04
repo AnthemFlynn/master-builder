@@ -1691,6 +1691,23 @@ export default class Control {
       }
     }, { context })
 
-    console.log('🎮 InputManager actions configured for Control (Movement + Flying + Camera + Building)')
+    // Time override mode (Alt+T)
+    this.inputManager.onAction('time_override_mode', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        console.log('✓ Option+T detected!')
+        this.timeOverrideMode = true
+        this.timeOverrideDigits = ''
+        console.log('⏰ Time Override Mode: Enter 0-23 for hour, +/- to adjust, C for current, N for solar noon')
+      }
+    })
+
+    // Location cycle (Alt+L)
+    this.inputManager.onAction('location_cycle', (eventType) => {
+      if (eventType === ActionEventType.PRESSED) {
+        this.timeOfDay.cycleLocation()
+      }
+    })
+
+    console.log('🎮 InputManager actions configured for Control (Movement + Flying + Camera + Building + Time)')
   }
 }

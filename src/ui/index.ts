@@ -365,7 +365,19 @@ export default class UI {
       }
     })
 
-    console.log('✅ UI InputManager actions configured (pause, fullscreen)')
+    // Spawn Stonehenge (Cmd+B / Ctrl+B)
+    this.inputManager.onAction('spawn_stonehenge', (eventType) => {
+      if (eventType === ActionEventType.PRESSED && document.pointerLockElement) {
+        const playerX = Math.round(terrain.camera.position.x)
+        const playerZ = Math.round(terrain.camera.position.z)
+        console.log(`🗿 Spawning Stonehenge at player position (${playerX}, ${playerZ})`)
+        Stonehenge.build(playerX, playerZ, terrain.customBlocks)
+        terrain.initBlocks()
+        terrain.generate()
+      }
+    }, { context: [GameState.PLAYING] })
+
+    console.log('✅ UI InputManager actions configured (pause, fullscreen, stonehenge)')
   }
 
   update = () => {
