@@ -4,6 +4,7 @@ import Block from './mesh/block'
 import Highlight from './highlight'
 import { ChunkManager } from './ChunkManager'
 import { LightingEngine } from '../lighting/LightingEngine'
+import { LightDataTexture } from '../lighting/LightDataTexture'
 import { blockRegistry } from '../blocks'
 import Noise from './noise'
 
@@ -43,6 +44,12 @@ export default class Terrain {
       this.chunkManager,
       (x, y, z) => this.getBlockTypeAt(x, y, z)  // Callback
     )
+
+    // Initialize LightDataTexture
+    this.lightDataTexture = new LightDataTexture(this.chunkSize, 256)
+
+    // Wire light texture to materials (after materials are created)
+    this.materials.setLightTexture(this.lightDataTexture.getTexture())
 
     // generate worker callback handler
     this.generateWorker.onmessage = (
@@ -86,6 +93,7 @@ export default class Terrain {
   // lighting system
   chunkManager: ChunkManager
   lightingEngine: LightingEngine
+  lightDataTexture: LightDataTexture
   materialType = [
     MaterialType.grass,
     MaterialType.sand,
@@ -359,6 +367,14 @@ export default class Terrain {
       this.chunk.y !== this.previousChunk.y
     ) {
       this.generate()
+    }
+
+    // Update light texture from chunks (upload to GPU)
+    const chunks = this.chunkManager.getAllChunks()
+    for (const chunk of chunks) {
+      if (chunk.dirty) {
+        this.lightDataTexture.updateFromChunk(chunk)
+      }
     }
 
     this.previousChunk.copy(this.chunk)

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { blockRegistry } from '../../blocks'
+import { createLightShader } from '../../lighting/LightShader'
 
 export enum MaterialType {
   grass = 'grass',
@@ -24,10 +25,11 @@ export enum MaterialType {
  */
 export default class Materials {
   materials: Record<MaterialType, THREE.Material | THREE.Material[]>
+  lightDataTexture: THREE.DataTexture | null = null
 
   constructor() {
     // Generate all materials from BlockRegistry
-    this.materials = {
+    const rawMaterials = {
       grass: blockRegistry.createMaterial(0),         // BlockType.grass
       sand: blockRegistry.createMaterial(1),          // BlockType.sand
       tree: blockRegistry.createMaterial(2),          // BlockType.tree
@@ -44,7 +46,21 @@ export default class Materials {
       redstone_lamp: blockRegistry.createMaterial(13) // BlockType.redstone_lamp
     }
 
-    console.log('✅ Materials created from BlockRegistry')
+    // Apply lighting shader to all materials
+    this.materials = {} as Record<MaterialType, THREE.Material | THREE.Material[]>
+
+    for (const [key, material] of Object.entries(rawMaterials)) {
+      if (Array.isArray(material)) {
+        // Multi-face materials (grass, logs)
+        this.materials[key as MaterialType] = material.map(mat =>
+          createLightShader(mat as THREE.MeshStandardMaterial)
+        )
+      } else {
+        this.materials[key as MaterialType] = createLightShader(material as THREE.MeshStandardMaterial)
+      }
+    }
+
+    console.log('✅ Materials created from BlockRegistry with lighting shaders')
   }
 
   get = (
@@ -52,4 +68,32 @@ export default class Materials {
   ): THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[] => {
     return this.materials[type] as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[]
   }
+
+  /**
+   * Set light data texture for all materials
+   * Call this after creating LightDataTexture
+   */
+  setLightTexture(texture: THREE.DataTexture): void {
+    this.lightDataTexture = texture
+
+    // Update all materials
+    for (const material of Object.values(this.materials)) {
+      if (Array.isArray(material)) {
+        material.forEach(mat => {
+          const shader = (mat as any).userData.lightShader
+          if (shader) {
+            shader.uniforms.lightDataTexture.value = texture
+          }
+        })
+      } else {
+        const shader = (material as any).userData.lightShader
+        if (shader) {
+          shader.uniforms.lightDataTexture.value = texture
+        }
+      }
+    }
+
+    console.log('✅ Light texture set on all materials')
+  }
 }
+

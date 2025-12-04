@@ -30,11 +30,20 @@ export class LightingEngine {
   }
 
   update(): void {
-    this.visited.clear()
+    // Only clear visited set when queue is empty (complete cycle)
+    if (this.lightQueue.isEmpty()) {
+      if (this.visited.size > 0) {
+        console.log(`🔄 Propagation cycle complete, clearing visited set (${this.visited.size} blocks)`)
+        this.visited.clear()
+      }
+      return
+    }
 
     const processed = this.lightQueue.update((update) => {
       const key = `${update.x},${update.y},${update.z},${update.channel}`
-      if (this.visited.has(key)) return
+      if (this.visited.has(key)) {
+        return  // Already processed in this cycle
+      }
       this.visited.add(key)
       this.processLightUpdate(update)
     })
@@ -89,6 +98,14 @@ export class LightingEngine {
       // Stop if all channels are zero (no light left)
       if (newColor.r === 0 && newColor.g === 0 && newColor.b === 0) {
         continue
+      }
+
+      // Check if this would be brighter than current light BEFORE queuing
+      const currentNeighbor = this.chunkManager.getLightAt(nx, ny, nz)
+      const currentNeighborChannel = channel === 'sky' ? currentNeighbor.sky : currentNeighbor.block
+
+      if (!this.isBrighter(newColor, currentNeighborChannel)) {
+        continue  // Don't queue if not brighter
       }
 
       this.lightQueue.add({
