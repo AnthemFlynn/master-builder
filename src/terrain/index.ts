@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import Materials, { MaterialType } from './mesh/materials'
 import Block from './mesh/block'
 import Highlight from './highlight'
+import { ChunkManager } from './ChunkManager'
 import Noise from './noise'
 
 import Generate from './worker/generate?worker'
@@ -30,6 +31,10 @@ export default class Terrain {
       (this.distance * this.chunkSize * 2 + this.chunkSize) ** 2 + 500
     this.highlight = new Highlight(scene, camera, this)
     this.scene.add(this.cloud)
+
+    // Initialize ChunkManager
+    this.chunkManager = new ChunkManager()
+    console.log('✅ ChunkManager initialized')
 
     // generate worker callback handler
     this.generateWorker.onmessage = (
@@ -69,6 +74,9 @@ export default class Terrain {
 
   // materials
   materials = new Materials()
+
+  // lighting system
+  chunkManager: ChunkManager
   materialType = [
     MaterialType.grass,
     MaterialType.sand,

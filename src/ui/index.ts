@@ -200,6 +200,33 @@ export default class UI {
       //   }
       // }
 
+      // Cmd+L or Ctrl+L: Log chunk information
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
+        e.preventDefault()
+        const pos = terrain.camera.position
+        const { chunkX, chunkZ, localX, localY, localZ } = terrain.chunkManager.worldToChunk(
+          Math.floor(pos.x),
+          Math.floor(pos.y),
+          Math.floor(pos.z)
+        )
+        console.log('📍 Player chunk info:')
+        console.log(`  World: (${Math.floor(pos.x)}, ${Math.floor(pos.y)}, ${Math.floor(pos.z)})`)
+        console.log(`  Chunk: (${chunkX}, ${chunkZ})`)
+        console.log(`  Local: (${localX}, ${localY}, ${localZ})`)
+
+        const light = terrain.chunkManager.getLightAt(
+          Math.floor(pos.x),
+          Math.floor(pos.y),
+          Math.floor(pos.z)
+        )
+        console.log(`  Sky light: R${light.sky.r} G${light.sky.g} B${light.sky.b}`)
+        console.log(`  Block light: R${light.block.r} G${light.block.g} B${light.block.b}`)
+
+        const totalMemory = terrain.chunkManager.getTotalMemoryUsage()
+        console.log(`  Total chunks: ${terrain.chunkManager.getAllChunks().length}`)
+        console.log(`  Memory: ${(totalMemory / 1024 / 1024).toFixed(2)}MB`)
+      }
+
       // Cmd+B or Ctrl+B: Spawn Stonehenge at current location
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b' && document.pointerLockElement) {
         e.preventDefault()
