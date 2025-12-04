@@ -42,6 +42,7 @@ const ui = new UI(terrain, control, timeOfDay, inputManager)
   terrain.update()
   ui.update()
   timeOfDay.update()
+  terrain.lightingEngine.update()  // NEW: Process light queue
 
   renderer.render(scene, camera)
   // console.log(performance.now()-p1)

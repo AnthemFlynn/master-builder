@@ -10,6 +10,7 @@ import { isMobile } from '../utils'
 import { getBlockFromCategory, BLOCK_CATEGORIES } from './BlockCategories'
 import TimeOfDay from '../core/TimeOfDay'
 import InputManager, { GameState, ActionEventType } from '../input/InputManager'
+import { blockRegistry } from '../blocks'
 enum Side {
   front,
   back,
@@ -571,6 +572,17 @@ export default class Control {
                 true
               )
             )
+
+            // Trigger light update if block emits light
+            const blockDef = blockRegistry.get(this.holdingBlock)
+            if (blockDef && (blockDef.emissive.r > 0 || blockDef.emissive.g > 0 || blockDef.emissive.b > 0)) {
+              this.terrain.lightingEngine.addLightSource(
+                Math.floor(normal.x + position.x),
+                Math.floor(normal.y + position.y),
+                Math.floor(normal.z + position.z),
+                blockDef.emissive
+              )
+            }
           }
         }
         break

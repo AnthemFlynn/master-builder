@@ -200,8 +200,8 @@ export default class UI {
       //   }
       // }
 
-      // Cmd+L or Ctrl+L: Log chunk information
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
+      // Backtick key: Log chunk information (temporary debug)
+      if (e.key === '`') {
         e.preventDefault()
         const pos = terrain.camera.position
         const { chunkX, chunkZ, localX, localY, localZ } = terrain.chunkManager.worldToChunk(

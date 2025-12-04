@@ -3,6 +3,8 @@ import Materials, { MaterialType } from './mesh/materials'
 import Block from './mesh/block'
 import Highlight from './highlight'
 import { ChunkManager } from './ChunkManager'
+import { LightingEngine } from '../lighting/LightingEngine'
+import { blockRegistry } from '../blocks'
 import Noise from './noise'
 
 import Generate from './worker/generate?worker'
@@ -35,6 +37,12 @@ export default class Terrain {
     // Initialize ChunkManager
     this.chunkManager = new ChunkManager()
     console.log('✅ ChunkManager initialized')
+
+    // Initialize LightingEngine
+    this.lightingEngine = new LightingEngine(
+      this.chunkManager,
+      (x, y, z) => this.getBlockTypeAt(x, y, z)  // Callback
+    )
 
     // generate worker callback handler
     this.generateWorker.onmessage = (
@@ -77,6 +85,7 @@ export default class Terrain {
 
   // lighting system
   chunkManager: ChunkManager
+  lightingEngine: LightingEngine
   materialType = [
     MaterialType.grass,
     MaterialType.sand,
@@ -299,6 +308,43 @@ export default class Terrain {
     this.blocks[type].setMatrixAt(this.getCount(type), matrix)
     this.blocks[type].instanceMatrix.needsUpdate = true
     this.setCount(type)
+
+    // Trigger light update if block emits light
+    const blockDef = blockRegistry.get(type)
+    if (blockDef && (blockDef.emissive.r > 0 || blockDef.emissive.g > 0 || blockDef.emissive.b > 0)) {
+      this.lightingEngine.addLightSource(
+        Math.floor(position.x),
+        Math.floor(position.y),
+        Math.floor(position.z),
+        blockDef.emissive
+      )
+    }
+  }
+
+  /**
+   * Get block type at world coordinates
+   * Returns -1 if out of bounds or air
+   */
+  getBlockTypeAt(x: number, y: number, z: number): number {
+    // Check customBlocks first (player-placed)
+    const custom = this.customBlocks.find(b =>
+      Math.floor(b.x) === Math.floor(x) &&
+      Math.floor(b.y) === Math.floor(y) &&
+      Math.floor(b.z) === Math.floor(z)
+    )
+
+    if (custom) {
+      return custom.placed ? custom.type : -1  // Return type if placed, -1 if removed
+    }
+
+    // Check generated terrain using noise
+    const height = 30 + this.noise.get(x / this.noise.gap, z / this.noise.gap) * this.noise.amp
+
+    if (y > height) return -1  // Air
+    if (y === Math.floor(height)) return BlockType.grass  // Surface
+    if (y < height) return BlockType.stone  // Underground
+
+    return -1
   }
 
   update = () => {
