@@ -275,6 +275,15 @@ export default class Terrain {
     const chunk = this.chunkManager.getChunk(worldToChunk.chunkX, worldToChunk.chunkZ)
     chunk.setBlockType(worldToChunk.localX, worldToChunk.localY, worldToChunk.localZ, type)
 
+    // Mark chunk and neighbors dirty for mesh rebuild
+    this.chunkMeshManager.markDirty(worldToChunk.chunkX, worldToChunk.chunkZ, 'block')
+
+    // Check if near chunk boundary (mark neighbors)
+    if (worldToChunk.localX === 0) this.chunkMeshManager.markDirty(worldToChunk.chunkX - 1, worldToChunk.chunkZ, 'block')
+    if (worldToChunk.localX === 23) this.chunkMeshManager.markDirty(worldToChunk.chunkX + 1, worldToChunk.chunkZ, 'block')
+    if (worldToChunk.localZ === 0) this.chunkMeshManager.markDirty(worldToChunk.chunkX, worldToChunk.chunkZ - 1, 'block')
+    if (worldToChunk.localZ === 23) this.chunkMeshManager.markDirty(worldToChunk.chunkX, worldToChunk.chunkZ + 1, 'block')
+
     // Trigger light update if block emits light
     const blockDef = blockRegistry.get(type)
     if (blockDef && (blockDef.emissive.r > 0 || blockDef.emissive.g > 0 || blockDef.emissive.b > 0)) {
@@ -329,6 +338,16 @@ export default class Terrain {
 
     // Propagate lighting
     this.lightingEngine.update()
+
+    // Check which chunks had lighting changes
+    const chunks = this.chunkManager.getAllChunks()
+    for (const chunk of chunks) {
+      if (chunk.dirty) {
+        // Lighting changed - mark for mesh rebuild
+        this.chunkMeshManager.markDirty(chunk.x, chunk.z, 'light')
+        chunk.dirty = false  // Clear flag
+      }
+    }
 
     // Update chunk meshes (rebuilds dirty chunks)
     this.chunkMeshManager.update(this.chunkManager)
