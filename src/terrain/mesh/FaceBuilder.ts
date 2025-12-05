@@ -15,6 +15,24 @@ export class FaceBuilder {
   constructor(private chunk: Chunk) {}
 
   /**
+   * Check if block at position is solid (for AO calculation)
+   */
+  private isBlockSolid(x: number, y: number, z: number): boolean {
+    // Out of bounds = not solid (air)
+    if (x < 0 || x >= 24 || y < 0 || y >= 256 || z < 0 || z >= 24) {
+      return false
+    }
+
+    // TODO: Get block type from chunk
+    // For now, assume any non-air block is solid
+    const light = this.chunk.getLight(x, y, z)
+
+    // If both sky and block light are 0, it's probably solid
+    // This is a heuristic until we add getBlockType to Chunk
+    return (light.sky.r + light.sky.g + light.sky.b) === 0
+  }
+
+  /**
    * Add a quad face to the mesh
    */
   addQuad(
@@ -95,8 +113,45 @@ export class FaceBuilder {
   /**
    * Get vertex ambient occlusion (0-3 scale)
    */
-  private getVertexAO(x: number, y: number, z: number, face: number): number {
-    // TODO: Implementation
-    return 3
+  private getVertexAO(
+    x: number, y: number, z: number,
+    normal: { x: number, y: number, z: number }
+  ): number {
+    // AO algorithm from 0fps.net
+    // Check 3 neighbors: side1, side2, corner
+
+    // Determine which neighbors to check based on face normal
+    let side1 = false, side2 = false, corner = false
+
+    if (normal.y === 1) {
+      // Top face - check blocks above
+      side1 = this.isBlockSolid(x + 1, y + 1, z)
+      side2 = this.isBlockSolid(x, y + 1, z + 1)
+      corner = this.isBlockSolid(x + 1, y + 1, z + 1)
+    } else if (normal.y === -1) {
+      // Bottom face
+      side1 = this.isBlockSolid(x + 1, y - 1, z)
+      side2 = this.isBlockSolid(x, y - 1, z + 1)
+      corner = this.isBlockSolid(x + 1, y - 1, z + 1)
+    } else if (normal.x !== 0) {
+      // Side face (X axis)
+      const offset = normal.x
+      side1 = this.isBlockSolid(x + offset, y + 1, z)
+      side2 = this.isBlockSolid(x + offset, y, z + 1)
+      corner = this.isBlockSolid(x + offset, y + 1, z + 1)
+    } else {
+      // Side face (Z axis)
+      const offset = normal.z
+      side1 = this.isBlockSolid(x + 1, y, z + offset)
+      side2 = this.isBlockSolid(x, y + 1, z + offset)
+      corner = this.isBlockSolid(x + 1, y + 1, z + offset)
+    }
+
+    // Calculate AO value
+    if (side1 && side2) {
+      return 0  // Fully occluded
+    }
+
+    return 3 - (side1 ? 1 : 0) - (side2 ? 1 : 0) - (corner ? 1 : 0)
   }
 }
