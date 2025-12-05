@@ -317,6 +317,15 @@ export default class Terrain {
     this.blocks[type].instanceMatrix.needsUpdate = true
     this.setCount(type)
 
+    // Store block type in chunk
+    const worldToChunk = this.chunkManager.worldToChunk(
+      Math.floor(position.x),
+      Math.floor(position.y),
+      Math.floor(position.z)
+    )
+    const chunk = this.chunkManager.getChunk(worldToChunk.chunkX, worldToChunk.chunkZ)
+    chunk.setBlockType(worldToChunk.localX, worldToChunk.localY, worldToChunk.localZ, type)
+
     // Trigger light update if block emits light
     const blockDef = blockRegistry.get(type)
     if (blockDef && (blockDef.emissive.r > 0 || blockDef.emissive.g > 0 || blockDef.emissive.b > 0)) {
