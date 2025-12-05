@@ -92,55 +92,6 @@ export default class Terrain {
   cloudCount = 0
   cloudGap = 5
 
-  getCount = (type: BlockType) => {
-    return this.blocksCount[type]
-  }
-
-  setCount = (type: BlockType) => {
-    this.blocksCount[type] = this.blocksCount[type] + 1
-  }
-
-  initBlocks = () => {
-    // reset
-    for (const block of this.blocks) {
-      this.scene.remove(block)
-    }
-    this.blocks = []
-
-    // create instance meshes
-    const geometry = new THREE.BoxGeometry()
-
-    for (let i = 0; i < this.materialType.length; i++) {
-      let block = new THREE.InstancedMesh(
-        geometry,
-        this.materials.get(this.materialType[i]),
-        this.maxCount * this.blocksFactor[i]
-      )
-      block.name = BlockType[i]
-      block.castShadow = true
-      block.receiveShadow = true
-
-      // CRITICAL: InstancedMesh requires customDepthMaterial for proper shadow support
-      block.customDepthMaterial = new THREE.MeshDepthMaterial({
-        depthPacking: THREE.RGBADepthPacking
-      })
-
-      this.blocks.push(block)
-      this.scene.add(block)
-    }
-
-    this.blocksCount = new Array(this.materialType.length).fill(0)
-  }
-
-  resetBlocks = () => {
-    // reest count and instance matrix
-    for (let i = 0; i < this.blocks.length; i++) {
-      this.blocks[i].instanceMatrix = new THREE.InstancedBufferAttribute(
-        new Float32Array(this.maxCount * this.blocksFactor[i] * 16),
-        16
-      )
-    }
-  }
 
   generate = () => {
     const distance = this.distance
@@ -286,8 +237,6 @@ export default class Terrain {
     this.buildBlock(new THREE.Vector3(x + 1, y, z), type)
     this.buildBlock(new THREE.Vector3(x, y, z - 1), type)
     this.buildBlock(new THREE.Vector3(x, y, z + 1), type)
-
-    this.blocks[type].instanceMatrix.needsUpdate = true
   }
 
   buildBlock = (position: THREE.Vector3, type: BlockType, ignoreHeightCheck = false) => {
@@ -321,12 +270,6 @@ export default class Terrain {
     this.customBlocks.push(
       new Block(position.x, position.y, position.z, type, true)
     )
-
-    const matrix = new THREE.Matrix4()
-    matrix.setPosition(position)
-    this.blocks[type].setMatrixAt(this.getCount(type), matrix)
-    this.blocks[type].instanceMatrix.needsUpdate = true
-    this.setCount(type)
 
     // Store block type in chunk
     const worldToChunk = this.chunkManager.worldToChunk(
