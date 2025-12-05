@@ -52,19 +52,9 @@ export class FaceBuilder {
       // Position
       this.positions.push(v.x, v.y, v.z)
 
-      // Sample lighting from the AIR side of the face (offset by normal)
-      const sampleX = Math.floor(v.x + normal.x * 0.5)
-      const sampleY = Math.floor(v.y + normal.y * 0.5)
-      const sampleZ = Math.floor(v.z + normal.z * 0.5)
-
-      // Lighting + AO
-      const light = this.getVertexLight(sampleX, sampleY, sampleZ)
+      // Lighting + AO (calculated from geometry)
+      const light = this.getVertexLight(v.x, v.y, v.z)
       const ao = this.getVertexAO(v.x, v.y, v.z, normal) / 3.0  // Normalize to [0, 1]
-
-      // DEBUG: Log first few vertices
-      if (this.vertexCount < 4 && Math.random() < 0.01) {
-        console.log(`Vertex (${v.x},${v.y},${v.z}) sample=(${sampleX},${sampleY},${sampleZ}): light=(${light.r.toFixed(2)},${light.g.toFixed(2)},${light.b.toFixed(2)}), ao=${ao.toFixed(2)}`)
-      }
 
       this.colors.push(
         light.r * ao,
@@ -157,56 +147,44 @@ export class FaceBuilder {
   }
 
   /**
-   * Get vertex light (smooth lighting - averages neighbors)
+   * Get vertex light (smooth lighting - calculated from geometry)
    */
   private getVertexLight(x: number, y: number, z: number): { r: number, g: number, b: number } {
-    // Sample the block and its neighbors for smooth lighting
-    // Only sample AIR blocks - solid blocks don't contribute to vertex lighting
+    // Simple geometric lighting: calculate based on how exposed the vertex is to sky
+    // Check if there's a clear path upward from this position
 
-    let r = 0, g = 0, b = 0, count = 0
+    const blockX = Math.floor(x)
+    const blockY = Math.floor(y)
+    const blockZ = Math.floor(z)
 
-    // Sample 3x3x3 cube around vertex
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          const nx = x + dx
-          const ny = y + dy
-          const nz = z + dz
+    // Trace upward to find if we can see the sky
+    let canSeeSky = true
+    let depth = 0
 
-          // Bounds check
-          if (nx < 0 || nx >= 24 || ny < 0 || ny >= 256 || nz < 0 || nz >= 24) {
-            continue
-          }
-
-          // Skip solid blocks - only sample air for lighting
-          const blockType = this.chunk.getBlockType(nx, ny, nz)
-          if (blockType !== -1) {
-            continue  // Solid block, skip it
-          }
-
-          const light = this.chunk.getLight(nx, ny, nz)
-
-          // Combine sky + block light (max of each channel)
-          const combined = {
-            r: Math.max(light.sky.r, light.block.r),
-            g: Math.max(light.sky.g, light.block.g),
-            b: Math.max(light.sky.b, light.block.b)
-          }
-
-          r += combined.r
-          g += combined.g
-          b += combined.b
-          count++
+    for (let checkY = blockY + 1; checkY < 256; checkY++) {
+      if (blockX >= 0 && blockX < 24 && blockZ >= 0 && blockZ < 24) {
+        const blockAbove = this.chunk.getBlockType(blockX, checkY, blockZ)
+        if (blockAbove !== -1) {
+          // Hit a solid block
+          canSeeSky = false
+          depth = checkY - blockY
+          break
         }
       }
     }
 
-    // Normalize to [0, 1] range (max value is 15)
-    // If no air blocks found, default to full bright (surface blocks)
+    // Calculate light based on sky visibility
+    let lightLevel = 1.0
+
+    if (!canSeeSky) {
+      // Underground - darken based on depth
+      lightLevel = Math.max(0.1, 1.0 - (depth * 0.05))
+    }
+
     return {
-      r: count > 0 ? (r / count) / 15 : 1.0,
-      g: count > 0 ? (g / count) / 15 : 1.0,
-      b: count > 0 ? (b / count) / 15 : 1.0
+      r: lightLevel,
+      g: lightLevel,
+      b: lightLevel
     }
   }
 
