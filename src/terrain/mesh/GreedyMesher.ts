@@ -137,7 +137,7 @@ export class GreedyMesher {
       return null
     }
 
-    const currentBlock = this.getBlockType(x, y, z)
+    const currentBlock = this.chunk.getBlockType(x, y, z)
 
     // Air blocks don't have faces
     if (currentBlock === -1) {
@@ -153,14 +153,14 @@ export class GreedyMesher {
 
     // Neighbor out of bounds = visible (chunk boundary)
     if (nx < 0 || nx >= 24 || ny < 0 || ny >= 256 || nz < 0 || nz >= 24) {
-      return currentBlock
+      return currentBlock as BlockType
     }
 
-    const neighborBlock = this.getBlockType(nx, ny, nz)
+    const neighborBlock = this.chunk.getBlockType(nx, ny, nz)
 
-    // Face visible if neighbor is different or air
+    // Face visible if different or air
     if (neighborBlock === -1 || neighborBlock !== currentBlock) {
-      return currentBlock
+      return currentBlock as BlockType
     }
 
     return null  // Hidden face
@@ -181,16 +181,5 @@ export class GreedyMesher {
       l1.sky.r === l2.sky.r && l1.sky.g === l2.sky.g && l1.sky.b === l2.sky.b &&
       l1.block.r === l2.block.r && l1.block.g === l2.block.g && l1.block.b === l2.block.b
     )
-  }
-
-  /**
-   * Get block type at position (temporary - needs chunk.getBlockType)
-   */
-  private getBlockType(x: number, y: number, z: number): BlockType {
-    // TODO: This needs chunk to expose getBlockType method
-    // For now, assume grass at surface, stone below
-    if (y === 31) return BlockType.grass
-    if (y < 31) return BlockType.stone
-    return -1 as BlockType  // Air
   }
 }
