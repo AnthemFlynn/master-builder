@@ -41,8 +41,38 @@ export class GreedyMesher {
     axis: 0 | 1 | 2,
     direction: -1 | 1
   ): BlockType | null {
-    // TODO: Implementation
-    return null
+    // Bounds check
+    if (x < 0 || x >= 24 || y < 0 || y >= 256 || z < 0 || z >= 24) {
+      return null
+    }
+
+    const currentBlock = this.getBlockType(x, y, z)
+
+    // Air blocks don't have faces
+    if (currentBlock === -1) {
+      return null
+    }
+
+    // Check neighbor in the direction of this face
+    let nx = x, ny = y, nz = z
+
+    if (axis === 0) nx += direction
+    else if (axis === 1) ny += direction
+    else nz += direction
+
+    // Neighbor out of bounds = visible (chunk boundary)
+    if (nx < 0 || nx >= 24 || ny < 0 || ny >= 256 || nz < 0 || nz >= 24) {
+      return currentBlock
+    }
+
+    const neighborBlock = this.getBlockType(nx, ny, nz)
+
+    // Face visible if neighbor is different or air
+    if (neighborBlock === -1 || neighborBlock !== currentBlock) {
+      return currentBlock
+    }
+
+    return null  // Hidden face
   }
 
   /**
