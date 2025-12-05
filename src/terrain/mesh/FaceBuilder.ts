@@ -18,18 +18,18 @@ export class FaceBuilder {
    * Check if block at position is solid (for AO calculation)
    */
   private isBlockSolid(x: number, y: number, z: number): boolean {
-    // Out of bounds = not solid (air)
     if (x < 0 || x >= 24 || y < 0 || y >= 256 || z < 0 || z >= 24) {
       return false
     }
 
-    // TODO: Get block type from chunk
-    // For now, assume any non-air block is solid
-    const light = this.chunk.getLight(x, y, z)
+    const blockType = this.chunk.getBlockType(x, y, z)
 
-    // If both sky and block light are 0, it's probably solid
-    // This is a heuristic until we add getBlockType to Chunk
-    return (light.sky.r + light.sky.g + light.sky.b) === 0
+    // Air = not solid
+    if (blockType === -1) return false
+
+    // Glass and leaves are transparent but still block AO
+    // All other blocks are solid
+    return true
   }
 
   /**
