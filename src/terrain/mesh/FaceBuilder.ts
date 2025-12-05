@@ -49,8 +49,47 @@ export class FaceBuilder {
    * Get vertex light (smooth lighting - averages neighbors)
    */
   private getVertexLight(x: number, y: number, z: number): { r: number, g: number, b: number } {
-    // TODO: Implementation
-    return { r: 1.0, g: 1.0, b: 1.0 }
+    // Sample the block and its neighbors for smooth lighting
+    // Average up to 8 surrounding blocks (or fewer at chunk boundaries)
+
+    let r = 0, g = 0, b = 0, count = 0
+
+    // Sample 3x3x3 cube around vertex
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          const nx = x + dx
+          const ny = y + dy
+          const nz = z + dz
+
+          // Bounds check
+          if (nx < 0 || nx >= 24 || ny < 0 || ny >= 256 || nz < 0 || nz >= 24) {
+            continue
+          }
+
+          const light = this.chunk.getLight(nx, ny, nz)
+
+          // Combine sky + block light (max of each channel)
+          const combined = {
+            r: Math.max(light.sky.r, light.block.r),
+            g: Math.max(light.sky.g, light.block.g),
+            b: Math.max(light.sky.b, light.block.b)
+          }
+
+          r += combined.r
+          g += combined.g
+          b += combined.b
+          count++
+        }
+      }
+    }
+
+    // Normalize to [0, 1] range (max value is 15)
+    return {
+      r: count > 0 ? (r / count) / 15 : 1.0,
+      g: count > 0 ? (g / count) / 15 : 1.0,
+      b: count > 0 ? (b / count) / 15 : 1.0
+    }
   }
 
   /**
