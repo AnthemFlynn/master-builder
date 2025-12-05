@@ -52,9 +52,19 @@ export class FaceBuilder {
       // Position
       this.positions.push(v.x, v.y, v.z)
 
+      // Sample lighting from the AIR side of the face (offset by normal)
+      const sampleX = Math.floor(v.x + normal.x * 0.5)
+      const sampleY = Math.floor(v.y + normal.y * 0.5)
+      const sampleZ = Math.floor(v.z + normal.z * 0.5)
+
       // Lighting + AO
-      const light = this.getVertexLight(v.x, v.y, v.z)
+      const light = this.getVertexLight(sampleX, sampleY, sampleZ)
       const ao = this.getVertexAO(v.x, v.y, v.z, normal) / 3.0  // Normalize to [0, 1]
+
+      // DEBUG: Log first few vertices
+      if (this.vertexCount < 4 && Math.random() < 0.01) {
+        console.log(`Vertex (${v.x},${v.y},${v.z}) sample=(${sampleX},${sampleY},${sampleZ}): light=(${light.r.toFixed(2)},${light.g.toFixed(2)},${light.b.toFixed(2)}), ao=${ao.toFixed(2)}`)
+      }
 
       this.colors.push(
         light.r * ao,
