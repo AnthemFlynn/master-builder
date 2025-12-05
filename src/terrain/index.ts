@@ -5,10 +5,9 @@ import Highlight from './highlight'
 import { ChunkManager } from './ChunkManager'
 import { LightingEngine } from '../lighting/LightingEngine'
 import { LightDataTexture } from '../lighting/LightDataTexture'
+import { ChunkMeshManager } from './ChunkMeshManager'
 import { blockRegistry } from '../blocks'
 import Noise from './noise'
-
-import Generate from './worker/generate?worker'
 
 export enum BlockType {
   grass = 0,
@@ -48,32 +47,12 @@ export default class Terrain {
     // Initialize LightDataTexture
     this.lightDataTexture = new LightDataTexture(this.chunkSize, 256)
 
-    // Wire light texture to materials (after materials are created)
-    this.materials.setLightTexture(this.lightDataTexture.getTexture())
-
-    // generate worker callback handler
-    this.generateWorker.onmessage = (
-      msg: MessageEvent<{
-        idMap: Map<string, number>
-        arrays: ArrayLike<number>[]
-        blocksCount: number[]
-      }>
-    ) => {
-      this.resetBlocks()
-      this.idMap = msg.data.idMap
-      this.blocksCount = msg.data.blocksCount
-
-      for (let i = 0; i < msg.data.arrays.length; i++) {
-        this.blocks[i].instanceMatrix = new THREE.InstancedBufferAttribute(
-          (this.blocks[i].instanceMatrix.array = msg.data.arrays[i]),
-          16
-        )
-      }
-
-      for (const block of this.blocks) {
-        block.instanceMatrix.needsUpdate = true
-      }
-    }
+    // Initialize ChunkMeshManager
+    this.chunkMeshManager = new ChunkMeshManager(
+      this.scene,
+      this.materials.get(MaterialType.grass) as THREE.Material  // Shared material for now
+    )
+    console.log('✅ ChunkMeshManager initialized')
   }
   // core properties
   scene: THREE.Scene
@@ -94,33 +73,11 @@ export default class Terrain {
   chunkManager: ChunkManager
   lightingEngine: LightingEngine
   lightDataTexture: LightDataTexture
-  materialType = [
-    MaterialType.grass,
-    MaterialType.sand,
-    MaterialType.tree,
-    MaterialType.leaf,
-    MaterialType.dirt,
-    MaterialType.stone,
-    MaterialType.coal,
-    MaterialType.wood,
-    MaterialType.diamond,
-    MaterialType.quartz,
-    MaterialType.glass,
-    MaterialType.bedrock,
-    MaterialType.glowstone,
-    MaterialType.redstone_lamp
-  ]
+  chunkMeshManager: ChunkMeshManager
 
   // other properties
-  blocks: THREE.InstancedMesh[] = []
-  blocksCount: number[] = []
-  blocksFactor = [1, 0.2, 0.1, 0.7, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-
   customBlocks: Block[] = []
   highlight: Highlight
-
-  idMap = new Map<string, number>()
-  generateWorker = new Generate()
 
   // cloud
   cloud = new THREE.InstancedMesh(
