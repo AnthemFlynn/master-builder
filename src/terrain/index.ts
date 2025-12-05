@@ -4,7 +4,6 @@ import Block from './mesh/block'
 import Highlight from './highlight'
 import { ChunkManager } from './ChunkManager'
 import { LightingEngine } from '../lighting/LightingEngine'
-import { LightDataTexture } from '../lighting/LightDataTexture'
 import { ChunkMeshManager } from './ChunkMeshManager'
 import { blockRegistry } from '../blocks'
 import Noise from './noise'
@@ -44,9 +43,6 @@ export default class Terrain {
       (x, y, z) => this.getBlockTypeAt(x, y, z)  // Callback
     )
 
-    // Initialize LightDataTexture
-    this.lightDataTexture = new LightDataTexture(this.chunkSize, 256)
-
     // Initialize ChunkMeshManager
     this.chunkMeshManager = new ChunkMeshManager(
       this.scene,
@@ -72,7 +68,6 @@ export default class Terrain {
   // lighting system
   chunkManager: ChunkManager
   lightingEngine: LightingEngine
-  lightDataTexture: LightDataTexture
   chunkMeshManager: ChunkMeshManager
 
   // other properties
