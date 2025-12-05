@@ -147,44 +147,33 @@ export class FaceBuilder {
   }
 
   /**
-   * Get vertex light (smooth lighting - calculated from geometry)
+   * Get vertex light (smooth lighting - reads from LightingEngine data)
    */
   private getVertexLight(x: number, y: number, z: number): { r: number, g: number, b: number } {
-    // Simple geometric lighting: calculate based on how exposed the vertex is to sky
-    // Check if there's a clear path upward from this position
+    // Read light from the chunk's lighting data (calculated by LightingEngine)
+    // Sample the position directly - chunk.getLight() handles bounds
 
     const blockX = Math.floor(x)
     const blockY = Math.floor(y)
     const blockZ = Math.floor(z)
 
-    // Trace upward to find if we can see the sky
-    let canSeeSky = true
-    let depth = 0
-
-    for (let checkY = blockY + 1; checkY < 256; checkY++) {
-      if (blockX >= 0 && blockX < 24 && blockZ >= 0 && blockZ < 24) {
-        const blockAbove = this.chunk.getBlockType(blockX, checkY, blockZ)
-        if (blockAbove !== -1) {
-          // Hit a solid block
-          canSeeSky = false
-          depth = checkY - blockY
-          break
-        }
-      }
+    // Bounds check
+    if (blockX < 0 || blockX >= 24 || blockY < 0 || blockY >= 256 || blockZ < 0 || blockZ >= 24) {
+      return { r: 1.0, g: 1.0, b: 1.0 }  // Out of bounds = full bright
     }
 
-    // Calculate light based on sky visibility
-    let lightLevel = 1.0
+    const light = this.chunk.getLight(blockX, blockY, blockZ)
 
-    if (!canSeeSky) {
-      // Underground - darken based on depth
-      lightLevel = Math.max(0.1, 1.0 - (depth * 0.05))
-    }
+    // Combine sky + block light (max of each channel)
+    const r = Math.max(light.sky.r, light.block.r)
+    const g = Math.max(light.sky.g, light.block.g)
+    const b = Math.max(light.sky.b, light.block.b)
 
+    // Normalize to [0, 1] range (max value is 15)
     return {
-      r: lightLevel,
-      g: lightLevel,
-      b: lightLevel
+      r: r / 15,
+      g: g / 15,
+      b: b / 15
     }
   }
 

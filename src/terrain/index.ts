@@ -102,6 +102,9 @@ export default class Terrain {
         if (!this.isChunkGenerated(chunk)) {
           this.generateChunkBlocks(chunk)
 
+          // Initialize sky shadows for this chunk
+          this.calculateInitialSkyLight(chunk)
+
           // Mark dirty for mesh building
           this.chunkMeshManager.markDirty(chunkX, chunkZ, 'block')
         }
@@ -153,6 +156,31 @@ export default class Terrain {
     // Check if any blocks exist (sample middle)
     const blockType = chunk.getBlockType(12, 128, 12)
     return blockType !== -1
+  }
+
+  /**
+   * Calculate initial sky light for a chunk (simple vertical shadow pass)
+   * This provides initial lighting before LightingEngine propagation
+   */
+  private calculateInitialSkyLight(chunk: any): void {
+    for (let x = 0; x < 24; x++) {
+      for (let z = 0; z < 24; z++) {
+        let skyLight = 15
+
+        // Scan from top to bottom
+        for (let y = 255; y >= 0; y--) {
+          const blockType = chunk.getBlockType(x, y, z)
+
+          if (blockType !== -1) {
+            // Hit solid block - no more skylight below this point
+            skyLight = 0
+          }
+
+          // Set sky light for this position (whether air or solid)
+          chunk.setLight(x, y, z, 'sky', { r: skyLight, g: skyLight, b: skyLight })
+        }
+      }
+    }
   }
 
   /**
