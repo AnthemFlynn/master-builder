@@ -102,6 +102,9 @@ export default class Terrain {
         if (!this.isChunkGenerated(chunk)) {
           this.generateChunkBlocks(chunk)
 
+          // Initialize lighting for this chunk
+          this.initializeChunkLighting(chunk)
+
           // Mark dirty for mesh building
           this.chunkMeshManager.markDirty(chunkX, chunkZ, 'block')
         }
@@ -153,6 +156,32 @@ export default class Terrain {
     // Check if any blocks exist (sample middle)
     const blockType = chunk.getBlockType(12, 128, 12)
     return blockType !== -1
+  }
+
+  /**
+   * Initialize lighting for a newly generated chunk
+   */
+  private initializeChunkLighting(chunk: any): void {
+    // Simple vertical pass: propagate sky light down from top
+    for (let localX = 0; localX < this.chunkSize; localX++) {
+      for (let localZ = 0; localZ < this.chunkSize; localZ++) {
+        let skyLight = 15  // Start at full brightness at top
+
+        // Scan from top to bottom
+        for (let localY = 255; localY >= 0; localY--) {
+          const blockType = chunk.getBlockType(localX, localY, localZ)
+
+          if (blockType !== -1) {
+            // Hit a solid block - set sky light to 0 below this point
+            skyLight = 0
+            chunk.setLight(localX, localY, localZ, 'sky', { r: 0, g: 0, b: 0 })
+          } else {
+            // Air block - use current sky light level
+            chunk.setLight(localX, localY, localZ, 'sky', { r: skyLight, g: skyLight, b: skyLight })
+          }
+        }
+      }
+    }
   }
 
   /**

@@ -151,7 +151,7 @@ export class FaceBuilder {
    */
   private getVertexLight(x: number, y: number, z: number): { r: number, g: number, b: number } {
     // Sample the block and its neighbors for smooth lighting
-    // Average up to 8 surrounding blocks (or fewer at chunk boundaries)
+    // Only sample AIR blocks - solid blocks don't contribute to vertex lighting
 
     let r = 0, g = 0, b = 0, count = 0
 
@@ -166,6 +166,12 @@ export class FaceBuilder {
           // Bounds check
           if (nx < 0 || nx >= 24 || ny < 0 || ny >= 256 || nz < 0 || nz >= 24) {
             continue
+          }
+
+          // Skip solid blocks - only sample air for lighting
+          const blockType = this.chunk.getBlockType(nx, ny, nz)
+          if (blockType !== -1) {
+            continue  // Solid block, skip it
           }
 
           const light = this.chunk.getLight(nx, ny, nz)
@@ -186,6 +192,7 @@ export class FaceBuilder {
     }
 
     // Normalize to [0, 1] range (max value is 15)
+    // If no air blocks found, default to full bright (surface blocks)
     return {
       r: count > 0 ? (r / count) / 15 : 1.0,
       g: count > 0 ? (g / count) / 15 : 1.0,
