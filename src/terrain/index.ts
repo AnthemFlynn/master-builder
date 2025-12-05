@@ -335,16 +335,13 @@ export default class Terrain {
       this.generate()
     }
 
-    // Update light texture from chunks (upload to GPU)
-    const chunks = this.chunkManager.getAllChunks()
-    for (const chunk of chunks) {
-      if (chunk.dirty) {
-        this.lightDataTexture.updateFromChunk(chunk)
-      }
-    }
+    // Propagate lighting
+    this.lightingEngine.update()
+
+    // Update chunk meshes (rebuilds dirty chunks)
+    this.chunkMeshManager.update(this.chunkManager)
 
     this.previousChunk.copy(this.chunk)
-
     this.highlight.update()
   }
 }
