@@ -143,24 +143,26 @@ export default class Terrain {
   }
 
   generate = () => {
-    this.blocksCount = new Array(this.blocks.length).fill(0)
-    // post work to generate worker
-    this.generateWorker.postMessage({
-      distance: this.distance,
-      chunk: this.chunk,
-      noiseSeed: this.noise.seed,
-      treeSeed: this.noise.treeSeed,
-      stoneSeed: this.noise.stoneSeed,
-      coalSeed: this.noise.coalSeed,
-      idMap: new Map<string, number>(),
-      blocksFactor: this.blocksFactor,
-      blocksCount: this.blocksCount,
-      customBlocks: this.customBlocks,
-      chunkSize: this.chunkSize
-    })
+    const distance = this.distance
+
+    // Generate chunks in render distance
+    for (let x = -distance; x <= distance; x++) {
+      for (let z = -distance; z <= distance; z++) {
+        const chunkX = this.chunk.x + x
+        const chunkZ = this.chunk.y + z
+        const chunk = this.chunkManager.getChunk(chunkX, chunkZ)
+
+        // Generate blocks for this chunk (if not already generated)
+        if (!this.isChunkGenerated(chunk)) {
+          this.generateChunkBlocks(chunk)
+
+          // Mark dirty for mesh building
+          this.chunkMeshManager.markDirty(chunkX, chunkZ, 'block')
+        }
+      }
+    }
 
     // cloud
-
     if (this.cloudGap++ > 5) {
       this.cloudGap = 0
       this.cloud.instanceMatrix = new THREE.InstancedBufferAttribute(
@@ -196,6 +198,58 @@ export default class Terrain {
       }
       this.cloud.instanceMatrix.needsUpdate = true
     }
+  }
+
+  /**
+   * Check if chunk has been generated
+   */
+  private isChunkGenerated(chunk: any): boolean {
+    // Check if any blocks exist (sample middle)
+    const blockType = chunk.getBlockType(12, 128, 12)
+    return blockType !== -1
+  }
+
+  /**
+   * Generate blocks for one chunk using noise
+   */
+  private generateChunkBlocks(chunk: any): void {
+    const chunkWorldX = chunk.x * this.chunkSize
+    const chunkWorldZ = chunk.z * this.chunkSize
+
+    for (let localX = 0; localX < this.chunkSize; localX++) {
+      for (let localZ = 0; localZ < this.chunkSize; localZ++) {
+        const worldX = chunkWorldX + localX
+        const worldZ = chunkWorldZ + localZ
+
+        // Calculate height using noise
+        const height = Math.floor(
+          this.noise.get(worldX / this.noise.gap, worldZ / this.noise.gap, this.noise.seed) *
+            this.noise.amp + 30
+        )
+
+        for (let localY = 0; localY < 256; localY++) {
+          const worldY = localY  // Y is not offset by chunk
+
+          let blockType: BlockType | -1 = -1  // Air
+
+          if (worldY === 0) {
+            blockType = BlockType.bedrock
+          } else if (worldY < height - 3) {
+            blockType = BlockType.stone
+          } else if (worldY < height) {
+            blockType = BlockType.dirt
+          } else if (worldY === Math.floor(height)) {
+            blockType = BlockType.grass
+          }
+
+          if (blockType !== -1) {
+            chunk.setBlockType(localX, worldY, localZ, blockType)
+          }
+        }
+      }
+    }
+
+    console.log(`🌍 Generated chunk (${chunk.x}, ${chunk.z})`)
   }
 
   // generate adjacent blocks after removing a block (vertical infinity world)
