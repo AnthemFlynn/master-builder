@@ -30,7 +30,98 @@ export class GreedyMesher {
     axis: 0 | 1 | 2,
     direction: -1 | 1
   ): void {
-    // TODO: Greedy meshing implementation
+    // Determine dimensions for this axis
+    const [u, v] = axis === 0 ? [1, 2] : axis === 1 ? [0, 2] : [0, 1]
+    const uSize = [24, 256, 24][u]
+    const vSize = [24, 256, 24][v]
+    const axisSize = [24, 256, 24][axis]
+
+    // Sweep along axis
+    for (let d = 0; d < axisSize; d++) {
+      // Build 2D mask of visible faces
+      const mask: (BlockType | null)[][] = []
+      for (let i = 0; i < uSize; i++) {
+        mask[i] = []
+        for (let j = 0; j < vSize; j++) {
+          // Convert 2D (i,j,d) to 3D (x,y,z) based on axis
+          let x = 0, y = 0, z = 0
+          if (axis === 0) { x = d; y = i; z = j }
+          else if (axis === 1) { x = i; y = d; z = j }
+          else { x = i; y = j; z = d }
+
+          mask[i][j] = this.isFaceVisible(x, y, z, axis, direction)
+        }
+      }
+
+      // Greedy merge rectangles in mask
+      for (let i = 0; i < uSize; i++) {
+        for (let j = 0; j < vSize; j++) {
+          const blockType = mask[i][j]
+          if (blockType === null) continue
+
+          // Get 3D position for lighting check
+          let baseX = 0, baseY = 0, baseZ = 0
+          if (axis === 0) { baseX = d; baseY = i; baseZ = j }
+          else if (axis === 1) { baseX = i; baseY = d; baseZ = j }
+          else { baseX = i; baseY = j; baseZ = d }
+
+          // Expand width (j direction)
+          let width = 1
+          while (j + width < vSize) {
+            // Check block type matches
+            if (mask[i][j + width] !== blockType) break
+
+            // Check lighting matches
+            let checkX = baseX, checkY = baseY, checkZ = baseZ
+            if (axis === 0) checkZ += width
+            else if (axis === 1) checkZ += width
+            else checkY += width
+
+            if (!this.lightMatches(baseX, baseY, baseZ, checkX, checkY, checkZ)) break
+
+            width++
+          }
+
+          // Expand height (i direction)
+          let height = 1
+          while (i + height < uSize) {
+            let canExpand = true
+
+            // Check entire row
+            for (let k = 0; k < width; k++) {
+              if (mask[i + height][j + k] !== blockType) {
+                canExpand = false
+                break
+              }
+
+              // Check lighting
+              let checkX = baseX, checkY = baseY, checkZ = baseZ
+              if (axis === 0) { checkY += height; checkZ += k }
+              else if (axis === 1) { checkX += height; checkZ += k }
+              else { checkX += height; checkY += k }
+
+              if (!this.lightMatches(baseX, baseY, baseZ, checkX, checkY, checkZ)) {
+                canExpand = false
+                break
+              }
+            }
+
+            if (!canExpand) break
+            height++
+          }
+
+          // Add merged quad
+          faceBuilder.addQuad(baseX, baseY, baseZ, width, height, axis, direction, blockType)
+
+          // Clear mask
+          for (let di = 0; di < height; di++) {
+            for (let dj = 0; dj < width; dj++) {
+              mask[i + di][j + dj] = null
+            }
+          }
+        }
+      }
+    }
   }
 
   /**
