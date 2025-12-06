@@ -15,7 +15,9 @@ export class ChunkManager {
 
     if (!this.chunks.has(key)) {
       const chunk = new Chunk(chunkX, chunkZ)
+      chunk.dirty = true  // Mark for GPU upload
       this.chunks.set(key, chunk)
+      console.log(`📦 New chunk (${chunkX}, ${chunkZ}) created with full sky light`)
     }
 
     return this.chunks.get(key)!

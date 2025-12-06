@@ -369,12 +369,18 @@ export default class Terrain {
       this.generate()
     }
 
-    // Update light texture from chunks (upload to GPU)
-    const chunks = this.chunkManager.getAllChunks()
-    for (const chunk of chunks) {
-      if (chunk.dirty) {
-        this.lightDataTexture.updateFromChunk(chunk)
-      }
+    // Propagate lighting
+    this.lightingEngine.update()
+
+    // Update light texture - ONLY camera's current chunk (0,0 for now)
+    // NOTE: This is a temporary fix. Proper solution is vertex colors + greedy meshing
+    const cameraChunk = this.chunkManager.getChunk(
+      Math.floor(this.camera.position.x / this.chunkSize),
+      Math.floor(this.camera.position.z / this.chunkSize)
+    )
+    if (cameraChunk) {
+      cameraChunk.dirty = true  // Force update
+      this.lightDataTexture.updateFromChunk(cameraChunk)
     }
 
     this.previousChunk.copy(this.chunk)

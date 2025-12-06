@@ -33,6 +33,11 @@ const control = new Control(scene, camera, player, terrain, audio, timeOfDay, in
 
 const ui = new UI(terrain, control, timeOfDay, inputManager)
 
+// DEBUG: Expose for browser console debugging
+;(window as any).scene = scene
+;(window as any).terrain = terrain
+;(window as any).camera = camera
+
 // animation
 ;(function animate() {
   // let p1 = performance.now()

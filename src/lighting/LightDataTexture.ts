@@ -22,24 +22,26 @@ export class LightDataTexture {
     // Texture width = chunkSize * 2 (side-by-side layout)
     const textureWidth = this.width * 2  // Double width for 2 texels per block
     const textureHeight = this.height * this.depth
-    const size = textureWidth * textureHeight * 3  // 3 bytes per texel (RGB)
+    const size = textureWidth * textureHeight * 4  // 4 bytes per texel (RGBA)
 
     this.data = new Uint8Array(size)
 
-    // Initialize: First half = sky (15,15,15), second half = block (0,0,0)
+    // Initialize: First half = sky (15,15,15,255), second half = block (0,0,0,255)
     for (let y = 0; y < textureHeight; y++) {
       for (let x = 0; x < this.width; x++) {
         // Sky light (left half of texture)
-        const skyIndex = (y * textureWidth + x) * 3
+        const skyIndex = (y * textureWidth + x) * 4
         this.data[skyIndex] = 15
         this.data[skyIndex + 1] = 15
         this.data[skyIndex + 2] = 15
+        this.data[skyIndex + 3] = 255  // Alpha
 
         // Block light (right half of texture)
-        const blockIndex = (y * textureWidth + (x + this.width)) * 3
+        const blockIndex = (y * textureWidth + (x + this.width)) * 4
         this.data[blockIndex] = 0
         this.data[blockIndex + 1] = 0
         this.data[blockIndex + 2] = 0
+        this.data[blockIndex + 3] = 255  // Alpha
       }
     }
 
@@ -48,7 +50,7 @@ export class LightDataTexture {
       this.data,
       textureWidth,
       textureHeight,
-      THREE.RGBFormat,
+      THREE.RGBAFormat,  // Use RGBA for Three.js 0.181+
       THREE.UnsignedByteType
     )
 
@@ -80,16 +82,18 @@ export class LightDataTexture {
           const v = y * this.depth + z
 
           // Sky light (left half of texture)
-          const skyIndex = (v * textureWidth + x) * 3
+          const skyIndex = (v * textureWidth + x) * 4
           this.data[skyIndex] = light.sky.r
           this.data[skyIndex + 1] = light.sky.g
           this.data[skyIndex + 2] = light.sky.b
+          this.data[skyIndex + 3] = 255  // Alpha
 
           // Block light (right half of texture, offset by width)
-          const blockIndex = (v * textureWidth + (x + this.width)) * 3
+          const blockIndex = (v * textureWidth + (x + this.width)) * 4
           this.data[blockIndex] = light.block.r
           this.data[blockIndex + 1] = light.block.g
           this.data[blockIndex + 2] = light.block.b
+          this.data[blockIndex + 3] = 255  // Alpha
         }
       }
     }
