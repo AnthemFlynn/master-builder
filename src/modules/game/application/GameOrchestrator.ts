@@ -49,9 +49,9 @@ export class GameOrchestrator {
     private scene: THREE.Scene,
     private camera: THREE.PerspectiveCamera
   ) {
-    // Create camera controls
+    // Create camera controls (camera already in scene from Core)
     this.cameraControls = new PointerLockControls(camera, document.body)
-    this.scene.add(this.cameraControls.getObject())
+
     // Create infrastructure
     this.commandBus = new CommandBus()
     this.eventBus = new EventBus()
