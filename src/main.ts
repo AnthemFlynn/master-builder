@@ -1,7 +1,7 @@
 import Core from './core'
 import Control from './control'
 import Player from './player'
-// import Terrain from './terrain'  // OLD: Deprecated
+import Terrain from './terrain'  // Keep for Control/UI compatibility (strangler pattern)
 import { TerrainOrchestrator } from './modules/terrain/application/TerrainOrchestrator'
 import UI from './ui'
 import Audio from './audio'
@@ -29,20 +29,25 @@ const timeOfDay = core.timeOfDay
 const player = new Player()
 const audio = new Audio(camera)
 
-const terrain = new TerrainOrchestrator(scene, camera)
-// Enable debug tracing (can disable later)
-// terrain.enableEventTracing()
+// STRANGLER PATTERN: Run both systems in parallel
+// Old Terrain for Control/UI compatibility
+const terrain = new Terrain(scene, camera)
+
+// New hexagonal architecture (runs alongside)
+const terrainOrchestrator = new TerrainOrchestrator(scene, camera)
 
 // Expose for debugging
 if (typeof window !== 'undefined') {
-  (window as any).terrain = terrain
+  (window as any).terrain = terrain  // Old API for compatibility
+  (window as any).terrainOrchestrator = terrainOrchestrator
   (window as any).debug = {
-    enableTracing: () => terrain.enableEventTracing(),
-    replayCommands: (from: number) => terrain.replayCommands(from),
-    getCommandLog: () => terrain.getCommandLog()
+    enableTracing: () => terrainOrchestrator.enableEventTracing(),
+    replayCommands: (from: number) => terrainOrchestrator.replayCommands(from),
+    getCommandLog: () => terrainOrchestrator.getCommandLog()
   }
 
   console.log('🐛 Debug helpers available: window.debug.enableTracing()')
+  console.log('⚠️ STRANGLER PATTERN: Both terrain systems running (old + new hexagonal)')
 }
 
 const control = new Control(scene, camera, player, terrain, audio, timeOfDay, inputManager)
@@ -55,10 +60,11 @@ const ui = new UI(terrain, control, timeOfDay, inputManager)
   requestAnimationFrame(animate)
 
   control.update()
-  terrain.update()  // NEW: TerrainOrchestrator.update()
+  terrain.update()  // OLD: Keep for now (strangler pattern)
+  terrainOrchestrator.update()  // NEW: Hexagonal architecture
   ui.update()
   timeOfDay.update()
-  // terrain.lightingEngine.update() removed - now event-driven
+  terrain.lightingEngine.update()  // OLD: Keep for now
 
   renderer.render(scene, camera)
   // console.log(performance.now()-p1)
