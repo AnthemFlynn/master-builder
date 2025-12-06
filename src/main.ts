@@ -48,6 +48,12 @@ const terrainStub = {
     amp: 8
   },
   lightingEngine: { update: () => {} },
+  chunkManager: {
+    worldToChunk: () => ({ chunkX: 0, chunkZ: 0, localX: 0, localY: 0, localZ: 0 }),
+    getLightAt: () => ({ sky: { r: 15, g: 15, b: 15 }, block: { r: 0, g: 0, b: 0 } }),
+    getAllChunks: () => [],
+    getTotalMemoryUsage: () => 0
+  },
   camera: camera,
   scene: scene,
   distance: 3,
