@@ -69,17 +69,23 @@ if (typeof window !== 'undefined') {
     (window as any).terrain = terrain
     console.log('🔍 DEBUG: window.terrain assigned successfully')
 
-    (window as any).debug = {
-      enableTracing: () => terrain.enableEventTracing(),
-      replayCommands: (from: number) => terrain.replayCommands(from),
-      getCommandLog: () => terrain.getCommandLog()
+    try {
+      (window as any).debug = {
+        enableTracing: () => terrain.enableEventTracing(),
+        replayCommands: (from: number) => terrain.replayCommands(from),
+        getCommandLog: () => terrain.getCommandLog()
+      }
+      console.log('🔍 DEBUG: window.debug assigned successfully')
+    } catch (debugError) {
+      console.error('❌ ERROR creating window.debug:', debugError)
+      // Create simpler version
+      (window as any).debug = { error: 'Failed to create debug helpers' }
     }
-    console.log('🔍 DEBUG: window.debug assigned successfully')
 
     console.log('✅ Hexagonal architecture active (old system removed)')
-    console.log('🐛 Debug: window.debug.enableTracing()')
+    console.log('🐛 Debug: window.debug available')
   } catch (e) {
-    console.error('❌ ERROR during window assignment:', e)
+    console.error('❌ ERROR during window.terrain assignment:', e)
   }
 }
 
