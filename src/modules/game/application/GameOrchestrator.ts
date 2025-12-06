@@ -1,11 +1,11 @@
-// src/modules/terrain/application/TerrainOrchestrator.ts
+// src/modules/game/application/GameOrchestrator.ts
 import * as THREE from 'three'
 import { WorldService } from '../../world/application/WorldService'
 import { LightingService } from '../../world/lighting-application/LightingService'
 import { MeshingService } from '../../rendering/meshing-application/MeshingService'
 import { RenderingService } from '../../rendering/application/RenderingService'
-import { CommandBus } from './CommandBus'
-import { EventBus } from './EventBus'
+import { CommandBus } from '../infrastructure/CommandBus'
+import { EventBus } from '../infrastructure/EventBus'
 import { GenerateChunkHandler } from './handlers/GenerateChunkHandler'
 import { PlaceBlockHandler } from './handlers/PlaceBlockHandler'
 import { GenerateChunkCommand } from '../domain/commands/GenerateChunkCommand'
@@ -13,13 +13,16 @@ import { PlaceBlockCommand } from '../domain/commands/PlaceBlockCommand'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
 import { NoiseGenerator } from '../../world/adapters/NoiseGenerator'
 
-export class TerrainOrchestrator {
+export class GameOrchestrator {
+  // Infrastructure
+  public commandBus: CommandBus
+  public eventBus: EventBus
+
+  // Services
   private worldService: WorldService
   private lightingService: LightingService
   private meshingService: MeshingService
   private renderingService: RenderingService
-  private commandBus: CommandBus
-  private eventBus: EventBus
 
   private currentChunk = new ChunkCoordinate(0, 0)
   private previousChunk = new ChunkCoordinate(0, 0)
@@ -33,7 +36,7 @@ export class TerrainOrchestrator {
     this.commandBus = new CommandBus()
     this.eventBus = new EventBus()
 
-    // Create modules
+    // Create services
     this.worldService = new WorldService()
     this.lightingService = new LightingService(this.worldService, this.eventBus)
     this.meshingService = new MeshingService(this.worldService, this.lightingService, this.eventBus)
@@ -50,32 +53,29 @@ export class TerrainOrchestrator {
       new PlaceBlockHandler(this.worldService, this.eventBus)
     )
 
-    console.log('✅ TerrainOrchestrator initialized with hexagonal architecture')
+    console.log('✅ GameOrchestrator initialized')
 
-    // Generate initial chunks on startup
+    // Generate initial chunks
     const initialChunk = new ChunkCoordinate(
       Math.floor(this.camera.position.x / 24),
       Math.floor(this.camera.position.z / 24)
     )
     this.generateChunksInRenderDistance(initialChunk)
     this.previousChunk = initialChunk
-    console.log(`🌍 Generating initial ${(this.renderDistance * 2 + 1) ** 2} chunks around player`)
   }
 
   update(): void {
-    // Update current chunk based on camera
+    // Update chunks
     const newChunk = new ChunkCoordinate(
       Math.floor(this.camera.position.x / 24),
       Math.floor(this.camera.position.z / 24)
     )
 
-    // Generate chunks when entering new area
     if (!newChunk.equals(this.previousChunk)) {
       this.generateChunksInRenderDistance(newChunk)
       this.previousChunk = newChunk
     }
 
-    // Process dirty mesh rebuilds (budgeted)
     this.meshingService.processDirtyQueue()
   }
 
@@ -89,7 +89,6 @@ export class TerrainOrchestrator {
           centerChunk.z + z
         )
 
-        // Send command to generate
         this.commandBus.send(
           new GenerateChunkCommand(coord, this.renderDistance)
         )
@@ -97,7 +96,12 @@ export class TerrainOrchestrator {
     }
   }
 
-  // Public API for debugging
+  // Expose services via getters (ports pattern)
+  getWorldService(): WorldService {
+    return this.worldService
+  }
+
+  // Debug
   enableEventTracing(): void {
     this.eventBus.enableTracing()
   }

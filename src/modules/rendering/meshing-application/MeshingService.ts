@@ -1,9 +1,9 @@
-// src/modules/meshing/application/MeshingService.ts
+// src/modules/rendering/meshing-application/MeshingService.ts
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
 import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
-import { EventBus } from '../../terrain/application/EventBus'
+import { EventBus } from '../../game/infrastructure/EventBus'
 import { GreedyMesher } from './GreedyMesher'
 import { VertexBuilder } from './VertexBuilder'
 

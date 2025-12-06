@@ -1,8 +1,8 @@
-// src/modules/terrain/application/handlers/PlaceBlockHandler.ts
+// src/modules/game/application/handlers/PlaceBlockHandler.ts
 import { CommandHandler } from '../../domain/commands/Command'
 import { PlaceBlockCommand } from '../../domain/commands/PlaceBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'
-import { EventBus } from '../EventBus'
+import { EventBus } from '../../infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
 
 export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {

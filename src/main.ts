@@ -2,7 +2,7 @@ import Core from './core'
 import Control from './control'
 import Player from './player'
 // import Terrain from './terrain'  // REMOVED: Using hexagonal architecture only
-import { TerrainOrchestrator } from './modules/terrain/application/TerrainOrchestrator'
+import { GameOrchestrator } from './modules/game'
 import UI from './ui'
 import Audio from './audio'
 import InputManager from './input/InputManager'
@@ -31,7 +31,7 @@ const player = new Player()
 const audio = new Audio(camera)
 
 // NEW HEXAGONAL ARCHITECTURE ONLY
-const terrain = new TerrainOrchestrator(scene, camera)
+const game = new GameOrchestrator(scene, camera)
 
 // Create stub for Control/UI compatibility (temporary until they're migrated)
 const terrainStub = {
@@ -61,11 +61,11 @@ const terrainStub = {
 
 // Expose for debugging
 if (typeof window !== 'undefined') {
-  (window as any).terrain = terrain
+  (window as any).game = game
   (window as any).debug = {
-    enableTracing: () => terrain.enableEventTracing(),
-    replayCommands: (from: number) => terrain.replayCommands(from),
-    getCommandLog: () => terrain.getCommandLog()
+    enableTracing: () => game.enableEventTracing(),
+    replayCommands: (from: number) => game.replayCommands(from),
+    getCommandLog: () => game.getCommandLog()
   }
 
   console.log('✅ Hexagonal architecture active')
@@ -87,7 +87,7 @@ const ui = new UI(terrainStub as any, control, timeOfDay, inputManager)
   requestAnimationFrame(animate)
 
   control.update()
-  terrain.update()  // NEW: Hexagonal architecture
+  game.update()  // NEW: GameOrchestrator
   ui.update()
   timeOfDay.update()
   // Old lightingEngine removed - now event-driven

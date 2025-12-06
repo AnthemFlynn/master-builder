@@ -1,7 +1,7 @@
 // src/modules/rendering/application/ChunkRenderer.ts
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
-import { EventBus } from '../../terrain/application/EventBus'
+import { EventBus } from '../../game/infrastructure/EventBus'
 
 export class ChunkRenderer {
   private meshes = new Map<string, THREE.Mesh>()

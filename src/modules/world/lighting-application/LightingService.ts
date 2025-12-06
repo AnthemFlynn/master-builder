@@ -1,11 +1,11 @@
-// src/modules/lighting/application/LightingService.ts
-import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
-import { LightData } from '../domain/LightData'
-import { LightValue } from '../domain/LightValue'
-import { ILightingQuery } from '../ports/ILightingQuery'
+// src/modules/world/lighting-application/LightingService.ts
+import { ChunkCoordinate } from '../domain/ChunkCoordinate'
+import { IVoxelQuery } from '../ports/IVoxelQuery'
+import { LightData } from '../lighting-domain/LightData'
+import { LightValue } from '../lighting-domain/LightValue'
+import { ILightingQuery } from '../lighting-ports/ILightingQuery'
 import { LightingPipeline } from './LightingPipeline'
-import { EventBus } from '../../terrain/application/EventBus'
+import { EventBus } from '../../game/infrastructure/EventBus'
 
 export class LightingService implements ILightingQuery {
   private lightDataMap = new Map<string, LightData>()
