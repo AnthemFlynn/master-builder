@@ -2,7 +2,7 @@
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
-import { ILightingQuery } from '../../lighting/ports/ILightingQuery'
+import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
 import { EventBus } from '../../terrain/application/EventBus'
 import { GreedyMesher } from './GreedyMesher'
 import { VertexBuilder } from './VertexBuilder'

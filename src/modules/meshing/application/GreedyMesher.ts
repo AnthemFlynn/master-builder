@@ -1,6 +1,6 @@
 // src/modules/meshing/application/GreedyMesher.ts
 import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
-import { ILightingQuery } from '../../lighting/ports/ILightingQuery'
+import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
 import { VertexBuilder } from './VertexBuilder'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
 

@@ -1,8 +1,8 @@
 // src/modules/meshing/application/VertexBuilder.ts
 import * as THREE from 'three'
 import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
-import { ILightingQuery } from '../../lighting/ports/ILightingQuery'
-import { normalizeLightToColor, combineLightChannels } from '../../lighting/domain/LightValue'
+import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
+import { normalizeLightToColor, combineLightChannels } from '../../world/lighting-domain/LightValue'
 
 export class VertexBuilder {
   private positions: number[] = []

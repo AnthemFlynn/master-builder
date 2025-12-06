@@ -1,7 +1,7 @@
 // src/modules/terrain/application/TerrainOrchestrator.ts
 import * as THREE from 'three'
 import { WorldService } from '../../world/application/WorldService'
-import { LightingService } from '../../lighting/application/LightingService'
+import { LightingService } from '../../world/lighting-application/LightingService'
 import { MeshingService } from '../../meshing/application/MeshingService'
 import { RenderingService } from '../../rendering/application/RenderingService'
 import { CommandBus } from './CommandBus'
