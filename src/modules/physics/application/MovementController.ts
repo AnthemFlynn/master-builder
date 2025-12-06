@@ -43,7 +43,33 @@ export class MovementController {
 
     } else {
       // Walking mode - apply gravity and collision
-      // (Full implementation would go here - physics, jumping, etc.)
+      const speed = this.player.getSpeed()
+
+      // Apply gravity
+      this.velocity.y -= this.gravity * deltaTime
+
+      // Horizontal movement
+      if (movement.forward !== 0) {
+        camera.getWorldDirection(this.velocity)
+        this.velocity.y = 0
+        this.velocity.normalize()
+        position.add(this.velocity.multiplyScalar(movement.forward * speed))
+      }
+
+      if (movement.strafe !== 0) {
+        const right = new THREE.Vector3()
+        right.crossVectors(camera.up, camera.getWorldDirection(new THREE.Vector3()))
+        position.add(right.multiplyScalar(movement.strafe * speed))
+      }
+
+      // Apply vertical velocity (gravity/jumping)
+      position.y += this.velocity.y * deltaTime
+
+      // Simple ground collision - stop falling at y=32
+      if (position.y <= 32) {
+        position.y = 32
+        this.velocity.y = 0
+      }
     }
 
     return position

@@ -11,8 +11,8 @@ export class PlayerState {
 
   constructor() {
     this.position = new THREE.Vector3(8, 40, 8)
-    this.mode = PlayerMode.Flying  // Start in flying mode (walking physics not implemented yet)
-    this.speed = 0.08
+    this.mode = PlayerMode.Walking
+    this.speed = 0.05
     this.falling = false
     this.jumpVelocity = 0
   }
