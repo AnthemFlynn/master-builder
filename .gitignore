@@ -26,6 +26,9 @@ dist-ssr
 # Git worktrees
 .worktrees/
 
+# Sessions
+.sessions/
+
 # Environment
 .env
 .env.local
