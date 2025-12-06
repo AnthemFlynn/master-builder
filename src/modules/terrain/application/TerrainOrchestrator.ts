@@ -51,6 +51,15 @@ export class TerrainOrchestrator {
     )
 
     console.log('✅ TerrainOrchestrator initialized with hexagonal architecture')
+
+    // Generate initial chunks on startup
+    const initialChunk = new ChunkCoordinate(
+      Math.floor(this.camera.position.x / 24),
+      Math.floor(this.camera.position.z / 24)
+    )
+    this.generateChunksInRenderDistance(initialChunk)
+    this.previousChunk = initialChunk
+    console.log(`🌍 Generating initial ${(this.renderDistance * 2 + 1) ** 2} chunks around player`)
   }
 
   update(): void {
