@@ -69,15 +69,26 @@ const terrainStub = {
 
 // Expose for debugging
 if (typeof window !== 'undefined') {
-  (window as any).terrain = terrain
-  (window as any).debug = {
-    enableTracing: () => terrain.enableEventTracing(),
-    replayCommands: (from: number) => terrain.replayCommands(from),
-    getCommandLog: () => terrain.getCommandLog()
-  }
+  console.log('🔍 DEBUG: About to assign window.terrain, terrain type:', typeof terrain)
+  console.log('🔍 DEBUG: terrain object:', terrain)
+  console.log('🔍 DEBUG: terrain.enableEventTracing type:', typeof terrain?.enableEventTracing)
 
-  console.log('✅ Hexagonal architecture active (old system removed)')
-  console.log('🐛 Debug: window.debug.enableTracing()')
+  try {
+    (window as any).terrain = terrain
+    console.log('🔍 DEBUG: window.terrain assigned successfully')
+
+    (window as any).debug = {
+      enableTracing: () => terrain.enableEventTracing(),
+      replayCommands: (from: number) => terrain.replayCommands(from),
+      getCommandLog: () => terrain.getCommandLog()
+    }
+    console.log('🔍 DEBUG: window.debug assigned successfully')
+
+    console.log('✅ Hexagonal architecture active (old system removed)')
+    console.log('🐛 Debug: window.debug.enableTracing()')
+  } catch (e) {
+    console.error('❌ ERROR during window assignment:', e)
+  }
 }
 
 const control = new Control(scene, camera, player, terrainStub as any, audio, timeOfDay, inputManager)
