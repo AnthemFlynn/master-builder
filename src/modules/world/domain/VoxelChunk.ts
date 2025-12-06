@@ -10,6 +10,12 @@ export class VoxelChunk {
   constructor(coord: ChunkCoordinate) {
     this.coord = coord
     const arraySize = this.size * this.height * this.size
+
+    if (!Number.isFinite(arraySize) || arraySize <= 0) {
+      console.error(`❌ VoxelChunk: Invalid arraySize=${arraySize} for coord (${coord.x}, ${coord.z})`)
+      throw new Error(`Invalid array size: ${arraySize}`)
+    }
+
     this.blockTypes = new Int8Array(arraySize).fill(-1)  // Air initially
   }
 

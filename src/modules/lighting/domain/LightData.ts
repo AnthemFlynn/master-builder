@@ -18,6 +18,11 @@ export class LightData {
     this.coord = coord
     const arraySize = this.size * this.height * this.size
 
+    if (!Number.isFinite(arraySize) || arraySize <= 0) {
+      console.error(`❌ LightData: Invalid arraySize=${arraySize} for coord (${coord.x}, ${coord.z})`)
+      throw new Error(`Invalid array size: ${arraySize}`)
+    }
+
     // Initialize to 0 (will be calculated by lighting pipeline)
     this.skyLightR = new Uint8Array(arraySize)
     this.skyLightG = new Uint8Array(arraySize)
