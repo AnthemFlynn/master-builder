@@ -1,11 +1,13 @@
 import Core from './core'
 import Control from './control'
 import Player from './player'
-import Terrain from './terrain'
+// import Terrain from './terrain'  // REMOVED: Using hexagonal architecture only
+import { TerrainOrchestrator } from './modules/terrain/application/TerrainOrchestrator'
 import UI from './ui'
 import Audio from './audio'
 import InputManager from './input/InputManager'
 import { DEFAULT_ACTIONS } from './input/defaultBindings'
+import Noise from './game/Noise'
 
 import './style.css'
 
@@ -28,10 +30,51 @@ const timeOfDay = core.timeOfDay
 const player = new Player()
 const audio = new Audio(camera)
 
-const terrain = new Terrain(scene, camera)
-const control = new Control(scene, camera, player, terrain, audio, timeOfDay, inputManager)
+// NEW HEXAGONAL ARCHITECTURE ONLY
+const terrain = new TerrainOrchestrator(scene, camera)
 
-const ui = new UI(terrain, control, timeOfDay, inputManager)
+// Create stub for Control/UI compatibility (temporary until they're migrated)
+const terrainStub = {
+  blocks: [],
+  materials: new Map(),
+  customBlocks: [],
+  noise: new Noise(),  // FIX: Use actual Noise instance with get() method
+  lightingEngine: { update: () => {} },
+  chunkManager: {
+    worldToChunk: () => ({ chunkX: 0, chunkZ: 0, localX: 0, localY: 0, localZ: 0 }),
+    getLightAt: () => ({ sky: { r: 15, g: 15, b: 15 }, block: { r: 0, g: 0, b: 0 } }),
+    getAllChunks: () => [],
+    getTotalMemoryUsage: () => 0
+  },
+  camera: camera,
+  scene: scene,
+  distance: 3,
+  chunkSize: 24,
+  initBlocks: () => { console.log('⚠️ terrainStub.initBlocks() called - noop') },
+  generate: () => { console.log('⚠️ terrainStub.generate() called - noop') },
+  generateAdjacentBlocks: () => {},
+  getCount: () => 0,
+  setCount: () => {},
+  materialType: [],
+  update: () => {}  // Add update method
+}
+
+// Expose for debugging
+if (typeof window !== 'undefined') {
+  (window as any).terrain = terrain
+  (window as any).debug = {
+    enableTracing: () => terrain.enableEventTracing(),
+    replayCommands: (from: number) => terrain.replayCommands(from),
+    getCommandLog: () => terrain.getCommandLog()
+  }
+
+  console.log('✅ Hexagonal architecture active')
+  console.log('🐛 Debug: window.debug.enableTracing()')
+}
+
+const control = new Control(scene, camera, player, terrainStub as any, audio, timeOfDay, inputManager)
+
+const ui = new UI(terrainStub as any, control, timeOfDay, inputManager)
 
 // DEBUG: Expose for browser console debugging
 ;(window as any).scene = scene
@@ -44,10 +87,10 @@ const ui = new UI(terrain, control, timeOfDay, inputManager)
   requestAnimationFrame(animate)
 
   control.update()
-  terrain.update()
+  terrain.update()  // NEW: Hexagonal architecture
   ui.update()
   timeOfDay.update()
-  terrain.lightingEngine.update()  // NEW: Process light queue
+  // Old lightingEngine removed - now event-driven
 
   renderer.render(scene, camera)
   // console.log(performance.now()-p1)

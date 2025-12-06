@@ -4,11 +4,9 @@ import Block from './mesh/block'
 import Highlight from './highlight'
 import { ChunkManager } from './ChunkManager'
 import { LightingEngine } from '../lighting/LightingEngine'
-import { LightDataTexture } from '../lighting/LightDataTexture'
+import { ChunkMeshManager } from './ChunkMeshManager'
 import { blockRegistry } from '../blocks'
 import Noise from './noise'
-
-import Generate from './worker/generate?worker'
 
 export enum BlockType {
   grass = 0,
@@ -45,35 +43,12 @@ export default class Terrain {
       (x, y, z) => this.getBlockTypeAt(x, y, z)  // Callback
     )
 
-    // Initialize LightDataTexture
-    this.lightDataTexture = new LightDataTexture(this.chunkSize, 256)
-
-    // Wire light texture to materials (after materials are created)
-    this.materials.setLightTexture(this.lightDataTexture.getTexture())
-
-    // generate worker callback handler
-    this.generateWorker.onmessage = (
-      msg: MessageEvent<{
-        idMap: Map<string, number>
-        arrays: ArrayLike<number>[]
-        blocksCount: number[]
-      }>
-    ) => {
-      this.resetBlocks()
-      this.idMap = msg.data.idMap
-      this.blocksCount = msg.data.blocksCount
-
-      for (let i = 0; i < msg.data.arrays.length; i++) {
-        this.blocks[i].instanceMatrix = new THREE.InstancedBufferAttribute(
-          (this.blocks[i].instanceMatrix.array = msg.data.arrays[i]),
-          16
-        )
-      }
-
-      for (const block of this.blocks) {
-        block.instanceMatrix.needsUpdate = true
-      }
-    }
+    // Initialize ChunkMeshManager
+    this.chunkMeshManager = new ChunkMeshManager(
+      this.scene,
+      this.materials.get(MaterialType.grass) as THREE.Material  // Shared material for now
+    )
+    console.log('✅ ChunkMeshManager initialized')
   }
   // core properties
   scene: THREE.Scene
@@ -93,34 +68,11 @@ export default class Terrain {
   // lighting system
   chunkManager: ChunkManager
   lightingEngine: LightingEngine
-  lightDataTexture: LightDataTexture
-  materialType = [
-    MaterialType.grass,
-    MaterialType.sand,
-    MaterialType.tree,
-    MaterialType.leaf,
-    MaterialType.dirt,
-    MaterialType.stone,
-    MaterialType.coal,
-    MaterialType.wood,
-    MaterialType.diamond,
-    MaterialType.quartz,
-    MaterialType.glass,
-    MaterialType.bedrock,
-    MaterialType.glowstone,
-    MaterialType.redstone_lamp
-  ]
+  chunkMeshManager: ChunkMeshManager
 
   // other properties
-  blocks: THREE.InstancedMesh[] = []
-  blocksCount: number[] = []
-  blocksFactor = [1, 0.2, 0.1, 0.7, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-
   customBlocks: Block[] = []
   highlight: Highlight
-
-  idMap = new Map<string, number>()
-  generateWorker = new Generate()
 
   // cloud
   cloud = new THREE.InstancedMesh(
@@ -135,75 +87,31 @@ export default class Terrain {
   cloudCount = 0
   cloudGap = 5
 
-  getCount = (type: BlockType) => {
-    return this.blocksCount[type]
-  }
-
-  setCount = (type: BlockType) => {
-    this.blocksCount[type] = this.blocksCount[type] + 1
-  }
-
-  initBlocks = () => {
-    // reset
-    for (const block of this.blocks) {
-      this.scene.remove(block)
-    }
-    this.blocks = []
-
-    // create instance meshes
-    const geometry = new THREE.BoxGeometry()
-
-    for (let i = 0; i < this.materialType.length; i++) {
-      let block = new THREE.InstancedMesh(
-        geometry,
-        this.materials.get(this.materialType[i]),
-        this.maxCount * this.blocksFactor[i]
-      )
-      block.name = BlockType[i]
-      block.castShadow = true
-      block.receiveShadow = true
-
-      // CRITICAL: InstancedMesh requires customDepthMaterial for proper shadow support
-      block.customDepthMaterial = new THREE.MeshDepthMaterial({
-        depthPacking: THREE.RGBADepthPacking
-      })
-
-      this.blocks.push(block)
-      this.scene.add(block)
-    }
-
-    this.blocksCount = new Array(this.materialType.length).fill(0)
-  }
-
-  resetBlocks = () => {
-    // reest count and instance matrix
-    for (let i = 0; i < this.blocks.length; i++) {
-      this.blocks[i].instanceMatrix = new THREE.InstancedBufferAttribute(
-        new Float32Array(this.maxCount * this.blocksFactor[i] * 16),
-        16
-      )
-    }
-  }
 
   generate = () => {
-    this.blocksCount = new Array(this.blocks.length).fill(0)
-    // post work to generate worker
-    this.generateWorker.postMessage({
-      distance: this.distance,
-      chunk: this.chunk,
-      noiseSeed: this.noise.seed,
-      treeSeed: this.noise.treeSeed,
-      stoneSeed: this.noise.stoneSeed,
-      coalSeed: this.noise.coalSeed,
-      idMap: new Map<string, number>(),
-      blocksFactor: this.blocksFactor,
-      blocksCount: this.blocksCount,
-      customBlocks: this.customBlocks,
-      chunkSize: this.chunkSize
-    })
+    const distance = this.distance
+
+    // Generate chunks in render distance
+    for (let x = -distance; x <= distance; x++) {
+      for (let z = -distance; z <= distance; z++) {
+        const chunkX = this.chunk.x + x
+        const chunkZ = this.chunk.y + z
+        const chunk = this.chunkManager.getChunk(chunkX, chunkZ)
+
+        // Generate blocks for this chunk (if not already generated)
+        if (!this.isChunkGenerated(chunk)) {
+          this.generateChunkBlocks(chunk)
+
+          // Initialize sky shadows for this chunk
+          this.calculateInitialSkyLight(chunk)
+
+          // Mark dirty for mesh building
+          this.chunkMeshManager.markDirty(chunkX, chunkZ, 'block')
+        }
+      }
+    }
 
     // cloud
-
     if (this.cloudGap++ > 5) {
       this.cloudGap = 0
       this.cloud.instanceMatrix = new THREE.InstancedBufferAttribute(
@@ -241,6 +149,83 @@ export default class Terrain {
     }
   }
 
+  /**
+   * Check if chunk has been generated
+   */
+  private isChunkGenerated(chunk: any): boolean {
+    // Check if any blocks exist (sample middle)
+    const blockType = chunk.getBlockType(12, 128, 12)
+    return blockType !== -1
+  }
+
+  /**
+   * Calculate initial sky light for a chunk (simple vertical shadow pass)
+   * This provides initial lighting before LightingEngine propagation
+   */
+  private calculateInitialSkyLight(chunk: any): void {
+    for (let x = 0; x < 24; x++) {
+      for (let z = 0; z < 24; z++) {
+        let skyLight = 15
+
+        // Scan from top to bottom
+        for (let y = 255; y >= 0; y--) {
+          const blockType = chunk.getBlockType(x, y, z)
+
+          if (blockType !== -1) {
+            // Hit solid block - no more skylight below this point
+            skyLight = 0
+          }
+
+          // Set sky light for this position (whether air or solid)
+          chunk.setLight(x, y, z, 'sky', { r: skyLight, g: skyLight, b: skyLight })
+        }
+      }
+    }
+  }
+
+  /**
+   * Generate blocks for one chunk using noise
+   */
+  private generateChunkBlocks(chunk: any): void {
+    const chunkWorldX = chunk.x * this.chunkSize
+    const chunkWorldZ = chunk.z * this.chunkSize
+
+    for (let localX = 0; localX < this.chunkSize; localX++) {
+      for (let localZ = 0; localZ < this.chunkSize; localZ++) {
+        const worldX = chunkWorldX + localX
+        const worldZ = chunkWorldZ + localZ
+
+        // Calculate height using noise
+        const height = Math.floor(
+          this.noise.get(worldX / this.noise.gap, worldZ / this.noise.gap, this.noise.seed) *
+            this.noise.amp + 30
+        )
+
+        for (let localY = 0; localY < 256; localY++) {
+          const worldY = localY  // Y is not offset by chunk
+
+          let blockType: BlockType | -1 = -1  // Air
+
+          if (worldY === 0) {
+            blockType = BlockType.bedrock
+          } else if (worldY < height - 3) {
+            blockType = BlockType.stone
+          } else if (worldY < height) {
+            blockType = BlockType.dirt
+          } else if (worldY === Math.floor(height)) {
+            blockType = BlockType.grass
+          }
+
+          if (blockType !== -1) {
+            chunk.setBlockType(localX, worldY, localZ, blockType)
+          }
+        }
+      }
+    }
+
+    console.log(`🌍 Generated chunk (${chunk.x}, ${chunk.z})`)
+  }
+
   // generate adjacent blocks after removing a block (vertical infinity world)
   generateAdjacentBlocks = (position: THREE.Vector3) => {
     const { x, y, z } = position
@@ -275,8 +260,6 @@ export default class Terrain {
     this.buildBlock(new THREE.Vector3(x + 1, y, z), type)
     this.buildBlock(new THREE.Vector3(x, y, z - 1), type)
     this.buildBlock(new THREE.Vector3(x, y, z + 1), type)
-
-    this.blocks[type].instanceMatrix.needsUpdate = true
   }
 
   buildBlock = (position: THREE.Vector3, type: BlockType, ignoreHeightCheck = false) => {
@@ -311,11 +294,23 @@ export default class Terrain {
       new Block(position.x, position.y, position.z, type, true)
     )
 
-    const matrix = new THREE.Matrix4()
-    matrix.setPosition(position)
-    this.blocks[type].setMatrixAt(this.getCount(type), matrix)
-    this.blocks[type].instanceMatrix.needsUpdate = true
-    this.setCount(type)
+    // Store block type in chunk
+    const worldToChunk = this.chunkManager.worldToChunk(
+      Math.floor(position.x),
+      Math.floor(position.y),
+      Math.floor(position.z)
+    )
+    const chunk = this.chunkManager.getChunk(worldToChunk.chunkX, worldToChunk.chunkZ)
+    chunk.setBlockType(worldToChunk.localX, worldToChunk.localY, worldToChunk.localZ, type)
+
+    // Mark chunk and neighbors dirty for mesh rebuild
+    this.chunkMeshManager.markDirty(worldToChunk.chunkX, worldToChunk.chunkZ, 'block')
+
+    // Check if near chunk boundary (mark neighbors)
+    if (worldToChunk.localX === 0) this.chunkMeshManager.markDirty(worldToChunk.chunkX - 1, worldToChunk.chunkZ, 'block')
+    if (worldToChunk.localX === 23) this.chunkMeshManager.markDirty(worldToChunk.chunkX + 1, worldToChunk.chunkZ, 'block')
+    if (worldToChunk.localZ === 0) this.chunkMeshManager.markDirty(worldToChunk.chunkX, worldToChunk.chunkZ - 1, 'block')
+    if (worldToChunk.localZ === 23) this.chunkMeshManager.markDirty(worldToChunk.chunkX, worldToChunk.chunkZ + 1, 'block')
 
     // Trigger light update if block emits light
     const blockDef = blockRegistry.get(type)
@@ -372,19 +367,20 @@ export default class Terrain {
     // Propagate lighting
     this.lightingEngine.update()
 
-    // Update light texture - ONLY camera's current chunk (0,0 for now)
-    // NOTE: This is a temporary fix. Proper solution is vertex colors + greedy meshing
-    const cameraChunk = this.chunkManager.getChunk(
-      Math.floor(this.camera.position.x / this.chunkSize),
-      Math.floor(this.camera.position.z / this.chunkSize)
-    )
-    if (cameraChunk) {
-      cameraChunk.dirty = true  // Force update
-      this.lightDataTexture.updateFromChunk(cameraChunk)
+    // Check which chunks had lighting changes
+    const chunks = this.chunkManager.getAllChunks()
+    for (const chunk of chunks) {
+      if (chunk.dirty) {
+        // Lighting changed - mark for mesh rebuild
+        this.chunkMeshManager.markDirty(chunk.x, chunk.z, 'light')
+        chunk.dirty = false  // Clear flag
+      }
     }
 
-    this.previousChunk.copy(this.chunk)
+    // Update chunk meshes (rebuilds dirty chunks)
+    this.chunkMeshManager.update(this.chunkManager)
 
+    this.previousChunk.copy(this.chunk)
     this.highlight.update()
   }
 }

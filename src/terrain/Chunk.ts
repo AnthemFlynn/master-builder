@@ -1,4 +1,12 @@
 /**
+ * @deprecated Use modules/world/VoxelChunk + modules/lighting/LightData instead
+ *
+ * Migration path:
+ * - For voxel data: import { VoxelChunk } from '../modules/world'
+ * - For lighting data: Use LightingService.getLight() via ILightingQuery
+ *
+ * This class will be removed after full migration to hexagonal architecture.
+ *
  * Chunk - 24×256×24 section of terrain with light data
  */
 export class Chunk {
@@ -16,6 +24,10 @@ export class Chunk {
   blockLightR: Uint8Array
   blockLightG: Uint8Array
   blockLightB: Uint8Array
+
+  // Block types (24 × 256 × 24 = 147,456 entries)
+  // -1 = air, 0+ = BlockType enum
+  blockTypes: Int8Array
 
   dirty: boolean = false  // Needs GPU texture update
 
@@ -36,7 +48,35 @@ export class Chunk {
     this.blockLightG = new Uint8Array(arraySize)
     this.blockLightB = new Uint8Array(arraySize)
 
-    console.log(`📦 Chunk created at (${x}, ${z}) - ${(arraySize * 6 / 1024).toFixed(0)}KB`)
+    // Block types = air initially
+    this.blockTypes = new Int8Array(arraySize).fill(-1)
+
+    console.log(`📦 Chunk created at (${x}, ${z}) - ${(arraySize * 7 / 1024).toFixed(0)}KB`)
+  }
+
+  /**
+   * Get block type at local chunk coordinates
+   */
+  getBlockType(x: number, y: number, z: number): number {
+    if (x < 0 || x >= this.size || y < 0 || y >= this.height || z < 0 || z >= this.size) {
+      return -1  // Air
+    }
+
+    const index = x + y * this.size + z * this.size * this.height
+    return this.blockTypes[index]
+  }
+
+  /**
+   * Set block type at local chunk coordinates
+   */
+  setBlockType(x: number, y: number, z: number, blockType: number): void {
+    if (x < 0 || x >= this.size || y < 0 || y >= this.height || z < 0 || z >= this.size) {
+      return
+    }
+
+    const index = x + y * this.size + z * this.size * this.height
+    this.blockTypes[index] = blockType
+    this.dirty = true
   }
 
   /**
@@ -104,7 +144,7 @@ export class Chunk {
    * Get memory usage in bytes
    */
   getMemoryUsage(): number {
-    const arraySize = this.size * this.height * this.size
-    return arraySize * 6  // 6 arrays
+    // 6 light arrays × 147,456 + 1 blockTypes array
+    return (this.size * this.height * this.size) * 7
   }
 }
