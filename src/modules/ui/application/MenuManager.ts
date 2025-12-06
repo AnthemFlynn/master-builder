@@ -16,30 +16,20 @@ export class MenuManager {
   }
 
   private setupButtonListeners(): void {
-    // Play button (on splash and menu)
-    const playButton = document.querySelector('#play-button')
+    // Play button - matches HTML id="play"
+    const playButton = document.querySelector('#play')
     playButton?.addEventListener('click', () => {
       document.body.requestPointerLock()
       this.onPlay()
     })
 
-    // Resume button (pause menu)
-    const resumeButton = document.querySelector('#resume-button')
-    resumeButton?.addEventListener('click', () => {
-      document.body.requestPointerLock()
-      this.onResume()
-    })
-
-    // Exit button (pause menu)
-    const exitButton = document.querySelector('#exit-button')
+    // Exit button - matches HTML id="exit"
+    const exitButton = document.querySelector('#exit')
     exitButton?.addEventListener('click', () => {
       this.onExit()
     })
 
-    // Splash screen - any click to go to menu
-    this.splashElement?.addEventListener('click', () => {
-      this.showMenu()
-    })
+    // Note: No resume button in current HTML - pause functionality handled by pointer lock
   }
 
   showSplash(): void {

@@ -14,11 +14,11 @@ export class UIService implements IUIQuery {
     this.menuManager = new MenuManager(
       () => this.onPlay(),
       () => this.onPlay(), // Resume also goes to playing
-      () => this.onSplash()
+      () => this.onMenu()
     )
 
-    // Start in splash state
-    this.setState(UIState.SPLASH)
+    // Start in menu state (HTML shows menu by default)
+    this.setState(UIState.MENU)
   }
 
   setState(newState: UIState): void {
