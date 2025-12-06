@@ -1,4 +1,12 @@
 /**
+ * @deprecated Use modules/world/VoxelChunk + modules/lighting/LightData instead
+ *
+ * Migration path:
+ * - For voxel data: import { VoxelChunk } from '../modules/world'
+ * - For lighting data: Use LightingService.getLight() via ILightingQuery
+ *
+ * This class will be removed after full migration to hexagonal architecture.
+ *
  * Chunk - 24×256×24 section of terrain with light data
  */
 export class Chunk {
