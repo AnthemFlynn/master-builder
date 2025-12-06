@@ -7,6 +7,7 @@ import UI from './ui'
 import Audio from './audio'
 import InputManager from './input/InputManager'
 import { DEFAULT_ACTIONS } from './input/defaultBindings'
+import Noise from './game/Noise'
 
 import './style.css'
 
@@ -37,16 +38,7 @@ const terrainStub = {
   blocks: [],
   materials: new Map(),
   customBlocks: [],
-  noise: {
-    seed: Math.random(),
-    stoneSeed: Math.random() * 0.4,
-    treeSeed: Math.random() * 0.7,
-    coalSeed: Math.random() * 0.5,
-    leafSeed: Math.random() * 0.8,
-    treeHeight: 10,
-    gap: 22,
-    amp: 8
-  },
+  noise: new Noise(),  // FIX: Use actual Noise instance with get() method
   lightingEngine: { update: () => {} },
   chunkManager: {
     worldToChunk: () => ({ chunkX: 0, chunkZ: 0, localX: 0, localY: 0, localZ: 0 }),
