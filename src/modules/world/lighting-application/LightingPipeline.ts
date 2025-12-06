@@ -1,7 +1,7 @@
-// src/modules/lighting/application/LightingPipeline.ts
-import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
-import { LightData } from '../domain/LightData'
+// src/modules/world/lighting-application/LightingPipeline.ts
+import { ChunkCoordinate } from '../domain/ChunkCoordinate'
+import { IVoxelQuery } from '../ports/IVoxelQuery'
+import { LightData } from '../lighting-domain/LightData'
 import { ILightingPass } from './passes/ILightingPass'
 import { SkyLightPass } from './passes/SkyLightPass'
 import { PropagationPass } from './passes/PropagationPass'
