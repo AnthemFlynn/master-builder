@@ -33,11 +33,20 @@ if (typeof window !== 'undefined') {
 ;(function animate() {
   requestAnimationFrame(animate)
 
-  game.update()
-  game.getUIService().updateFPS()
-  timeOfDay.update()
+  try {
+    game.update()
 
-  renderer.render(scene, camera)
+    const uiService = game.getUIService()
+    if (uiService && uiService.updateFPS) {
+      uiService.updateFPS()
+    }
+
+    timeOfDay.update()
+    renderer.render(scene, camera)
+  } catch (error) {
+    console.error('❌ Animation loop error:', error)
+    throw error
+  }
 })()
 
 // Handle window resize
