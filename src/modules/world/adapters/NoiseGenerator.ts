@@ -42,7 +42,7 @@ export class NoiseGenerator {
 
         // Calculate height using noise
         const height = Math.floor(
-          this.noise.get(worldX / this.gap, worldZ / this.gap, this.seed) * this.amp + 30
+          this.noise.noise(worldX / this.gap, worldZ / this.gap, this.seed) * this.amp + 30
         )
 
         for (let localY = 0; localY < 256; localY++) {
