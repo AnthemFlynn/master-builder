@@ -132,7 +132,9 @@ export class GameOrchestrator {
     const movement: MovementVector = {
       forward: 0,
       strafe: 0,
-      vertical: 0
+      vertical: 0,
+      jump: false,
+      sneak: false
     }
 
     if (this.inputService.isActionPressed('move_forward')) {
