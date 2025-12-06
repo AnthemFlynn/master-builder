@@ -34,18 +34,31 @@ const terrain = new TerrainOrchestrator(scene, camera)
 
 // Create stub for Control/UI compatibility (temporary until they're migrated)
 const terrainStub = {
-  blocks: {},
+  blocks: [],
   materials: new Map(),
   customBlocks: [],
-  noise: { seed: 0, stoneSeed: 0, treeSeed: 0, coalSeed: 0, leafSeed: 0, treeHeight: 10 },
+  noise: {
+    seed: Math.random(),
+    stoneSeed: Math.random() * 0.4,
+    treeSeed: Math.random() * 0.7,
+    coalSeed: Math.random() * 0.5,
+    leafSeed: Math.random() * 0.8,
+    treeHeight: 10,
+    gap: 22,
+    amp: 8
+  },
   lightingEngine: { update: () => {} },
   camera: camera,
-  initBlocks: () => {},
-  generate: () => {},
+  scene: scene,
+  distance: 3,
+  chunkSize: 24,
+  initBlocks: () => { console.log('⚠️ terrainStub.initBlocks() called - noop') },
+  generate: () => { console.log('⚠️ terrainStub.generate() called - noop') },
   generateAdjacentBlocks: () => {},
   getCount: () => 0,
   setCount: () => {},
-  materialType: []
+  materialType: [],
+  update: () => {}  // Add update method
 }
 
 // Expose for debugging
