@@ -2,7 +2,7 @@
 import * as THREE from 'three'
 import { WorldService } from '../../world/application/WorldService'
 import { LightingService } from '../../world/lighting-application/LightingService'
-import { MeshingService } from '../../meshing/application/MeshingService'
+import { MeshingService } from '../../rendering/meshing-application/MeshingService'
 import { RenderingService } from '../../rendering/application/RenderingService'
 import { CommandBus } from './CommandBus'
 import { EventBus } from './EventBus'
