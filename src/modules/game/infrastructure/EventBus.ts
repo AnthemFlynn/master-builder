@@ -1,7 +1,7 @@
 // src/modules/terrain/application/EventBus.ts
 import { DomainEvent } from '../domain/events/DomainEvent'
 
-export type EventCategory = 'world' | 'lighting' | 'meshing' | 'rendering' | 'time'
+export type EventCategory = 'world' | 'lighting' | 'meshing' | 'rendering' | 'time' | 'player' | 'input' | 'ui' | 'interaction'
 
 type EventHandler = (event: DomainEvent) => void
 

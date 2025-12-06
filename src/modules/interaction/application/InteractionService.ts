@@ -19,15 +19,7 @@ export class InteractionService implements IInteractionHandler {
   }
 
   private setupEventListeners(): void {
-    // Listen for mouse clicks from input module
-    this.eventBus.on('input', 'InputActionEvent', (event: any) => {
-      if (event.action === 'place_block' && event.eventType === 'pressed') {
-        // Would call placeBlock with current camera
-      }
-      if (event.action === 'remove_block' && event.eventType === 'pressed') {
-        // Would call removeBlock with current camera
-      }
-    })
+    // Event handling moved to GameOrchestrator since it has camera access
   }
 
   placeBlock(camera: THREE.Camera, blockType: number): void {

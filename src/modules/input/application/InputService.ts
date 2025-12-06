@@ -28,6 +28,7 @@ interface Subscription {
 
 export class InputService implements IInputQuery {
   private actions: Map<string, GameAction> = new Map()
+  private actionBindings: Map<string, KeyBinding[]> = new Map()
   private subscriptions: Map<string, Subscription[]> = new Map()
   private actionStates: Map<string, boolean> = new Map()
   private currentState: GameState = GameState.SPLASH
@@ -40,6 +41,17 @@ export class InputService implements IInputQuery {
   // Register action
   registerAction(action: GameAction): void {
     this.actions.set(action.id, action)
+
+    // Create binding from defaultKey
+    if (action.defaultKey) {
+      const binding: KeyBinding = {
+        key: action.defaultKey,
+        ctrl: action.defaultModifiers?.ctrl ?? false,
+        shift: action.defaultModifiers?.shift ?? false,
+        alt: action.defaultModifiers?.alt ?? false
+      }
+      this.actionBindings.set(action.id, [binding])
+    }
   }
 
   // Subscribe to action
@@ -83,8 +95,7 @@ export class InputService implements IInputQuery {
   }
 
   getBindings(actionName: string): KeyBinding[] {
-    const action = this.actions.get(actionName)
-    return action ? (action as any).bindings : []
+    return this.actionBindings.get(actionName) ?? []
   }
 
   getAllActions(): GameAction[] {
@@ -150,8 +161,8 @@ export class InputService implements IInputQuery {
   }
 
   private findActionByKey(key: string): string | null {
-    for (const [name, action] of this.actions.entries()) {
-      if ((action as any).bindings?.some((b: any) => b.key === key)) {
+    for (const [name, bindings] of this.actionBindings.entries()) {
+      if (bindings.some(b => b.key === key)) {
         return name
       }
     }

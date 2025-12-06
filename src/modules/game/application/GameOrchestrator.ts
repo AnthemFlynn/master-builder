@@ -17,6 +17,7 @@ import { NoiseGenerator } from '../../world/adapters/NoiseGenerator'
 import { GenerateChunkHandler } from './handlers/GenerateChunkHandler'
 import { PlaceBlockHandler } from './handlers/PlaceBlockHandler'
 import { GenerateChunkCommand } from '../domain/commands/GenerateChunkCommand'
+import { MovementVector } from '../../physics/domain/MovementVector'
 
 export class GameOrchestrator {
   // Infrastructure
@@ -38,6 +39,7 @@ export class GameOrchestrator {
   private currentChunk = new ChunkCoordinate(0, 0)
   private previousChunk = new ChunkCoordinate(0, 0)
   private renderDistance = 3
+  private lastUpdateTime = performance.now()
 
   constructor(
     private scene: THREE.Scene,
@@ -73,6 +75,9 @@ export class GameOrchestrator {
     // Register default input actions
     this.registerDefaultActions()
 
+    // Setup interaction event listeners
+    this.setupInteractionListeners()
+
     console.log('✅ GameOrchestrator: All 10 modules initialized')
 
     // Generate initial chunks
@@ -85,6 +90,14 @@ export class GameOrchestrator {
   }
 
   update(): void {
+    // Calculate delta time
+    const now = performance.now()
+    const deltaTime = Math.min((now - this.lastUpdateTime) / 1000, 0.1) // Cap at 100ms
+    this.lastUpdateTime = now
+
+    // Update physics and player movement
+    this.updatePlayerMovement(deltaTime)
+
     // Update chunks based on camera position
     const newChunk = new ChunkCoordinate(
       Math.floor(this.camera.position.x / 24),
@@ -100,6 +113,38 @@ export class GameOrchestrator {
     this.meshingService.processDirtyQueue()
   }
 
+  private updatePlayerMovement(deltaTime: number): void {
+    // Build movement vector from input state
+    const movement: MovementVector = {
+      forward: 0,
+      strafe: 0,
+      vertical: 0
+    }
+
+    if (this.inputService.isActionPressed('move_forward')) {
+      movement.forward += 1
+    }
+    if (this.inputService.isActionPressed('move_backward')) {
+      movement.forward -= 1
+    }
+    if (this.inputService.isActionPressed('move_right')) {
+      movement.strafe += 1
+    }
+    if (this.inputService.isActionPressed('move_left')) {
+      movement.strafe -= 1
+    }
+
+    // Apply movement through physics
+    const movementController = this.physicsService.getMovementController()
+    const newPosition = movementController.applyMovement(movement, this.camera, deltaTime)
+
+    // Update player position
+    this.playerService.updatePosition(newPosition)
+
+    // Sync camera to player position
+    this.camera.position.copy(newPosition)
+  }
+
   private generateChunksInRenderDistance(centerChunk: ChunkCoordinate): void {
     const distance = this.renderDistance
 
@@ -109,6 +154,19 @@ export class GameOrchestrator {
         this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
       }
     }
+  }
+
+  private setupInteractionListeners(): void {
+    // Listen for block placement/removal from input system
+    this.eventBus.on('input', 'InputActionEvent', (event: any) => {
+      if (event.action === 'place_block' && event.eventType === 'pressed') {
+        const selectedBlock = this.interactionService.getSelectedBlock()
+        this.interactionService.placeBlock(this.camera, selectedBlock)
+      }
+      if (event.action === 'remove_block' && event.eventType === 'pressed') {
+        this.interactionService.removeBlock(this.camera)
+      }
+    })
   }
 
   private registerDefaultActions(): void {
