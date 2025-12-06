@@ -16,13 +16,16 @@ export class ChunkRenderer {
 
   private setupEventListeners(): void {
     // Listen for mesh built
+    console.log('🎨 ChunkRenderer: Registering listener for ChunkMeshBuiltEvent')
     this.eventBus.on('meshing', 'ChunkMeshBuiltEvent', (e: any) => {
+      console.log('🎨 ChunkRenderer: Received ChunkMeshBuiltEvent for', e.chunkCoord)
       this.updateMesh(e.chunkCoord, e.geometry)
     })
   }
 
   private updateMesh(coord: ChunkCoordinate, geometry: THREE.BufferGeometry): void {
     const key = coord.toKey()
+    console.log(`🎨 ChunkRenderer: updateMesh called for (${coord.x}, ${coord.z})`)
 
     // Remove old mesh
     const oldMesh = this.meshes.get(key)
@@ -39,6 +42,7 @@ export class ChunkRenderer {
 
     this.scene.add(mesh)
     this.meshes.set(key, mesh)
+    console.log(`✅ ChunkRenderer: Mesh added to scene at (${coord.x * 24}, 0, ${coord.z * 24}), total meshes: ${this.meshes.size}`)
   }
 
   getMesh(coord: ChunkCoordinate): THREE.Mesh | null {
