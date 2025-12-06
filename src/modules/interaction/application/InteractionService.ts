@@ -1,6 +1,7 @@
 import { CommandBus } from '../../game/infrastructure/CommandBus'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { PlaceBlockCommand } from '../../game/domain/commands/PlaceBlockCommand'
+import { RemoveBlockCommand } from '../../game/domain/commands/RemoveBlockCommand'
 import { BlockPicker } from './BlockPicker'
 import { IInteractionHandler } from '../ports/IInteractionHandler'
 import * as THREE from 'three'
@@ -45,10 +46,14 @@ export class InteractionService implements IInteractionHandler {
     const result = this.blockPicker.pickBlock(camera, this.scene)
 
     if (result.hit && result.position) {
-      // Send RemoveBlockCommand
-      // this.commandBus.send(new RemoveBlockCommand(...))
-
-      console.log('Block removal:', result.position)
+      // Send command to remove the block at the hit position
+      this.commandBus.send(
+        new RemoveBlockCommand(
+          result.position.x,
+          result.position.y,
+          result.position.z
+        )
+      )
     }
   }
 

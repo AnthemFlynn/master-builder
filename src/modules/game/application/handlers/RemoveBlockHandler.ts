@@ -1,31 +1,38 @@
-// src/modules/game/application/handlers/PlaceBlockHandler.ts
+// src/modules/game/application/handlers/RemoveBlockHandler.ts
 import { CommandHandler } from '../../domain/commands/Command'
-import { PlaceBlockCommand } from '../../domain/commands/PlaceBlockCommand'
+import { RemoveBlockCommand } from '../../domain/commands/RemoveBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'
 import { EventBus } from '../../infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
 
-export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
+export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {
   constructor(
     private worldService: WorldService,
     private eventBus: EventBus
   ) {}
 
-  execute(command: PlaceBlockCommand): void {
-    const { x, y, z, blockType } = command
+  execute(command: RemoveBlockCommand): void {
+    const { x, y, z } = command
 
     // Validate
     if (y < 0 || y > 255) {
-      console.warn('Invalid Y position for block placement')
+      console.warn('Invalid Y position for block removal')
       return
     }
 
-    // Update world
+    // Get the block type before removing (for audio)
+    const blockType = this.worldService.getBlockType(
+      Math.floor(x),
+      Math.floor(y),
+      Math.floor(z)
+    )
+
+    // Remove block (set to air = -1)
     this.worldService.setBlock(
       Math.floor(x),
       Math.floor(y),
       Math.floor(z),
-      blockType
+      -1
     )
 
     // Calculate chunk coordinate
@@ -34,9 +41,9 @@ export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
       Math.floor(z / 24)
     )
 
-    // Emit event
+    // Emit event with block type for audio
     this.eventBus.emit('world', {
-      type: 'BlockPlacedEvent',
+      type: 'BlockRemovedEvent',
       timestamp: Date.now(),
       x: Math.floor(x),
       y: Math.floor(y),
@@ -45,6 +52,6 @@ export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
       chunkCoord: chunkCoord
     })
 
-    console.log(`🧱 Block placed at (${x}, ${y}, ${z})`)
+    console.log(`🔨 Block removed at (${x}, ${y}, ${z})`)
   }
 }

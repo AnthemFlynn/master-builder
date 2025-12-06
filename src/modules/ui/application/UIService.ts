@@ -11,7 +11,11 @@ export class UIService implements IUIQuery {
 
   constructor(private eventBus: EventBus) {
     this.hudManager = new HUDManager()
-    this.menuManager = new MenuManager()
+    this.menuManager = new MenuManager(
+      () => this.onPlay(),
+      () => this.onPlay(), // Resume also goes to playing
+      () => this.onSplash()
+    )
 
     // Start in splash state
     this.setState(UIState.SPLASH)
@@ -63,5 +67,9 @@ export class UIService implements IUIQuery {
 
   onSplash(): void {
     this.setState(UIState.SPLASH)
+  }
+
+  setSelectedSlot(index: number): void {
+    this.hudManager.setSelectedSlot(index)
   }
 }

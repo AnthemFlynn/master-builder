@@ -1,5 +1,6 @@
 // src/modules/game/application/GameOrchestrator.ts
 import * as THREE from 'three'
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 import { WorldService } from '../../world/application/WorldService'
 import { LightingService } from '../../world/lighting-application/LightingService'
 import { MeshingService } from '../../rendering/meshing-application/MeshingService'
@@ -16,8 +17,10 @@ import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
 import { NoiseGenerator } from '../../world/adapters/NoiseGenerator'
 import { GenerateChunkHandler } from './handlers/GenerateChunkHandler'
 import { PlaceBlockHandler } from './handlers/PlaceBlockHandler'
+import { RemoveBlockHandler } from './handlers/RemoveBlockHandler'
 import { GenerateChunkCommand } from '../domain/commands/GenerateChunkCommand'
 import { MovementVector } from '../../physics/domain/MovementVector'
+import { PlayerMode } from '../../player/domain/PlayerMode'
 
 export class GameOrchestrator {
   // Infrastructure
@@ -40,11 +43,15 @@ export class GameOrchestrator {
   private previousChunk = new ChunkCoordinate(0, 0)
   private renderDistance = 3
   private lastUpdateTime = performance.now()
+  private cameraControls: PointerLockControls
 
   constructor(
     private scene: THREE.Scene,
     private camera: THREE.PerspectiveCamera
   ) {
+    // Create camera controls
+    this.cameraControls = new PointerLockControls(camera, document.body)
+    this.scene.add(this.cameraControls.getObject())
     // Create infrastructure
     this.commandBus = new CommandBus()
     this.eventBus = new EventBus()
@@ -71,12 +78,19 @@ export class GameOrchestrator {
       'PlaceBlockCommand',
       new PlaceBlockHandler(this.worldService, this.eventBus)
     )
+    this.commandBus.register(
+      'RemoveBlockCommand',
+      new RemoveBlockHandler(this.worldService, this.eventBus)
+    )
 
     // Register default input actions
     this.registerDefaultActions()
 
     // Setup interaction event listeners
     this.setupInteractionListeners()
+
+    // Setup pointer lock listeners
+    this.setupPointerLockListeners()
 
     console.log('✅ GameOrchestrator: All 10 modules initialized')
 
@@ -133,6 +147,12 @@ export class GameOrchestrator {
     if (this.inputService.isActionPressed('move_left')) {
       movement.strafe -= 1
     }
+    if (this.inputService.isActionPressed('move_up')) {
+      movement.vertical += 1
+    }
+    if (this.inputService.isActionPressed('move_down')) {
+      movement.vertical -= 1
+    }
 
     // Apply movement through physics
     const movementController = this.physicsService.getMovementController()
@@ -165,6 +185,24 @@ export class GameOrchestrator {
       }
       if (event.action === 'remove_block' && event.eventType === 'pressed') {
         this.interactionService.removeBlock(this.camera)
+      }
+      if (event.action === 'toggle_flying' && event.eventType === 'pressed') {
+        const currentMode = this.playerService.getMode()
+        const newMode = currentMode === PlayerMode.Flying ? PlayerMode.Walking : PlayerMode.Flying
+        this.playerService.setMode(newMode)
+      }
+      if (event.action === 'pause' && event.eventType === 'pressed') {
+        if (this.uiService.isPlaying()) {
+          document.exitPointerLock()
+        }
+      }
+
+      // Block selection (1-9 keys)
+      for (let i = 1; i <= 9; i++) {
+        if (event.action === `select_block_${i}` && event.eventType === 'pressed') {
+          this.interactionService.setSelectedBlock(i - 1)
+          this.uiService.setSelectedSlot(i - 1)
+        }
       }
     })
   }
@@ -199,6 +237,20 @@ export class GameOrchestrator {
       defaultKey: 'KeyD'
     })
 
+    this.inputService.registerAction({
+      id: 'move_up',
+      category: 'movement',
+      description: 'Move up/Jump',
+      defaultKey: 'Space'
+    })
+
+    this.inputService.registerAction({
+      id: 'move_down',
+      category: 'movement',
+      description: 'Move down/Sneak',
+      defaultKey: 'ShiftLeft'
+    })
+
     // Interaction
     this.inputService.registerAction({
       id: 'place_block',
@@ -227,6 +279,31 @@ export class GameOrchestrator {
       category: 'movement',
       description: 'Toggle flying mode',
       defaultKey: 'KeyQ'
+    })
+
+    // Block selection (1-9)
+    for (let i = 1; i <= 9; i++) {
+      this.inputService.registerAction({
+        id: `select_block_${i}`,
+        category: 'inventory',
+        description: `Select block ${i}`,
+        defaultKey: `Digit${i}`
+      })
+    }
+  }
+
+  private setupPointerLockListeners(): void {
+    // Listen for pointer lock changes
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement === document.body) {
+        // Pointer locked - enable camera controls
+        this.cameraControls.lock()
+      } else {
+        // Pointer unlocked - trigger pause
+        if (this.uiService.isPlaying()) {
+          this.uiService.onPause()
+        }
+      }
     })
   }
 

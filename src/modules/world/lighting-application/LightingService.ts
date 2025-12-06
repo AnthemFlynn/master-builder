@@ -24,6 +24,31 @@ export class LightingService implements ILightingQuery {
     this.eventBus.on('world', 'ChunkGeneratedEvent', (e: any) => {
       this.calculateForChunk(e.chunkCoord, e.renderDistance)
     })
+
+    // Listen for block placement/removal - recalculate lighting
+    this.eventBus.on('world', 'BlockPlacedEvent', (e: any) => {
+      // Recalculate lighting for the affected chunk
+      this.executeImmediately(e.chunkCoord)
+
+      // Emit invalidation event for mesh rebuild
+      this.eventBus.emit('lighting', {
+        type: 'LightingInvalidatedEvent',
+        timestamp: Date.now(),
+        chunkCoord: e.chunkCoord
+      })
+    })
+
+    this.eventBus.on('world', 'BlockRemovedEvent', (e: any) => {
+      // Recalculate lighting for the affected chunk
+      this.executeImmediately(e.chunkCoord)
+
+      // Emit invalidation event for mesh rebuild
+      this.eventBus.emit('lighting', {
+        type: 'LightingInvalidatedEvent',
+        timestamp: Date.now(),
+        chunkCoord: e.chunkCoord
+      })
+    })
   }
 
   calculateForChunk(coord: ChunkCoordinate, renderDistance: number): void {

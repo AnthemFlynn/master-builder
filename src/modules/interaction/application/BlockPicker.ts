@@ -19,19 +19,20 @@ export class BlockPicker {
     if (intersects.length > 0) {
       const hit = intersects[0]
 
-      // Get block position
-      let position: THREE.Vector3 | null = null
-      if (hit.object instanceof THREE.InstancedMesh && hit.instanceId !== undefined) {
-        const matrix = new THREE.Matrix4()
-        hit.object.getMatrixAt(hit.instanceId, matrix)
-        position = new THREE.Vector3().setFromMatrixPosition(matrix)
-      }
+      // Get block position from hit point
+      // For chunk meshes (THREE.Mesh), use the intersection point
+      // Floor to get block coordinates
+      const position = new THREE.Vector3(
+        Math.floor(hit.point.x),
+        Math.floor(hit.point.y),
+        Math.floor(hit.point.z)
+      )
 
       return {
         hit: true,
         position,
         normal: hit.face?.normal || null,
-        blockType: null // Would extract from mesh name
+        blockType: null
       }
     }
 

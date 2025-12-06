@@ -4,9 +4,42 @@ export class MenuManager {
   private menuElement: HTMLElement | null
   private splashElement: HTMLElement | null
 
-  constructor() {
+  constructor(
+    private onPlay: () => void,
+    private onResume: () => void,
+    private onExit: () => void
+  ) {
     this.menuElement = document.querySelector('.menu')
     this.splashElement = document.querySelector('#splash')
+
+    this.setupButtonListeners()
+  }
+
+  private setupButtonListeners(): void {
+    // Play button (on splash and menu)
+    const playButton = document.querySelector('#play-button')
+    playButton?.addEventListener('click', () => {
+      document.body.requestPointerLock()
+      this.onPlay()
+    })
+
+    // Resume button (pause menu)
+    const resumeButton = document.querySelector('#resume-button')
+    resumeButton?.addEventListener('click', () => {
+      document.body.requestPointerLock()
+      this.onResume()
+    })
+
+    // Exit button (pause menu)
+    const exitButton = document.querySelector('#exit-button')
+    exitButton?.addEventListener('click', () => {
+      this.onExit()
+    })
+
+    // Splash screen - any click to go to menu
+    this.splashElement?.addEventListener('click', () => {
+      this.showMenu()
+    })
   }
 
   showSplash(): void {

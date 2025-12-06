@@ -4,6 +4,8 @@ export class HUDManager {
   private crosshair: HTMLDivElement
   private fpsDisplay: HTMLDivElement
   private bagDisplay: HTMLDivElement
+  private lastFrameTime = performance.now()
+  private fps = 60
 
   constructor() {
     // Create crosshair
@@ -12,11 +14,56 @@ export class HUDManager {
     this.crosshair.innerHTML = '+'
     document.body.appendChild(this.crosshair)
 
-    // FPS display (created by FPS class)
-    this.fpsDisplay = document.querySelector('.fps') as HTMLDivElement
+    // Create FPS display
+    this.fpsDisplay = document.createElement('div')
+    this.fpsDisplay.className = 'fps hidden'
+    this.fpsDisplay.style.cssText = 'position: fixed; top: 10px; left: 10px; color: white; font-family: monospace; font-size: 14px; z-index: 1000;'
+    document.body.appendChild(this.fpsDisplay)
 
-    // Bag display (created by Bag class)
-    this.bagDisplay = document.querySelector('.bag') as HTMLDivElement
+    // Create bag/inventory display
+    this.bagDisplay = document.createElement('div')
+    this.bagDisplay.className = 'bag hidden'
+    this.bagDisplay.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; z-index: 1000;'
+    document.body.appendChild(this.bagDisplay)
+
+    // Create inventory slots
+    for (let i = 0; i < 9; i++) {
+      const slot = document.createElement('div')
+      slot.className = 'bag-slot'
+      slot.style.cssText = 'width: 50px; height: 50px; border: 2px solid #666; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white;'
+      slot.textContent = String(i + 1)
+      slot.dataset.index = String(i)
+      this.bagDisplay.appendChild(slot)
+    }
+
+    // Start FPS counter
+    this.updateFPS()
+  }
+
+  private updateFPS(): void {
+    requestAnimationFrame(() => {
+      const now = performance.now()
+      const delta = now - this.lastFrameTime
+      this.lastFrameTime = now
+
+      // Smooth FPS calculation
+      this.fps = Math.round(1000 / delta)
+      this.fpsDisplay.textContent = `FPS: ${this.fps}`
+
+      this.updateFPS()
+    })
+  }
+
+  setSelectedSlot(index: number): void {
+    // Highlight selected slot
+    const slots = this.bagDisplay.querySelectorAll('.bag-slot')
+    slots.forEach((slot, i) => {
+      if (i === index) {
+        (slot as HTMLElement).style.border = '2px solid yellow'
+      } else {
+        (slot as HTMLElement).style.border = '2px solid #666'
+      }
+    })
   }
 
   show(): void {

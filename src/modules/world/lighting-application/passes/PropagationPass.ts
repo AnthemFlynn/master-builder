@@ -1,8 +1,8 @@
 // src/modules/lighting/application/passes/PropagationPass.ts
 import { ILightingPass } from './ILightingPass'
-import { LightData } from '../../domain/LightData'
-import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../../world/ports/IVoxelQuery'
+import { LightData } from '../../lighting-domain/LightData'
+import { ChunkCoordinate } from '../../domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../ports/IVoxelQuery'
 import { blockRegistry } from '../../../../blocks'
 
 interface LightNode {

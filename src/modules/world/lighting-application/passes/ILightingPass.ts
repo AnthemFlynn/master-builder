@@ -1,7 +1,7 @@
 // src/modules/lighting/application/passes/ILightingPass.ts
-import { LightData } from '../../domain/LightData'
-import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../../world/ports/IVoxelQuery'
+import { LightData } from '../../lighting-domain/LightData'
+import { ChunkCoordinate } from '../../domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../ports/IVoxelQuery'
 
 export interface ILightingPass {
   /**

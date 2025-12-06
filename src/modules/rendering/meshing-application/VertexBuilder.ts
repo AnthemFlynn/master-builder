@@ -10,11 +10,18 @@ export class VertexBuilder {
   private uvs: number[] = []
   private indices: number[] = []
   private vertexCount = 0
+  private worldOffsetX: number
+  private worldOffsetZ: number
 
   constructor(
     private voxels: IVoxelQuery,
-    private lighting: ILightingQuery
-  ) {}
+    private lighting: ILightingQuery,
+    chunkX: number,
+    chunkZ: number
+  ) {
+    this.worldOffsetX = chunkX * 24
+    this.worldOffsetZ = chunkZ * 24
+  }
 
   addQuad(
     x: number, y: number, z: number,
@@ -29,20 +36,24 @@ export class VertexBuilder {
     for (let i = 0; i < 4; i++) {
       const v = vertices[i]
 
-      // Position
-      this.positions.push(v.x, v.y, v.z)
-
-      // Read lighting from lighting module (NO calculation!)
-      const lightValue = this.lighting.getLight(
-        Math.floor(v.x),
-        Math.floor(v.y),
-        Math.floor(v.z)
+      // Position (add world offset for rendering)
+      this.positions.push(
+        v.x + this.worldOffsetX,
+        v.y,
+        v.z + this.worldOffsetZ
       )
+
+      // Read lighting from lighting module using WORLD coordinates
+      const worldX = Math.floor(v.x) + this.worldOffsetX
+      const worldY = Math.floor(v.y)
+      const worldZ = Math.floor(v.z) + this.worldOffsetZ
+
+      const lightValue = this.lighting.getLight(worldX, worldY, worldZ)
       const combined = combineLightChannels(lightValue)
       const light = normalizeLightToColor(combined)
 
-      // Calculate AO (geometry-based, no lighting dependency)
-      const ao = this.getVertexAO(v.x, v.y, v.z, normal) / 3.0
+      // Calculate AO using world coordinates
+      const ao = this.getVertexAO(worldX, worldY, worldZ, normal) / 3.0
 
       // Apply lighting * AO
       this.colors.push(

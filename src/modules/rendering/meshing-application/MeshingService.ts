@@ -40,8 +40,8 @@ export class MeshingService {
 
     const startTime = performance.now()
 
-    // Build geometry
-    const vertexBuilder = new VertexBuilder(this.voxels, this.lighting)
+    // Build geometry with chunk coordinates for world offset
+    const vertexBuilder = new VertexBuilder(this.voxels, this.lighting, coord.x, coord.z)
     const mesher = new GreedyMesher(this.voxels, this.lighting, coord)
 
     mesher.buildMesh(vertexBuilder)
