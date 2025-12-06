@@ -61,32 +61,15 @@ const terrainStub = {
 
 // Expose for debugging
 if (typeof window !== 'undefined') {
-  console.log('🔍 DEBUG: About to assign window.terrain, terrain type:', typeof terrain)
-  console.log('🔍 DEBUG: terrain object:', terrain)
-  console.log('🔍 DEBUG: terrain.enableEventTracing type:', typeof terrain?.enableEventTracing)
-
-  try {
-    (window as any).terrain = terrain
-    console.log('🔍 DEBUG: window.terrain assigned successfully')
-
-    try {
-      (window as any).debug = {
-        enableTracing: () => terrain.enableEventTracing(),
-        replayCommands: (from: number) => terrain.replayCommands(from),
-        getCommandLog: () => terrain.getCommandLog()
-      }
-      console.log('🔍 DEBUG: window.debug assigned successfully')
-    } catch (debugError) {
-      console.error('❌ ERROR creating window.debug:', debugError)
-      // Create simpler version
-      (window as any).debug = { error: 'Failed to create debug helpers' }
-    }
-
-    console.log('✅ Hexagonal architecture active (old system removed)')
-    console.log('🐛 Debug: window.debug available')
-  } catch (e) {
-    console.error('❌ ERROR during window.terrain assignment:', e)
+  (window as any).terrain = terrain
+  (window as any).debug = {
+    enableTracing: () => terrain.enableEventTracing(),
+    replayCommands: (from: number) => terrain.replayCommands(from),
+    getCommandLog: () => terrain.getCommandLog()
   }
+
+  console.log('✅ Hexagonal architecture active')
+  console.log('🐛 Debug: window.debug.enableTracing()')
 }
 
 const control = new Control(scene, camera, player, terrainStub as any, audio, timeOfDay, inputManager)
