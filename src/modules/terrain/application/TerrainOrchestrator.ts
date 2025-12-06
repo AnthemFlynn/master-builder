@@ -96,4 +96,8 @@ export class TerrainOrchestrator {
   replayCommands(fromIndex: number): void {
     this.commandBus.replay(fromIndex)
   }
+
+  getCommandLog(): readonly any[] {
+    return this.commandBus.getLog()
+  }
 }

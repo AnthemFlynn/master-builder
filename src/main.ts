@@ -32,6 +32,19 @@ const audio = new Audio(camera)
 const terrain = new TerrainOrchestrator(scene, camera)
 // Enable debug tracing (can disable later)
 // terrain.enableEventTracing()
+
+// Expose for debugging
+if (typeof window !== 'undefined') {
+  (window as any).terrain = terrain
+  (window as any).debug = {
+    enableTracing: () => terrain.enableEventTracing(),
+    replayCommands: (from: number) => terrain.replayCommands(from),
+    getCommandLog: () => terrain.getCommandLog()
+  }
+
+  console.log('🐛 Debug helpers available: window.debug.enableTracing()')
+}
+
 const control = new Control(scene, camera, player, terrain, audio, timeOfDay, inputManager)
 
 const ui = new UI(terrain, control, timeOfDay, inputManager)
