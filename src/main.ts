@@ -1,7 +1,8 @@
 import Core from './core'
 import Control from './control'
 import Player from './player'
-import Terrain from './terrain'
+// import Terrain from './terrain'  // OLD: Deprecated
+import { TerrainOrchestrator } from './modules/terrain/application/TerrainOrchestrator'
 import UI from './ui'
 import Audio from './audio'
 import InputManager from './input/InputManager'
@@ -28,7 +29,9 @@ const timeOfDay = core.timeOfDay
 const player = new Player()
 const audio = new Audio(camera)
 
-const terrain = new Terrain(scene, camera)
+const terrain = new TerrainOrchestrator(scene, camera)
+// Enable debug tracing (can disable later)
+// terrain.enableEventTracing()
 const control = new Control(scene, camera, player, terrain, audio, timeOfDay, inputManager)
 
 const ui = new UI(terrain, control, timeOfDay, inputManager)
@@ -39,10 +42,10 @@ const ui = new UI(terrain, control, timeOfDay, inputManager)
   requestAnimationFrame(animate)
 
   control.update()
-  terrain.update()
+  terrain.update()  // NEW: TerrainOrchestrator.update()
   ui.update()
   timeOfDay.update()
-  terrain.lightingEngine.update()  // NEW: Process light queue
+  // terrain.lightingEngine.update() removed - now event-driven
 
   renderer.render(scene, camera)
   // console.log(performance.now()-p1)
