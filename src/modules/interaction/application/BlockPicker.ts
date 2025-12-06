@@ -20,12 +20,16 @@ export class BlockPicker {
       const hit = intersects[0]
 
       // Get block position from hit point
-      // For chunk meshes (THREE.Mesh), use the intersection point
-      // Floor to get block coordinates
+      // Subtract small epsilon in direction of ray to get the block we actually hit
+      // (not the one on the other side of the face)
+      const epsilon = 0.001
+      const direction = this.raycaster.ray.direction
+      const adjustedPoint = hit.point.clone().sub(direction.clone().multiplyScalar(epsilon))
+
       const position = new THREE.Vector3(
-        Math.floor(hit.point.x),
-        Math.floor(hit.point.y),
-        Math.floor(hit.point.z)
+        Math.floor(adjustedPoint.x),
+        Math.floor(adjustedPoint.y),
+        Math.floor(adjustedPoint.z)
       )
 
       return {

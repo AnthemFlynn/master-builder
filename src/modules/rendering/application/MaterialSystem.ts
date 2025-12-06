@@ -11,7 +11,12 @@ export class MaterialSystem {
 
   private createChunkMaterial(): void {
     // Use blockRegistry for proper material
-    const grassMaterial = blockRegistry.createMaterial(0) // BlockType.grass
+    const grassMaterialOrArray = blockRegistry.createMaterial(0) // BlockType.grass
+
+    // Handle array of materials (multi-face blocks) - take first one
+    const grassMaterial = Array.isArray(grassMaterialOrArray)
+      ? grassMaterialOrArray[0]
+      : grassMaterialOrArray
 
     // Enable vertex colors for lighting
     if (grassMaterial instanceof THREE.MeshStandardMaterial) {
@@ -19,7 +24,7 @@ export class MaterialSystem {
     }
 
     this.materials.set('chunk', grassMaterial)
-    console.log('✅ MaterialSystem: Using BlockRegistry material with vertex colors')
+    console.log('✅ MaterialSystem: Using BlockRegistry material with vertex colors enabled')
   }
 
   getChunkMaterial(): THREE.Material {

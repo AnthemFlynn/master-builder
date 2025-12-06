@@ -2,6 +2,7 @@
 import { ChunkCoordinate } from '../domain/ChunkCoordinate'
 import { VoxelChunk } from '../domain/VoxelChunk'
 import { IVoxelQuery } from '../ports/IVoxelQuery'
+import { blockRegistry } from '../../../blocks'
 
 export class WorldService implements IVoxelQuery {
   private chunks = new Map<string, VoxelChunk>()
@@ -32,7 +33,11 @@ export class WorldService implements IVoxelQuery {
 
   isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean {
     const blockType = this.getBlockType(worldX, worldY, worldZ)
-    return blockType !== -1  // Any non-air block is solid (can refine later)
+    if (blockType === -1) return false  // Air is not solid
+
+    // Check block definition for collidable flag
+    const blockDef = blockRegistry.get(blockType)
+    return blockDef ? blockDef.collidable : true
   }
 
   setBlock(worldX: number, worldY: number, worldZ: number, blockType: number): void {

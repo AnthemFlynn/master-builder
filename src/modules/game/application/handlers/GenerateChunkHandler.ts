@@ -14,14 +14,15 @@ export class GenerateChunkHandler implements CommandHandler<GenerateChunkCommand
   execute(command: GenerateChunkCommand): void {
     const chunk = this.worldService.getOrCreateChunk(command.chunkCoord)
 
-    // Check if already generated
-    if (chunk.getBlockType(12, 128, 12) !== -1) {
+    // Check if already generated using proper flag
+    if (chunk.generated) {
       console.log(`⏭️ Chunk (${command.chunkCoord.x}, ${command.chunkCoord.z}) already generated`)
       return
     }
 
     // Generate blocks using terrain generator
     this.terrainGenerator.populate(chunk, command.chunkCoord)
+    chunk.generated = true
 
     // Emit event
     this.eventBus.emit('world', {

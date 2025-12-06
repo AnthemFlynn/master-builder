@@ -6,6 +6,7 @@ export class VoxelChunk {
   private blockTypes: Int8Array
   readonly size: number = 24
   readonly height: number = 256
+  public generated: boolean = false
 
   constructor(coord: ChunkCoordinate) {
     this.coord = coord
