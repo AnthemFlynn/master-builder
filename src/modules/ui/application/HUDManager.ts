@@ -36,22 +36,18 @@ export class HUDManager {
       this.bagDisplay.appendChild(slot)
     }
 
-    // Start FPS counter
-    this.updateFPS()
+    // FPS will be updated by external call, not internal loop
+    this.fpsDisplay.textContent = 'FPS: --'
   }
 
-  private updateFPS(): void {
-    requestAnimationFrame(() => {
-      const now = performance.now()
-      const delta = now - this.lastFrameTime
-      this.lastFrameTime = now
+  updateFPS(): void {
+    const now = performance.now()
+    const delta = now - this.lastFrameTime
+    this.lastFrameTime = now
 
-      // Smooth FPS calculation
-      this.fps = Math.round(1000 / delta)
-      this.fpsDisplay.textContent = `FPS: ${this.fps}`
-
-      this.updateFPS()
-    })
+    // Smooth FPS calculation
+    this.fps = Math.round(1000 / delta)
+    this.fpsDisplay.textContent = `FPS: ${this.fps}`
   }
 
   setSelectedSlot(index: number): void {

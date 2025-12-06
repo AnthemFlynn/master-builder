@@ -34,6 +34,7 @@ if (typeof window !== 'undefined') {
   requestAnimationFrame(animate)
 
   game.update()
+  game.getUIService().updateFPS()
   timeOfDay.update()
 
   renderer.render(scene, camera)

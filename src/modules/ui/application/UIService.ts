@@ -72,4 +72,8 @@ export class UIService implements IUIQuery {
   setSelectedSlot(index: number): void {
     this.hudManager.setSelectedSlot(index)
   }
+
+  updateFPS(): void {
+    this.hudManager.updateFPS()
+  }
 }
