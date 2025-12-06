@@ -7,7 +7,9 @@ import { RenderingService } from '../../rendering/application/RenderingService'
 import { CommandBus } from './CommandBus'
 import { EventBus } from './EventBus'
 import { GenerateChunkHandler } from './handlers/GenerateChunkHandler'
+import { PlaceBlockHandler } from './handlers/PlaceBlockHandler'
 import { GenerateChunkCommand } from '../domain/commands/GenerateChunkCommand'
+import { PlaceBlockCommand } from '../domain/commands/PlaceBlockCommand'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
 import { NoiseGenerator } from '../../world/adapters/NoiseGenerator'
 
@@ -42,6 +44,10 @@ export class TerrainOrchestrator {
     this.commandBus.register(
       'GenerateChunkCommand',
       new GenerateChunkHandler(this.worldService, this.eventBus, terrainGenerator)
+    )
+    this.commandBus.register(
+      'PlaceBlockCommand',
+      new PlaceBlockHandler(this.worldService, this.eventBus)
     )
 
     console.log('✅ TerrainOrchestrator initialized with hexagonal architecture')
