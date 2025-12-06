@@ -27,20 +27,8 @@ export class LightingService implements ILightingQuery {
   }
 
   calculateForChunk(coord: ChunkCoordinate, renderDistance: number): void {
-    // Check visibility (eager vs progressive)
-    const playerChunk = this.getPlayerChunk()  // TODO: Get from player service
-    const distance = Math.max(
-      Math.abs(coord.x - playerChunk.x),
-      Math.abs(coord.z - playerChunk.z)
-    )
-
-    if (distance <= renderDistance) {
-      // EAGER: In render distance, calculate immediately
-      this.executeImmediately(coord)
-    } else {
-      // PROGRESSIVE: Defer until needed
-      console.log(`⏳ Deferring lighting for distant chunk (${coord.x}, ${coord.z})`)
-    }
+    // For now, always calculate immediately (TODO: Add progressive loading)
+    this.executeImmediately(coord)
   }
 
   private executeImmediately(coord: ChunkCoordinate): void {
