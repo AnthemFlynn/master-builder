@@ -1,5 +1,6 @@
 // src/modules/rendering/application/MaterialSystem.ts
 import * as THREE from 'three'
+import { blockRegistry } from '../../../blocks'
 
 export class MaterialSystem {
   private materials = new Map<string, THREE.Material>()
@@ -9,21 +10,16 @@ export class MaterialSystem {
   }
 
   private createChunkMaterial(): void {
-    // Load grass texture as temporary single texture
-    const textureLoader = new THREE.TextureLoader()
-    const grassTexture = textureLoader.load('/src/static/textures/grass.png')
-    grassTexture.magFilter = THREE.NearestFilter
-    grassTexture.minFilter = THREE.NearestFilter
+    // Use blockRegistry for proper material
+    const grassMaterial = blockRegistry.createMaterial(0) // BlockType.grass
 
-    const material = new THREE.MeshStandardMaterial({
-      map: grassTexture,           // Add texture!
-      vertexColors: true,          // Keep vertex colors for lighting
-      metalness: 0,
-      roughness: 1
-    })
+    // Enable vertex colors for lighting
+    if (grassMaterial instanceof THREE.MeshStandardMaterial) {
+      grassMaterial.vertexColors = true
+    }
 
-    this.materials.set('chunk', material)
-    console.log('🎨 MaterialSystem: Created chunk material with grass texture')
+    this.materials.set('chunk', grassMaterial)
+    console.log('✅ MaterialSystem: Using BlockRegistry material with vertex colors')
   }
 
   getChunkMaterial(): THREE.Material {
