@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
 import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
 import { normalizeLightToColor, combineLightChannels } from '../../world/lighting-domain/LightValue'
+import { blockRegistry } from '../../../blocks'
 
 export class VertexBuilder {
   private positions: number[] = []
@@ -32,34 +33,37 @@ export class VertexBuilder {
   ): void {
     const vertices = this.getQuadVertices(x, y, z, width, height, axis, direction)
     const normal = this.getFaceNormal(axis, direction)
+    const baseColor = blockRegistry.getBaseColor(blockType)
 
     for (let i = 0; i < 4; i++) {
       const v = vertices[i]
 
       // Position (add world offset for rendering)
       this.positions.push(
-        v.x + this.worldOffsetX,
+        v.x,
         v.y,
-        v.z + this.worldOffsetZ
+        v.z
       )
 
       // Read lighting from lighting module using WORLD coordinates
-      const worldX = Math.floor(v.x) + this.worldOffsetX
+      const worldX = Math.floor(v.x + this.worldOffsetX)
       const worldY = Math.floor(v.y)
-      const worldZ = Math.floor(v.z) + this.worldOffsetZ
+      const worldZ = Math.floor(v.z + this.worldOffsetZ)
 
       const lightValue = this.lighting.getLight(worldX, worldY, worldZ)
       const combined = combineLightChannels(lightValue)
       const light = normalizeLightToColor(combined)
 
       // Calculate AO using world coordinates
-      const ao = this.getVertexAO(worldX, worldY, worldZ, normal) / 3.0
+      const aoRaw = this.getVertexAO(worldX, worldY, worldZ, normal)
+      const ao = 0.7 + (aoRaw / 6)
 
       // Apply lighting * AO
+      const faceTint = this.getFaceTint(normal, worldX, worldY, worldZ)
       this.colors.push(
-        light.r * ao,
-        light.g * ao,
-        light.b * ao
+        light.r * ao * baseColor.r * faceTint,
+        light.g * ao * baseColor.g * faceTint,
+        light.b * ao * baseColor.b * faceTint
       )
 
       // UVs
@@ -80,6 +84,7 @@ export class VertexBuilder {
     const geometry = new THREE.BufferGeometry()
 
     if (this.positions.length === 0) {
+      console.warn('VertexBuilder produced empty geometry')
       return geometry
     }
 
@@ -87,6 +92,8 @@ export class VertexBuilder {
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3))
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(this.uvs, 2))
     geometry.setIndex(this.indices)
+    geometry.computeVertexNormals()
+    console.log(`Geometry built: ${this.positions.length / 3} vertices`)
 
     return geometry
   }
@@ -136,15 +143,15 @@ export class VertexBuilder {
   }
 
   private getVertexAO(
-    x: number, y: number, z: number,
+    worldX: number, worldY: number, worldZ: number,
     normal: { x: number, y: number, z: number }
   ): number {
     // AO calculation using voxels port
     let side1 = false, side2 = false, corner = false
 
-    const blockX = Math.floor(x)
-    const blockY = Math.floor(y)
-    const blockZ = Math.floor(z)
+    const blockX = Math.floor(worldX)
+    const blockY = Math.floor(worldY)
+    const blockZ = Math.floor(worldZ)
 
     if (normal.y === 1) {
       // Top face
@@ -175,5 +182,28 @@ export class VertexBuilder {
     }
 
     return 3 - (side1 ? 1 : 0) - (side2 ? 1 : 0) - (corner ? 1 : 0)
+  }
+
+  private getFaceTint(
+    normal: { x: number, y: number, z: number },
+    worldX: number,
+    worldY: number,
+    worldZ: number
+  ): number {
+    let baseTint = 1
+    if (normal.y === 1) baseTint = 1.12
+    else if (normal.y === -1) baseTint = 0.75
+    else baseTint = 0.96
+
+    const hash = this.hash(worldX, worldY, worldZ)
+    const variation = (hash - 0.5) * 0.08
+    return Math.max(0.5, baseTint + variation)
+  }
+
+  private hash(x: number, y: number, z: number): number {
+    let seed = x * 374761393 + y * 668265263 + z * 3266489917
+    seed = (seed ^ (seed >> 13)) >>> 0
+    seed = (seed * 1274126177) >>> 0
+    return (seed & 0xffffff) / 0xffffff
   }
 }
