@@ -14,13 +14,15 @@ import { InteractionService } from '../../interaction/application/InteractionSer
 import { CommandBus } from '../infrastructure/CommandBus'
 import { EventBus } from '../infrastructure/EventBus'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
-import { NoiseGenerator } from '../../world/adapters/NoiseGenerator'
 import { GenerateChunkHandler } from './handlers/GenerateChunkHandler'
 import { PlaceBlockHandler } from './handlers/PlaceBlockHandler'
 import { RemoveBlockHandler } from './handlers/RemoveBlockHandler'
 import { GenerateChunkCommand } from '../domain/commands/GenerateChunkCommand'
 import { MovementVector } from '../../physics/domain/MovementVector'
 import { PlayerMode } from '../../player/domain/PlayerMode'
+import { DEFAULT_WORLD_PRESET_ID } from '../../world/domain/WorldConfig'
+import { getWorldPreset } from '../../world/domain/WorldPreset'
+import { GameState } from '../../input/domain/InputState'
 
 export class GameOrchestrator {
   // Infrastructure
@@ -38,6 +40,7 @@ export class GameOrchestrator {
   private uiService: UIService
   private audioService: AudioService
   private interactionService: InteractionService
+  private worldPreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
   private currentChunk = new ChunkCoordinate(0, 0)
   private previousChunk = new ChunkCoordinate(0, 0)
@@ -57,22 +60,44 @@ export class GameOrchestrator {
     this.eventBus = new EventBus()
 
     // Create all services (in dependency order)
-    this.worldService = new WorldService()
+    this.worldService = new WorldService(this.eventBus)
     this.lightingService = new LightingService(this.worldService, this.eventBus)
-    this.meshingService = new MeshingService(this.worldService, this.lightingService, this.eventBus)
+    this.meshingService = new MeshingService(
+        this.worldService, 
+        this.worldService, 
+        this.lightingService, 
+        this.eventBus
+    )
     this.renderingService = new RenderingService(scene, this.eventBus)
     this.playerService = new PlayerService(this.eventBus)
-    this.physicsService = new PhysicsService(this.worldService, this.playerService, scene)
+    this.physicsService = new PhysicsService(this.worldService, this.playerService)
     this.inputService = new InputService(this.eventBus)
-    this.uiService = new UIService(this.eventBus)
+    this.uiService = new UIService(this.eventBus, {
+      requestPointerLock: () => this.cameraControls.lock(),
+      exitPointerLock: () => this.cameraControls.unlock()
+    })
     this.audioService = new AudioService(camera, this.eventBus)
-    this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene)
+    this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)
+
+    // Keep input service state in sync with UI state
+    this.inputService.setState(GameState.MENU)
+    this.eventBus.on('ui', 'UIStateChangedEvent', (event: any) => {
+      const stateMap: Record<string, GameState> = {
+        SPLASH: GameState.SPLASH,
+        MENU: GameState.MENU,
+        PLAYING: GameState.PLAYING,
+        PAUSE: GameState.PAUSE
+      }
+      const mapped = stateMap[event.newState]
+      if (mapped) {
+        this.inputService.setState(mapped)
+      }
+    })
 
     // Register command handlers
-    const terrainGenerator = new NoiseGenerator()
     this.commandBus.register(
       'GenerateChunkCommand',
-      new GenerateChunkHandler(this.worldService, this.eventBus, terrainGenerator)
+      new GenerateChunkHandler(this.worldService, this.eventBus)
     )
     this.commandBus.register(
       'PlaceBlockCommand',
@@ -111,6 +136,7 @@ export class GameOrchestrator {
 
     // Update physics and player movement
     this.updatePlayerMovement(deltaTime)
+    this.interactionService.updateHighlight(this.camera)
 
     // Update chunks based on camera position
     const newChunk = new ChunkCoordinate(
@@ -149,11 +175,16 @@ export class GameOrchestrator {
     if (this.inputService.isActionPressed('move_left')) {
       movement.strafe -= 1
     }
-    if (this.inputService.isActionPressed('move_up')) {
+    const moveUpPressed = this.inputService.isActionPressed('move_up')
+    const moveDownPressed = this.inputService.isActionPressed('move_down')
+
+    if (moveUpPressed) {
       movement.vertical += 1
+      movement.jump = true
     }
-    if (this.inputService.isActionPressed('move_down')) {
+    if (moveDownPressed) {
       movement.vertical -= 1
+      movement.sneak = true
     }
 
     // Apply movement through physics
@@ -192,6 +223,7 @@ export class GameOrchestrator {
         const currentMode = this.playerService.getMode()
         const newMode = currentMode === PlayerMode.Flying ? PlayerMode.Walking : PlayerMode.Flying
         this.playerService.setMode(newMode)
+        console.log(`✈️ Player mode toggled: ${currentMode} -> ${newMode}`)
       }
       if (event.action === 'pause' && event.eventType === 'pressed') {
         if (this.uiService.isPlaying()) {
@@ -245,6 +277,7 @@ export class GameOrchestrator {
       description: 'Move up/Jump',
       defaultKey: 'Space'
     })
+    this.inputService.addBinding('move_up', { key: 'KeyQ', ctrl: false, shift: false, alt: false })
 
     this.inputService.registerAction({
       id: 'move_down',
@@ -252,6 +285,7 @@ export class GameOrchestrator {
       description: 'Move down/Sneak',
       defaultKey: 'ShiftLeft'
     })
+    this.inputService.addBinding('move_down', { key: 'KeyE', ctrl: false, shift: false, alt: false })
 
     // Interaction
     this.inputService.registerAction({
@@ -260,6 +294,7 @@ export class GameOrchestrator {
       description: 'Place block',
       defaultKey: 'mouse:right'
     })
+    this.inputService.addBinding('place_block', { key: 'KeyC', ctrl: false, shift: false, alt: false })
 
     this.inputService.registerAction({
       id: 'remove_block',
@@ -267,6 +302,7 @@ export class GameOrchestrator {
       description: 'Remove block',
       defaultKey: 'mouse:left'
     })
+    this.inputService.addBinding('remove_block', { key: 'KeyN', ctrl: false, shift: false, alt: false })
 
     // UI
     this.inputService.registerAction({
@@ -280,7 +316,7 @@ export class GameOrchestrator {
       id: 'toggle_flying',
       category: 'movement',
       description: 'Toggle flying mode',
-      defaultKey: 'KeyQ'
+      defaultKey: 'KeyF'
     })
 
     // Block selection (1-9)
@@ -295,19 +331,19 @@ export class GameOrchestrator {
   }
 
   private setupPointerLockListeners(): void {
-    // Listen for pointer lock changes
-    document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement === document.body) {
-        // Pointer locked - enable camera controls
-        this.cameraControls.lock()
-      } else {
-        // Pointer unlocked - trigger pause
-        if (this.uiService.isPlaying()) {
-          this.uiService.onPause()
-        }
+    this.cameraControls.addEventListener('lock', () => {
+      if (!this.uiService.isPlaying()) {
+        this.uiService.onPlay()
+      }
+    })
+
+    this.cameraControls.addEventListener('unlock', () => {
+      if (this.uiService.isPlaying()) {
+        this.uiService.onPause()
       }
     })
   }
+
 
   // Expose services via getters (ports pattern)
   getWorldService() { return this.worldService }

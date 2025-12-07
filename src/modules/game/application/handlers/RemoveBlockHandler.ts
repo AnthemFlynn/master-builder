@@ -41,13 +41,17 @@ export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {
       Math.floor(z / 24)
     )
 
+    const position = {
+      x: Math.floor(x),
+      y: Math.floor(y),
+      z: Math.floor(z)
+    }
+
     // Emit event with block type for audio
     this.eventBus.emit('world', {
       type: 'BlockRemovedEvent',
       timestamp: Date.now(),
-      x: Math.floor(x),
-      y: Math.floor(y),
-      z: Math.floor(z),
+      position,
       blockType: blockType,
       chunkCoord: chunkCoord
     })

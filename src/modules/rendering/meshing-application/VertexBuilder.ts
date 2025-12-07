@@ -1,5 +1,4 @@
 // src/modules/meshing/application/VertexBuilder.ts
-import * as THREE from 'three'
 import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
 import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
 import { normalizeLightToColor, combineLightChannels } from '../../world/lighting-domain/LightValue'
@@ -14,7 +13,7 @@ interface BufferData {
 }
 
 export class VertexBuilder {
-  private buffers = new Map<number, BufferData>()
+  private buffers = new Map<string, BufferData>()
   private worldOffsetX: number
   private worldOffsetZ: number
 
@@ -33,11 +32,17 @@ export class VertexBuilder {
     width: number, height: number,
     axis: 0 | 1 | 2,
     direction: -1 | 1,
-    blockType: number
+    blockType: number,
+    faceIndex: number
   ): void {
-    const buffer = this.getBuffer(blockType)
+    const materialKey = `${blockType}:${faceIndex}`
+    const buffer = this.getBuffer(materialKey)
     const vertices = this.getQuadVertices(x, y, z, width, height, axis, direction)
     const normal = this.getFaceNormal(axis, direction)
+    // Note: blockRegistry.getFaceColor returns THREE.Color, which might fail in worker if THREE not tree-shaken properly?
+    // Actually, we imported THREE in blockRegistry? 
+    // We need to check BlockRegistry dependencies. 
+    // Assuming for now it returns {r,g,b} object compatible with THREE.Color structure.
     const baseColor = blockRegistry.getFaceColor(blockType, normal)
 
     for (let i = 0; i < 4; i++) {
@@ -65,10 +70,15 @@ export class VertexBuilder {
 
       // Apply lighting * AO
       const faceTint = this.getFaceTint(normal, worldX, worldY, worldZ)
+      
+      // Apply Overlay
+      // We need a simple color object, not THREE.Color clone
+      const overlay = this.applySideOverlay(blockType, normal, {r: baseColor.r, g: baseColor.g, b: baseColor.b}, v.y - y, height)
+
       buffer.colors.push(
-        light.r * ao * baseColor.r * faceTint,
-        light.g * ao * baseColor.g * faceTint,
-        light.b * ao * baseColor.b * faceTint
+        light.r * ao * overlay.r * faceTint,
+        light.g * ao * overlay.g * faceTint,
+        light.b * ao * overlay.b * faceTint
       )
 
       // UVs
@@ -77,25 +87,40 @@ export class VertexBuilder {
 
     // Indices for quad (2 triangles)
     const i = buffer.vertexCount
-    buffer.indices.push(
-      i, i + 1, i + 2,
-      i, i + 2, i + 3
+    const needsFlip = (
+      // Current vertex ordering yields inward-facing triangles for these cases
+      (axis === 0 && direction === 1) ||  // +X face
+      (axis === 1 && direction === 1) ||  // +Y face (grass tops, etc.)
+      (axis === 2 && direction === -1)    // -Z face
     )
+
+    if (needsFlip) {
+      buffer.indices.push(
+        i, i + 2, i + 1,
+        i, i + 3, i + 2
+      )
+    } else {
+      buffer.indices.push(
+        i, i + 1, i + 2,
+        i, i + 2, i + 3
+      )
+    }
 
     buffer.vertexCount += 4
   }
 
-  buildGeometry(): Map<number, THREE.BufferGeometry> {
-    const map = new Map<number, THREE.BufferGeometry>()
-    for (const [blockType, buffer] of this.buffers.entries()) {
+  // Returns raw arrays instead of BufferGeometry
+  getBuffers(): Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }> {
+    const map = new Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>()
+    for (const [key, buffer] of this.buffers.entries()) {
       if (buffer.positions.length === 0) continue
-      const geometry = new THREE.BufferGeometry()
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffer.positions, 3))
-      geometry.setAttribute('color', new THREE.Float32BufferAttribute(buffer.colors, 3))
-      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(buffer.uvs, 2))
-      geometry.setIndex(buffer.indices)
-      geometry.computeVertexNormals()
-      map.set(blockType, geometry)
+      
+      map.set(key, {
+        positions: new Float32Array(buffer.positions),
+        colors: new Float32Array(buffer.colors),
+        uvs: new Float32Array(buffer.uvs),
+        indices: new Uint16Array(buffer.indices)
+      })
     }
     return map
   }
@@ -209,8 +234,8 @@ export class VertexBuilder {
     return (seed & 0xffffff) / 0xffffff
   }
 
-  private getBuffer(blockType: number): BufferData {
-    let buffer = this.buffers.get(blockType)
+  private getBuffer(materialKey: string): BufferData {
+    let buffer = this.buffers.get(materialKey)
     if (!buffer) {
       buffer = {
         positions: [],
@@ -219,8 +244,30 @@ export class VertexBuilder {
         indices: [],
         vertexCount: 0
       }
-      this.buffers.set(blockType, buffer)
+      this.buffers.set(materialKey, buffer)
     }
     return buffer
+  }
+
+  private applySideOverlay(
+    blockType: number,
+    normal: { x: number, y: number, z: number },
+    color: {r:number, g:number, b:number},
+    localY: number,
+    height: number
+  ): {r:number, g:number, b:number} {
+    const overlay = blockRegistry.getSideOverlay(blockType)
+    if (!overlay) return color
+    if (!(normal.x !== 0 || normal.z !== 0)) return color
+    const overlayStart = Math.max(0, height - overlay.height)
+    const blend = Math.max(0, Math.min(1, (localY - overlayStart) / overlay.height))
+    if (blend <= 0) return color
+    
+    // Lerp
+    return {
+      r: color.r + (overlay.color.r - color.r) * blend,
+      g: color.g + (overlay.color.g - color.g) * blend,
+      b: color.b + (overlay.color.b - color.b) * blend
+    }
   }
 }

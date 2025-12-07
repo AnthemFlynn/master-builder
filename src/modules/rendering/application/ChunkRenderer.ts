@@ -20,7 +20,7 @@ export class ChunkRenderer {
     })
   }
 
-  private updateMesh(coord: ChunkCoordinate, geometryMap: Map<number, THREE.BufferGeometry>): void {
+  private updateMesh(coord: ChunkCoordinate, geometryMap: Map<string, THREE.BufferGeometry>): void {
     const key = coord.toKey()
 
     const oldGroup = this.meshes.get(key)
@@ -34,8 +34,8 @@ export class ChunkRenderer {
     }
 
     const group = new THREE.Group()
-    geometryMap.forEach((geometry, blockType) => {
-      const material = this.materialSystem.getMaterialForBlock(blockType)
+    geometryMap.forEach((geometry, materialKey) => {
+      const material = this.materialSystem.getMaterial(materialKey)
       const mesh = new THREE.Mesh(geometry, material)
       mesh.castShadow = true
       mesh.receiveShadow = true

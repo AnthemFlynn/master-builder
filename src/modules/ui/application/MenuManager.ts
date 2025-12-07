@@ -1,5 +1,10 @@
 import { UIState } from '../domain/UIState'
 
+interface MenuManagerOptions {
+  requestPointerLock?: () => void
+  exitPointerLock?: () => void
+}
+
 export class MenuManager {
   private menuElement: HTMLElement | null
   private splashElement: HTMLElement | null
@@ -7,7 +12,8 @@ export class MenuManager {
   constructor(
     private onPlay: () => void,
     private onResume: () => void,
-    private onExit: () => void
+    private onExit: () => void,
+    private options: MenuManagerOptions = {}
   ) {
     this.menuElement = document.querySelector('.menu')
     this.splashElement = document.querySelector('#splash')
@@ -19,13 +25,14 @@ export class MenuManager {
     // Play button - matches HTML id="play"
     const playButton = document.querySelector('#play')
     playButton?.addEventListener('click', () => {
-      document.body.requestPointerLock()
+      this.options.requestPointerLock?.()
       this.onPlay()
     })
 
     // Exit button - matches HTML id="exit"
     const exitButton = document.querySelector('#exit')
     exitButton?.addEventListener('click', () => {
+      this.options.exitPointerLock?.()
       this.onExit()
     })
 

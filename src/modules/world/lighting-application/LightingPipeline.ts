@@ -3,6 +3,7 @@ import { ChunkCoordinate } from '../domain/ChunkCoordinate'
 import { IVoxelQuery } from '../ports/IVoxelQuery'
 import { LightData } from '../lighting-domain/LightData'
 import { ILightingPass } from './passes/ILightingPass'
+import { ILightStorage } from '../lighting-ports/ILightStorage'
 import { SkyLightPass } from './passes/SkyLightPass'
 import { PropagationPass } from './passes/PropagationPass'
 
@@ -18,13 +19,13 @@ export class LightingPipeline {
    * Execute full lighting pipeline for a chunk
    * Returns fully calculated LightData
    */
-  execute(coord: ChunkCoordinate): LightData {
+  execute(coord: ChunkCoordinate, storage: ILightStorage): LightData {
     const startTime = performance.now()
     const lightData = new LightData(coord)
 
     // Run all passes in sequence (EXPLICIT ORDER)
     for (const pass of this.passes) {
-      pass.execute(lightData, this.voxelQuery, coord)
+      pass.execute(lightData, this.voxelQuery, coord, storage)
     }
 
     const duration = performance.now() - startTime

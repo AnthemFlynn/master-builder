@@ -38,6 +38,10 @@ export interface BlockDefinition {
     bottom?: { r: number, g: number, b: number }
     side?: { r: number, g: number, b: number }
   }
+  sideOverlay?: {
+    color: { r: number, g: number, b: number }
+    height: number  // in block units (0-1)
+  }
 
   // Lighting properties
   emissive: RGB  // Light emission (0-15 per channel)

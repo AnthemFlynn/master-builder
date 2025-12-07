@@ -24,6 +24,10 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
       bottom: { r: 0.5, g: 0.32, b: 0.15 },
       side: { r: 0.45, g: 0.5, b: 0.25 }
     },
+    sideOverlay: {
+      color: { r: 0.35, g: 0.9, b: 0.4 },
+      height: 0.2
+    },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 1.0,  // Fully opaque
     collidable: true,
@@ -60,7 +64,11 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
       top: { r: 0.55, g: 0.32, b: 0.18 },
       bottom: { r: 0.4, g: 0.22, b: 0.12 },
       side: { r: 0.5, g: 0.28, b: 0.14 }
-    }
+    },
+    sideOverlay: {
+      color: { r: 0.55, g: 0.32, b: 0.18 },
+      height: 0.1
+    },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 1.0,
     collidable: true,

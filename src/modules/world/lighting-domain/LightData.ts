@@ -74,4 +74,36 @@ export class LightData {
   getMemoryUsage(): number {
     return (this.size * this.height * this.size) * 6  // 6 bytes per voxel
   }
+
+  // Buffers for Worker Transfer
+  getSkyBuffers(): { r: ArrayBuffer, g: ArrayBuffer, b: ArrayBuffer } {
+    return {
+      r: this.skyLightR.buffer,
+      g: this.skyLightG.buffer,
+      b: this.skyLightB.buffer
+    }
+  }
+
+  getBlockBuffers(): { r: ArrayBuffer, g: ArrayBuffer, b: ArrayBuffer } {
+    return {
+      r: this.blockLightR.buffer,
+      g: this.blockLightG.buffer,
+      b: this.blockLightB.buffer
+    }
+  }
+
+  // Simplified packed buffer for fewer transfers (optional, but cleaner)
+  // Let's stick to simple accessors for now or a method to hydrate from buffers.
+  
+  setBuffers(
+    sky: { r: ArrayBuffer, g: ArrayBuffer, b: ArrayBuffer }, 
+    block: { r: ArrayBuffer, g: ArrayBuffer, b: ArrayBuffer }
+  ) {
+    this.skyLightR = new Uint8Array(sky.r)
+    this.skyLightG = new Uint8Array(sky.g)
+    this.skyLightB = new Uint8Array(sky.b)
+    this.blockLightR = new Uint8Array(block.r)
+    this.blockLightG = new Uint8Array(block.g)
+    this.blockLightB = new Uint8Array(block.b)
+  }
 }

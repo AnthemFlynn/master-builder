@@ -337,8 +337,8 @@ export default class TimeOfDay {
     if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color = skyColor
     } else {
-      // Create fog if it doesn't exist
-      this.scene.fog = new THREE.Fog(skyColor, 1, 96)
+      const far = 400
+      this.scene.fog = new THREE.Fog(skyColor, 1, far)
     }
 
     // Update ambient light

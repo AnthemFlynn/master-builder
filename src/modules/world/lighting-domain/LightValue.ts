@@ -20,8 +20,8 @@ export function combineLightChannels(light: LightValue): RGB {
 
 export function normalizeLightToColor(rgb: RGB): { r: number, g: number, b: number } {
   return {
-    r: Math.max(0.2, rgb.r / 15),  // Min 0.2 (never pure black)
-    g: Math.max(0.2, rgb.g / 15),
-    b: Math.max(0.2, rgb.b / 15)
+    r: Math.max(0.6, rgb.r / 15),
+    g: Math.max(0.6, rgb.g / 15),
+    b: Math.max(0.6, rgb.b / 15)
   }
 }

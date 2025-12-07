@@ -1,6 +1,9 @@
 import './style.css'
 import Core from './core'
 import { GameOrchestrator } from './modules/game'
+import { PlayerMode } from './modules/player/domain/PlayerMode'
+import { getWorldPreset } from './modules/world/domain/WorldPreset'
+import { DEFAULT_WORLD_PRESET_ID } from './modules/world/domain/WorldConfig'
 
 // Initialize BlockRegistry
 import { initializeBlockRegistry } from './blocks'
@@ -12,17 +15,35 @@ const camera = core.camera
 const scene = core.scene
 const renderer = core.renderer
 const timeOfDay = core.timeOfDay
+const activePreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
+
+// Default to preset lighting so development view matches world intention
+timeOfDay.setHour(activePreset.defaultLightingHour)
 
 // Initialize game (all modules)
 const game = new GameOrchestrator(scene, camera)
 
 // Expose for debugging
 if (typeof window !== 'undefined') {
-  (window as any).game = game
-  (window as any).debug = {
+  const global = window as any
+
+  if (typeof global.game === 'function') {
+    console.warn('window.game already defined. Exposing GameOrchestrator as window.gameOrchestrator instead.')
+    global.gameOrchestrator = game
+  } else {
+    global.game = game
+    global.gameOrchestrator = game
+  }
+
+  global.debug = {
     enableTracing: () => game.enableEventTracing(),
     replayCommands: (from: number) => game.replayCommands(from),
-    getCommandLog: () => game.getCommandLog()
+    getCommandLog: () => game.getCommandLog(),
+    getPlayerMode: () => game.getPlayerService().getMode(),
+    setPlayerMode: (mode: PlayerMode) => game.getPlayerService().setMode(mode),
+    getPlayerPosition: () => game.getPlayerService().getPosition().clone(),
+    setHour: (hour: number) => timeOfDay.setHour(hour),
+    getWorldPreset: () => activePreset
   }
 
   console.log('✅ Hexagonal architecture active - 9 modules loaded')

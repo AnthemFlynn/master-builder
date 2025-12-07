@@ -1,7 +1,6 @@
 // src/modules/terrain/domain/events/WorldEvents.ts
 import { DomainEvent } from './DomainEvent'
 import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
-import * as THREE from 'three'
 
 export interface ChunkGeneratedEvent extends DomainEvent {
   type: 'ChunkGeneratedEvent'
@@ -9,15 +8,22 @@ export interface ChunkGeneratedEvent extends DomainEvent {
   renderDistance: number
 }
 
+export interface BlockPosition {
+  x: number
+  y: number
+  z: number
+}
+
 export interface BlockPlacedEvent extends DomainEvent {
   type: 'BlockPlacedEvent'
-  position: THREE.Vector3
+  position: BlockPosition
   blockType: number
   chunkCoord: ChunkCoordinate
 }
 
 export interface BlockRemovedEvent extends DomainEvent {
   type: 'BlockRemovedEvent'
-  position: THREE.Vector3
+  position: BlockPosition
+  blockType: number
   chunkCoord: ChunkCoordinate
 }

@@ -7,7 +7,7 @@ import * as THREE from 'three'
  */
 export class BlockRegistry {
   private blocks = new Map<number, BlockDefinition>()
-  private textureLoader = new THREE.TextureLoader()
+  private textureLoader?: THREE.TextureLoader
   private textureBasePath = '/textures/block/'
 
   /**
@@ -108,7 +108,45 @@ export class BlockRegistry {
     return this.getBaseColor(id)
   }
 
+  getSideOverlay(id: number) {
+    return this.blocks.get(id)?.sideOverlay
+  }
+
+  getTextureForFace(id: number, faceIndex: number): string {
+    const block = this.get(id)
+    if (!block) return 'missing.png'
+    if (typeof block.textures === 'string') {
+      return block.textures
+    }
+    if (block.textures.length === 6) {
+      return block.textures[faceIndex] ?? block.textures[0]
+    }
+    if (block.textures.length === 3) {
+      // assume [side, top, bottom]
+      if (faceIndex === 2) return block.textures[1]
+      if (faceIndex === 3) return block.textures[2]
+      return block.textures[0]
+    }
+    return block.textures[0]
+  }
+
+  createMaterialForFace(id: number, faceIndex: number): THREE.Material {
+    const textureName = this.getTextureForFace(id, faceIndex)
+    const map = this.createTexture(textureName)
+    const block = this.get(id)
+    return new THREE.MeshStandardMaterial({
+      map,
+      transparent: block?.transparent ?? false,
+      vertexColors: true,
+      emissive: block ? new THREE.Color(block.emissive.r / 15, block.emissive.g / 15, block.emissive.b / 15) : new THREE.Color(0, 0, 0),
+      emissiveIntensity: block && (block.emissive.r || block.emissive.g || block.emissive.b) ? 0.8 : 0
+    })
+  }
+
   private createTexture(textureName: string): THREE.Texture {
+    if (!this.textureLoader) {
+      this.textureLoader = new THREE.TextureLoader()
+    }
     const texture = this.textureLoader.load(`${this.textureBasePath}${textureName}`)
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping

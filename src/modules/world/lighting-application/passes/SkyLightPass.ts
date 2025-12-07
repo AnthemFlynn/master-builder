@@ -3,9 +3,10 @@ import { ILightingPass } from './ILightingPass'
 import { LightData } from '../../lighting-domain/LightData'
 import { ChunkCoordinate } from '../../domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../ports/IVoxelQuery'
+import { ILightStorage } from '../../lighting-ports/ILightStorage'
 
 export class SkyLightPass implements ILightingPass {
-  execute(lightData: LightData, voxels: IVoxelQuery, coord: ChunkCoordinate): void {
+  execute(lightData: LightData, voxels: IVoxelQuery, coord: ChunkCoordinate, storage: ILightStorage): void {
     const worldX = coord.x * 24
     const worldZ = coord.z * 24
 

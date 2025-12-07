@@ -3,7 +3,7 @@ import { blockRegistry } from '../../../blocks'
 
 export class MaterialSystem {
   private materials = new Map<string, THREE.Material>()
-  private blockMaterials = new Map<number, THREE.Material>()
+  private faceMaterials = new Map<string, THREE.Material>()
 
   constructor() {
     this.materials.set('chunk', new THREE.MeshStandardMaterial({
@@ -25,13 +25,16 @@ export class MaterialSystem {
     return this.materials.get('chunk')!
   }
 
-  getMaterialForBlock(blockType: number): THREE.Material {
-    let mat = this.blockMaterials.get(blockType)
+  getMaterial(materialKey: string): THREE.Material {
+    let mat = this.faceMaterials.get(materialKey)
     if (!mat) {
-      mat = blockRegistry.createMaterial(blockType)
+      const [blockTypeStr, faceIndexStr] = materialKey.split(':')
+      const blockType = Number(blockTypeStr)
+      const faceIndex = Number(faceIndexStr)
+      mat = blockRegistry.createMaterialForFace(blockType, faceIndex)
       mat.vertexColors = true
-      mat.side = THREE.DoubleSide
-      this.blockMaterials.set(blockType, mat)
+      mat.side = THREE.FrontSide
+      this.faceMaterials.set(materialKey, mat)
     }
     return mat
   }

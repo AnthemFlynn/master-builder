@@ -2,6 +2,7 @@
 import { LightData } from '../../lighting-domain/LightData'
 import { ChunkCoordinate } from '../../domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../ports/IVoxelQuery'
+import { ILightStorage } from '../../lighting-ports/ILightStorage'
 
 export interface ILightingPass {
   /**
@@ -10,6 +11,7 @@ export interface ILightingPass {
   execute(
     lightData: LightData,
     voxels: IVoxelQuery,
-    coord: ChunkCoordinate
+    coord: ChunkCoordinate,
+    storage: ILightStorage
   ): void
 }

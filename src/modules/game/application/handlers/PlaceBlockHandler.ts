@@ -34,13 +34,17 @@ export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
       Math.floor(z / 24)
     )
 
+    const position = {
+      x: Math.floor(x),
+      y: Math.floor(y),
+      z: Math.floor(z)
+    }
+
     // Emit event
     this.eventBus.emit('world', {
       type: 'BlockPlacedEvent',
       timestamp: Date.now(),
-      x: Math.floor(x),
-      y: Math.floor(y),
-      z: Math.floor(z),
+      position,
       blockType: blockType,
       chunkCoord: chunkCoord
     })

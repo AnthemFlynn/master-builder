@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { CollisionResult } from '../domain/CollisionResult'
 
 export interface ICollisionQuery {
-  checkCollisions(position: THREE.Vector3, playerBody: THREE.Mesh): CollisionResult
+  moveWithCollisions(position: THREE.Vector3, delta: THREE.Vector3): THREE.Vector3
+  moveVertical(position: THREE.Vector3, deltaY: number): { position: THREE.Vector3; collided: boolean }
   isGrounded(position: THREE.Vector3): boolean
 }

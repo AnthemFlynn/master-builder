@@ -11,8 +11,8 @@ export class PlayerState {
 
   constructor() {
     this.position = new THREE.Vector3(8, 40, 8)
-    this.mode = PlayerMode.Flying  // Start in flying mode (walking physics incomplete)
-    this.speed = 0.08
+    this.mode = PlayerMode.Walking  // Default to walking so collisions apply
+    this.speed = 5
     this.falling = false
     this.jumpVelocity = 0
   }
@@ -22,11 +22,11 @@ export class PlayerState {
 
     // Adjust speed based on mode
     if (mode === PlayerMode.Flying) {
-      this.speed = 0.08
+      this.speed = 10
     } else if (mode === PlayerMode.Sneaking) {
-      this.speed = 0.025
+      this.speed = 2.5
     } else {
-      this.speed = 0.05
+      this.speed = 5
     }
   }
 

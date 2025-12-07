@@ -6,7 +6,7 @@ export class VoxelChunk {
   private blockTypes: Int8Array
   readonly size: number = 24
   readonly height: number = 256
-  public generated: boolean = false
+  private generated: boolean = false
 
   constructor(coord: ChunkCoordinate) {
     this.coord = coord
@@ -40,5 +40,33 @@ export class VoxelChunk {
 
   getMemoryUsage(): number {
     return this.size * this.height * this.size  // 1 byte per voxel
+  }
+
+  isGenerated(): boolean {
+    return this.generated
+  }
+
+  markGenerated(): void {
+    this.generated = true
+  }
+
+  getRawBuffer(): ArrayBuffer {
+    return this.blockTypes.buffer
+  }
+
+  setRawBuffer(buffer: ArrayBuffer): void {
+    // Ensure buffer size matches expected size
+    const expectedSize = this.size * this.height * this.size
+    if (buffer.byteLength !== expectedSize) {
+      throw new Error(`Buffer size mismatch: expected ${expectedSize}, got ${buffer.byteLength}`)
+    }
+    this.blockTypes = new Int8Array(buffer)
+  }
+
+  static fromBuffer(coord: ChunkCoordinate, buffer: ArrayBuffer): VoxelChunk {
+    const chunk = new VoxelChunk(coord)
+    chunk.setRawBuffer(buffer)
+    chunk.markGenerated()
+    return chunk
   }
 }

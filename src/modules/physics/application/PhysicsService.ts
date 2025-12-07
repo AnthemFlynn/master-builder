@@ -2,7 +2,6 @@ import { CollisionDetector } from './CollisionDetector'
 import { MovementController } from './MovementController'
 import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
 import { IPlayerQuery } from '../../player/ports/IPlayerQuery'
-import * as THREE from 'three'
 
 export class PhysicsService {
   private collisionDetector: CollisionDetector
@@ -10,10 +9,9 @@ export class PhysicsService {
 
   constructor(
     voxels: IVoxelQuery,
-    player: IPlayerQuery,
-    scene: THREE.Scene
+    player: IPlayerQuery
   ) {
-    this.collisionDetector = new CollisionDetector(voxels, scene)
+    this.collisionDetector = new CollisionDetector(voxels)
     this.movementController = new MovementController(this.collisionDetector, player)
   }
 

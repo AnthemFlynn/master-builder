@@ -4,17 +4,38 @@ import { IUIQuery } from '../ports/IUIQuery'
 import { HUDManager } from './HUDManager'
 import { MenuManager } from './MenuManager'
 
+export interface UIServiceOptions {
+  requestPointerLock?: () => void
+  exitPointerLock?: () => void
+}
+
 export class UIService implements IUIQuery {
   private state: UIState = UIState.SPLASH
   private hudManager: HUDManager
   private menuManager: MenuManager
 
-  constructor(private eventBus: EventBus) {
+  constructor(
+    private eventBus: EventBus,
+    private options: UIServiceOptions = {}
+  ) {
     this.hudManager = new HUDManager()
     this.menuManager = new MenuManager(
-      () => this.onPlay(),
-      () => this.onPlay(), // Resume also goes to playing
-      () => this.onMenu()
+      () => {
+        this.options.requestPointerLock?.()
+        this.onPlay()
+      },
+      () => {
+        this.options.requestPointerLock?.()
+        this.onPlay()
+      },
+      () => {
+        this.options.exitPointerLock?.()
+        this.onMenu()
+      },
+      {
+        requestPointerLock: this.options.requestPointerLock,
+        exitPointerLock: this.options.exitPointerLock
+      }
     )
 
     // Start in menu state (HTML shows menu by default)
