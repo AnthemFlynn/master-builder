@@ -1,6 +1,6 @@
 // src/modules/terrain/domain/events/WorldEvents.ts
 import { DomainEvent } from './DomainEvent'
-import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 
 export interface ChunkGeneratedEvent extends DomainEvent {
   type: 'ChunkGeneratedEvent'

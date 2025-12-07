@@ -1,5 +1,5 @@
 // src/modules/lighting/domain/LightData.ts
-import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { LightValue } from './LightValue'
 
 export class LightData {

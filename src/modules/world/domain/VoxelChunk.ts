@@ -1,5 +1,5 @@
 // src/modules/world/domain/VoxelChunk.ts
-import { ChunkCoordinate } from './ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 
 export class VoxelChunk {
   readonly coord: ChunkCoordinate

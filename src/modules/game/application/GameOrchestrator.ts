@@ -2,7 +2,6 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 import { WorldService } from '../../world/application/WorldService'
-import { LightingService } from '../../world/lighting-application/LightingService'
 import { MeshingService } from '../../rendering/meshing-application/MeshingService'
 import { RenderingService } from '../../rendering/application/RenderingService'
 import { PlayerService } from '../../player/application/PlayerService'
@@ -11,9 +10,10 @@ import { InputService } from '../../input/application/InputService'
 import { UIService } from '../../ui/application/UIService'
 import { AudioService } from '../../audio/application/AudioService'
 import { InteractionService } from '../../interaction/application/InteractionService'
+import { EnvironmentService } from '../../environment/application/EnvironmentService'
 import { CommandBus } from '../infrastructure/CommandBus'
 import { EventBus } from '../infrastructure/EventBus'
-import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../shared/domain/ChunkCoordinate'
 import { GenerateChunkHandler } from './handlers/GenerateChunkHandler'
 import { PlaceBlockHandler } from './handlers/PlaceBlockHandler'
 import { RemoveBlockHandler } from './handlers/RemoveBlockHandler'
@@ -31,7 +31,6 @@ export class GameOrchestrator {
 
   // Services (all 9 hexagonal modules)
   private worldService: WorldService
-  private lightingService: LightingService
   private meshingService: MeshingService
   private renderingService: RenderingService
   private playerService: PlayerService
@@ -40,6 +39,7 @@ export class GameOrchestrator {
   private uiService: UIService
   private audioService: AudioService
   private interactionService: InteractionService
+  private environmentService: EnvironmentService
   private worldPreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
   private currentChunk = new ChunkCoordinate(0, 0)
@@ -61,13 +61,6 @@ export class GameOrchestrator {
 
     // Create all services (in dependency order)
     this.worldService = new WorldService(this.eventBus)
-    this.lightingService = new LightingService(this.worldService, this.eventBus)
-    this.meshingService = new MeshingService(
-        this.worldService, 
-        this.worldService, 
-        this.lightingService, 
-        this.eventBus
-    )
     this.renderingService = new RenderingService(scene, this.eventBus)
     this.playerService = new PlayerService(this.eventBus)
     this.physicsService = new PhysicsService(this.worldService, this.playerService)
@@ -78,6 +71,19 @@ export class GameOrchestrator {
     })
     this.audioService = new AudioService(camera, this.eventBus)
     this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)
+    this.environmentService = new EnvironmentService(scene, camera, this.eventBus)
+    
+    // Link services (resolve circular dependency)
+    this.worldService.setEnvironmentService(this.environmentService)
+
+    // MeshingService depends on World (voxels) and Environment (lighting)
+    // EnvironmentService will now implement ILightingQuery/Storage (TODO)
+    this.meshingService = new MeshingService(
+        this.worldService, 
+        this.worldService, 
+        this.environmentService, // Acts as ILightingQuery & ILightStorage
+        this.eventBus
+    )
 
     // Keep input service state in sync with UI state
     this.inputService.setState(GameState.MENU)
@@ -137,6 +143,7 @@ export class GameOrchestrator {
     // Update physics and player movement
     this.updatePlayerMovement(deltaTime)
     this.interactionService.updateHighlight(this.camera)
+    this.environmentService.update()
 
     // Update chunks based on camera position
     const newChunk = new ChunkCoordinate(
@@ -352,6 +359,7 @@ export class GameOrchestrator {
   getUIService() { return this.uiService }
   getInputService() { return this.inputService }
   getAudioService() { return this.audioService }
+  getEnvironmentService() { return this.environmentService }
 
   // Debug methods
   enableEventTracing(): void {

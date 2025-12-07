@@ -1,10 +1,10 @@
 import { ILightingPass } from './ILightingPass'
-import { LightData } from '../../lighting-domain/LightData'
-import { ChunkCoordinate } from '../../domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../ports/IVoxelQuery'
-import { ILightStorage } from '../../lighting-ports/ILightStorage'
-import { blockRegistry } from '../../../../blocks'
-import { LightValue } from '../../lighting-domain/LightValue'
+import { LightData } from '../../domain/voxel-lighting/LightData'
+import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
+import { ILightStorage } from '../../ports/ILightStorage'
+import { blockRegistry } from '../../../../../blocks'
+import { LightValue } from '../../domain/voxel-lighting/LightValue'
 
 interface LightNode {
   x: number

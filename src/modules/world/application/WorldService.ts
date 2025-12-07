@@ -1,19 +1,25 @@
 // src/modules/world/application/WorldService.ts
-import { ChunkCoordinate } from '../domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { VoxelChunk } from '../domain/VoxelChunk'
-import { IVoxelQuery } from '../ports/IVoxelQuery'
+import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { blockRegistry } from '../../../blocks'
 import ChunkWorker from '../workers/ChunkWorker?worker'
 import { ChunkRequest, MainMessage } from '../workers/types'
 import { EventBus } from '../../game/infrastructure/EventBus'
+import { EnvironmentService } from '../../environment/application/EnvironmentService'
 
 export class WorldService implements IVoxelQuery {
   private chunks = new Map<string, VoxelChunk>()
   private worker: Worker
+  private environmentService?: EnvironmentService
 
   constructor(private eventBus?: EventBus) {
     this.worker = new ChunkWorker()
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
+  }
+
+  setEnvironmentService(service: EnvironmentService) {
+      this.environmentService = service
   }
 
   private handleWorkerMessage(e: MessageEvent<MainMessage>) {
@@ -37,19 +43,6 @@ export class WorldService implements IVoxelQuery {
           renderDistance
         })
       }
-    }
-    else if (msg.type === 'LIGHT_CALCULATED') {
-        const { x, z, lightBuffer } = msg
-        const coord = new ChunkCoordinate(x, z)
-
-        // Dispatch to LightingService (via EventBus)
-        if (this.eventBus) {
-            this.eventBus.emit('lighting', {
-                type: 'LightingWorkerCompleteEvent',
-                chunkCoord: coord,
-                lightBuffer
-            })
-        }
     }
     else if (msg.type === 'MESH_GENERATED') {
         const { x, z, geometry } = msg
@@ -83,6 +76,11 @@ export class WorldService implements IVoxelQuery {
   }
 
   calculateLightAsync(coord: ChunkCoordinate): void {
+      if (!this.environmentService) {
+          console.error("WorldService: EnvironmentService not linked, cannot calc light")
+          return
+      }
+
       const neighborVoxels: Record<string, ArrayBuffer> = {}
       
       // Center and Neighbors (for propagation)
@@ -97,42 +95,8 @@ export class WorldService implements IVoxelQuery {
           }
       }
       
-      const request: ChunkRequest = {
-          type: 'CALC_LIGHT',
-          x: coord.x,
-          z: coord.z,
-          neighborVoxels
-      }
-      
-      this.worker.postMessage(request)
-  }
-
-  buildMeshAsync(
-      coord: ChunkCoordinate, 
-      neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
-  ): void {
-      const neighborVoxels: Record<string, ArrayBuffer> = {}
-      
-      // Gather Voxels (Center + Neighbors) for AO
-      const offsets = ['0,0', '1,0', '-1,0', '0,1', '0,-1']
-      for (const key of offsets) {
-          const [dx, dz] = key.split(',').map(Number)
-          const nCoord = new ChunkCoordinate(coord.x + dx, coord.z + dz)
-          const nChunk = this.getChunk(nCoord)
-          if (nChunk && nChunk.isGenerated()) {
-              neighborVoxels[key] = nChunk.getRawBuffer()
-          }
-      }
-      
-      const request: ChunkRequest = {
-          type: 'GEN_MESH',
-          x: coord.x,
-          z: coord.z,
-          neighborVoxels,
-          neighborLight
-      }
-      
-      this.worker.postMessage(request)
+      // Delegate to Environment
+      this.environmentService.calculateLight(coord, neighborVoxels)
   }
 
   getChunk(coord: ChunkCoordinate): VoxelChunk | null {

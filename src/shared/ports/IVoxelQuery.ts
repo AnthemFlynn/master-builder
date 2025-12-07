@@ -1,4 +1,4 @@
-// src/modules/world/ports/IVoxelQuery.ts
+// src/shared/ports/IVoxelQuery.ts
 import { ChunkCoordinate } from '../domain/ChunkCoordinate'
 import { VoxelChunk } from '../domain/VoxelChunk'
 

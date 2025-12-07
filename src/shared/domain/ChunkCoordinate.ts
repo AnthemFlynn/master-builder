@@ -1,4 +1,4 @@
-// src/modules/world/domain/ChunkCoordinate.ts
+// src/shared/domain/ChunkCoordinate.ts
 export class ChunkCoordinate {
   constructor(
     public readonly x: number,

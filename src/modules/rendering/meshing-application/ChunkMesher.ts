@@ -1,6 +1,6 @@
-import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
-import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
-import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
+import { ILightingQuery } from '../../environment/ports/ILightingQuery'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { VertexBuilder } from './VertexBuilder'
 import { blockRegistry } from '../../../blocks'
 

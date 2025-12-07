@@ -1,6 +1,6 @@
 // src/modules/terrain/domain/events/LightingEvents.ts
 import { DomainEvent } from './DomainEvent'
-import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 
 export interface LightingCalculatedEvent extends DomainEvent {
   type: 'LightingCalculatedEvent'

@@ -1,6 +1,6 @@
 // src/modules/terrain/domain/events/MeshingEvents.ts
 import { DomainEvent } from './DomainEvent'
-import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import * as THREE from 'three'
 
 export interface ChunkMeshBuiltEvent extends DomainEvent {

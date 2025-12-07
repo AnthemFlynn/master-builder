@@ -1,9 +1,9 @@
 // src/modules/world/lighting-application/LightingPipeline.ts
-import { ChunkCoordinate } from '../domain/ChunkCoordinate'
-import { IVoxelQuery } from '../ports/IVoxelQuery'
-import { LightData } from '../lighting-domain/LightData'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
+import { LightData } from '../../domain/voxel-lighting/LightData'
 import { ILightingPass } from './passes/ILightingPass'
-import { ILightStorage } from '../lighting-ports/ILightStorage'
+import { ILightStorage } from '../../ports/ILightStorage'
 import { SkyLightPass } from './passes/SkyLightPass'
 import { PropagationPass } from './passes/PropagationPass'
 

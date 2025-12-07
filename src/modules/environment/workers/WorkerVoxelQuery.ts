@@ -1,6 +1,6 @@
-import { ChunkCoordinate } from '../domain/ChunkCoordinate'
-import { VoxelChunk } from '../domain/VoxelChunk'
-import { IVoxelQuery } from '../ports/IVoxelQuery'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
+import { VoxelChunk } from '../../../modules/world/domain/VoxelChunk'
+import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 
 /**
  * A lightweight implementation of IVoxelQuery for the Worker.

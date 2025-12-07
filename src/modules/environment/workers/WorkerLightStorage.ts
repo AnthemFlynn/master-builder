@@ -1,6 +1,6 @@
-import { ChunkCoordinate } from '../domain/ChunkCoordinate'
-import { LightData } from '../lighting-domain/LightData'
-import { ILightStorage } from '../lighting-ports/ILightStorage'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
+import { LightData } from '../domain/voxel-lighting/LightData'
+import { ILightStorage } from '../ports/ILightStorage'
 
 export class WorkerLightStorage implements ILightStorage {
   private chunks = new Map<string, LightData>()

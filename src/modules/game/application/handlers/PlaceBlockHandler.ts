@@ -3,7 +3,7 @@ import { CommandHandler } from '../../domain/commands/Command'
 import { PlaceBlockCommand } from '../../domain/commands/PlaceBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'
 import { EventBus } from '../../infrastructure/EventBus'
-import { ChunkCoordinate } from '../../../world/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 
 export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
   constructor(

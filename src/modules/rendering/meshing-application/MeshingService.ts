@@ -1,37 +1,33 @@
 // src/modules/rendering/meshing-application/MeshingService.ts
 import * as THREE from 'three'
-import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../world/ports/IVoxelQuery'
-import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
+import { ILightingQuery } from '../../environment/ports/ILightingQuery'
 import { EventBus } from '../../game/infrastructure/EventBus'
-import { ChunkMesher } from './ChunkMesher'
-import { VertexBuilder } from './VertexBuilder'
-import { WorldService } from '../../world/application/WorldService'
-import { ILightStorage } from '../../world/lighting-ports/ILightStorage'
+import { ILightStorage } from '../../environment/ports/ILightStorage'
+import MeshingWorker from '../workers/MeshingWorker?worker'
+import { WorkerMessage, MainMessage } from '../workers/types'
 
 export class MeshingService {
   private dirtyQueue = new Map<string, 'block' | 'light' | 'global'>()
   private rebuildBudgetMs = 3
+  private worker: Worker
 
   constructor(
-    private worldService: WorldService, // Need WorldService for async meshing
-    private voxels: IVoxelQuery,
+    private voxels: IVoxelQuery & { getChunk: any }, // Need getChunk for buffers
     private lighting: ILightingQuery & ILightStorage, // Need storage access to get raw buffers
     private eventBus: EventBus
   ) {
+    this.worker = new MeshingWorker()
+    this.worker.onmessage = this.handleWorkerMessage.bind(this)
     this.setupEventListeners()
   }
 
-  private setupEventListeners(): void {
-    // Listen for lighting ready
-    this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
-      this.markDirty(e.chunkCoord, 'global')
-    })
-    
-    // Listen for worker completion
-    this.eventBus.on('meshing', 'MeshingWorkerCompleteEvent', (e: any) => {
-        const { chunkCoord, geometry } = e
-        const coord = new ChunkCoordinate(chunkCoord.x, chunkCoord.z)
+  private handleWorkerMessage(e: MessageEvent<MainMessage>) {
+      const msg = e.data
+      if (msg.type === 'MESH_GENERATED') {
+        const { x, z, geometry } = msg
+        const coord = new ChunkCoordinate(x, z)
         
         const geometryMap = new Map<string, THREE.BufferGeometry>()
         
@@ -41,9 +37,7 @@ export class MeshingService {
             geo.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
             geo.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
             geo.setIndex(new THREE.Uint16BufferAttribute(buffers.indices, 1))
-            geo.computeVertexNormals() // Recompute normals or pass them? Naive mesher has simple normals.
-            // Actually, we didn't pass normals from worker, but computeVertexNormals works fine for flat shading.
-            // Or we can construct them if we want precise control.
+            geo.computeVertexNormals()
             geometryMap.set(key, geo)
         }
         
@@ -53,8 +47,13 @@ export class MeshingService {
             chunkCoord: coord,
             geometryMap
         })
-        
-        console.log(`🔨 Mesh received from worker for (${coord.x}, ${coord.z})`)
+      }
+  }
+
+  private setupEventListeners(): void {
+    // Listen for lighting ready
+    this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
+      this.markDirty(e.chunkCoord, 'global')
     })
   }
 
@@ -68,18 +67,6 @@ export class MeshingService {
         const c = new ChunkCoordinate(coord.x + dx, coord.z + dz)
         const lightData = this.lighting.getLightData(c)
         if (lightData) {
-            // Need packed buffers or separate?
-            // Types expect { sky: ArrayBuffer, block: ArrayBuffer }
-            // But getSkyBuffers returns {r,g,b}.
-            // We need to pack them to match what Worker expects in CALC_LIGHT response format?
-            // Actually, in GEN_MESH handler in worker, we unpack using the same "slice" logic
-            // as we used in CALC_LIGHT response packing.
-            // So we must pack them identically here.
-            
-            // This duplication of packing logic is risky. 
-            // Ideally LightData should have .getPackedBuffers().
-            // For now, I'll inline pack them here.
-            
             const size = 24 * 256 * 24
             const sky = lightData.getSkyBuffers()
             const block = lightData.getBlockBuffers()
@@ -101,13 +88,32 @@ export class MeshingService {
         }
     }
     
-    // Check if Center Light exists (it must)
     if (!neighborLight['0,0']) {
-         console.warn(`⚠️ Attempted to build mesh before lighting ready: (${coord.x}, ${coord.z})`)
-         return
+         return // Center light not ready
     }
 
-    this.worldService.buildMeshAsync(coord, neighborLight)
+    // Collect Neighbor Voxel Data
+    // We need raw buffers. IVoxelQuery doesn't expose getChunk by default,
+    // but WorldService implements it. We cast it in constructor or require it.
+    const neighborVoxels: Record<string, ArrayBuffer> = {}
+    for (const key of offsets) {
+        const [dx, dz] = key.split(',').map(Number)
+        const c = new ChunkCoordinate(coord.x + dx, coord.z + dz)
+        const chunk = this.voxels.getChunk(c)
+        if (chunk && chunk.isGenerated()) {
+            neighborVoxels[key] = chunk.getRawBuffer()
+        }
+    }
+
+    // Send to worker
+    const request: WorkerMessage = {
+        type: 'GEN_MESH',
+        x: coord.x,
+        z: coord.z,
+        neighborVoxels,
+        neighborLight
+    }
+    this.worker.postMessage(request)
   }
 
   markDirty(coord: ChunkCoordinate, reason: 'block' | 'light' | 'global'): void {

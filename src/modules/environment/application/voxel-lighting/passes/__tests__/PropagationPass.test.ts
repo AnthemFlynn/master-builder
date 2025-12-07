@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { PropagationPass } from '../PropagationPass'
 import { LightData } from '../../../lighting-domain/LightData'
-import { ChunkCoordinate } from '../../../domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../ports/IVoxelQuery'
 import { ILightStorage } from '../../../lighting-ports/ILightStorage'
 import { blockRegistry } from '../../../../../blocks'

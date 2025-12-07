@@ -1,9 +1,9 @@
 // src/modules/lighting/application/passes/SkyLightPass.ts
 import { ILightingPass } from './ILightingPass'
-import { LightData } from '../../lighting-domain/LightData'
-import { ChunkCoordinate } from '../../domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../ports/IVoxelQuery'
-import { ILightStorage } from '../../lighting-ports/ILightStorage'
+import { LightData } from '../../domain/voxel-lighting/LightData'
+import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
+import { ILightStorage } from '../../ports/ILightStorage'
 
 export class SkyLightPass implements ILightingPass {
   execute(lightData: LightData, voxels: IVoxelQuery, coord: ChunkCoordinate, storage: ILightStorage): void {

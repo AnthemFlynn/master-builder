@@ -14,11 +14,7 @@ const core = new Core()
 const camera = core.camera
 const scene = core.scene
 const renderer = core.renderer
-const timeOfDay = core.timeOfDay
 const activePreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
-
-// Default to preset lighting so development view matches world intention
-timeOfDay.setHour(activePreset.defaultLightingHour)
 
 // Initialize game (all modules)
 const game = new GameOrchestrator(scene, camera)
@@ -42,11 +38,11 @@ if (typeof window !== 'undefined') {
     getPlayerMode: () => game.getPlayerService().getMode(),
     setPlayerMode: (mode: PlayerMode) => game.getPlayerService().setMode(mode),
     getPlayerPosition: () => game.getPlayerService().getPosition().clone(),
-    setHour: (hour: number) => timeOfDay.setHour(hour),
+    setHour: (hour: number) => game.getEnvironmentService().setHour(hour),
     getWorldPreset: () => activePreset
   }
 
-  console.log('✅ Hexagonal architecture active - 9 modules loaded')
+  console.log('✅ Hexagonal architecture active - 10 modules loaded')
   console.log('🐛 Debug: window.debug.enableTracing()')
 }
 
@@ -62,7 +58,6 @@ if (typeof window !== 'undefined') {
       uiService.updateFPS()
     }
 
-    timeOfDay.update()
     renderer.render(scene, camera)
   } catch (error) {
     console.error('❌ Animation loop error:', error)

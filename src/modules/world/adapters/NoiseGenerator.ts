@@ -1,6 +1,6 @@
 // src/modules/world/adapters/NoiseGenerator.ts
 import { VoxelChunk } from '../domain/VoxelChunk'
-import { ChunkCoordinate } from '../domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ImprovedNoise } from 'three/examples/jsm/math/ImprovedNoise.js'
 import { BlockType } from '../domain/BlockType'
 import { ChunkDecorator, DecorationContext } from '../decorators/ChunkDecorator'
