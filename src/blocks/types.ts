@@ -32,6 +32,12 @@ export interface BlockDefinition {
   // Visual properties
   textures: string | string[]  // Single texture or 6-face array [px, nx, py, ny, pz, nz]
   transparent: boolean
+  baseColor?: { r: number, g: number, b: number }  // Optional normalized RGB (0-1) for vertex coloring
+  faceColors?: {
+    top?: { r: number, g: number, b: number }
+    bottom?: { r: number, g: number, b: number }
+    side?: { r: number, g: number, b: number }
+  }
 
   // Lighting properties
   emissive: RGB  // Light emission (0-15 per channel)

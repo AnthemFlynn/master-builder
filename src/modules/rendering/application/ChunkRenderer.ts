@@ -1,54 +1,60 @@
-// src/modules/rendering/application/ChunkRenderer.ts
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../world/domain/ChunkCoordinate'
 import { EventBus } from '../../game/infrastructure/EventBus'
+import { MaterialSystem } from './MaterialSystem'
 
 export class ChunkRenderer {
-  private meshes = new Map<string, THREE.Mesh>()
+  private meshes = new Map<string, THREE.Group>()
 
   constructor(
     private scene: THREE.Scene,
-    private material: THREE.Material,
+    private materialSystem: MaterialSystem,
     private eventBus: EventBus
   ) {
     this.setupEventListeners()
   }
 
   private setupEventListeners(): void {
-    // Listen for mesh built
     this.eventBus.on('meshing', 'ChunkMeshBuiltEvent', (e: any) => {
-      this.updateMesh(e.chunkCoord, e.geometry)
+      this.updateMesh(e.chunkCoord, e.geometryMap)
     })
   }
 
-  private updateMesh(coord: ChunkCoordinate, geometry: THREE.BufferGeometry): void {
+  private updateMesh(coord: ChunkCoordinate, geometryMap: Map<number, THREE.BufferGeometry>): void {
     const key = coord.toKey()
 
-    // Remove old mesh
-    const oldMesh = this.meshes.get(key)
-    if (oldMesh) {
-      this.scene.remove(oldMesh)
-      oldMesh.geometry.dispose()
+    const oldGroup = this.meshes.get(key)
+    if (oldGroup) {
+      oldGroup.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose()
+        }
+      })
+      this.scene.remove(oldGroup)
     }
 
-    // Create new mesh
-    const mesh = new THREE.Mesh(geometry, this.material)
-    mesh.position.set(coord.x * 24, 0, coord.z * 24)
-    mesh.castShadow = true
-    mesh.receiveShadow = true
+    const group = new THREE.Group()
+    geometryMap.forEach((geometry, blockType) => {
+      const material = this.materialSystem.getMaterialForBlock(blockType)
+      const mesh = new THREE.Mesh(geometry, material)
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      group.add(mesh)
+    })
 
-    this.scene.add(mesh)
-    this.meshes.set(key, mesh)
-  }
-
-  getMesh(coord: ChunkCoordinate): THREE.Mesh | null {
-    return this.meshes.get(coord.toKey()) || null
+    group.position.set(coord.x * 24, 0, coord.z * 24)
+    this.scene.add(group)
+    this.meshes.set(key, group)
   }
 
   disposeAll(): void {
-    for (const mesh of this.meshes.values()) {
-      this.scene.remove(mesh)
-      mesh.geometry.dispose()
+    for (const group of this.meshes.values()) {
+      group.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose()
+        }
+      })
+      this.scene.remove(group)
     }
     this.meshes.clear()
   }

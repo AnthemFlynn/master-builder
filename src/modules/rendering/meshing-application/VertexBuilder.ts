@@ -5,12 +5,16 @@ import { ILightingQuery } from '../../world/lighting-ports/ILightingQuery'
 import { normalizeLightToColor, combineLightChannels } from '../../world/lighting-domain/LightValue'
 import { blockRegistry } from '../../../blocks'
 
+interface BufferData {
+  positions: number[]
+  colors: number[]
+  uvs: number[]
+  indices: number[]
+  vertexCount: number
+}
+
 export class VertexBuilder {
-  private positions: number[] = []
-  private colors: number[] = []
-  private uvs: number[] = []
-  private indices: number[] = []
-  private vertexCount = 0
+  private buffers = new Map<number, BufferData>()
   private worldOffsetX: number
   private worldOffsetZ: number
 
@@ -31,15 +35,16 @@ export class VertexBuilder {
     direction: -1 | 1,
     blockType: number
   ): void {
+    const buffer = this.getBuffer(blockType)
     const vertices = this.getQuadVertices(x, y, z, width, height, axis, direction)
     const normal = this.getFaceNormal(axis, direction)
-    const baseColor = blockRegistry.getBaseColor(blockType)
+    const baseColor = blockRegistry.getFaceColor(blockType, normal)
 
     for (let i = 0; i < 4; i++) {
       const v = vertices[i]
 
       // Position (add world offset for rendering)
-      this.positions.push(
+      buffer.positions.push(
         v.x,
         v.y,
         v.z
@@ -60,42 +65,39 @@ export class VertexBuilder {
 
       // Apply lighting * AO
       const faceTint = this.getFaceTint(normal, worldX, worldY, worldZ)
-      this.colors.push(
+      buffer.colors.push(
         light.r * ao * baseColor.r * faceTint,
         light.g * ao * baseColor.g * faceTint,
         light.b * ao * baseColor.b * faceTint
       )
 
       // UVs
-      this.uvs.push(v.u, v.v)
+      buffer.uvs.push(v.u, v.v)
     }
 
     // Indices for quad (2 triangles)
-    const i = this.vertexCount
-    this.indices.push(
+    const i = buffer.vertexCount
+    buffer.indices.push(
       i, i + 1, i + 2,
       i, i + 2, i + 3
     )
 
-    this.vertexCount += 4
+    buffer.vertexCount += 4
   }
 
-  buildGeometry(): THREE.BufferGeometry {
-    const geometry = new THREE.BufferGeometry()
-
-    if (this.positions.length === 0) {
-      console.warn('VertexBuilder produced empty geometry')
-      return geometry
+  buildGeometry(): Map<number, THREE.BufferGeometry> {
+    const map = new Map<number, THREE.BufferGeometry>()
+    for (const [blockType, buffer] of this.buffers.entries()) {
+      if (buffer.positions.length === 0) continue
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(buffer.positions, 3))
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(buffer.colors, 3))
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(buffer.uvs, 2))
+      geometry.setIndex(buffer.indices)
+      geometry.computeVertexNormals()
+      map.set(blockType, geometry)
     }
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(this.positions, 3))
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3))
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(this.uvs, 2))
-    geometry.setIndex(this.indices)
-    geometry.computeVertexNormals()
-    console.log(`Geometry built: ${this.positions.length / 3} vertices`)
-
-    return geometry
+    return map
   }
 
   private getQuadVertices(
@@ -205,5 +207,20 @@ export class VertexBuilder {
     seed = (seed ^ (seed >> 13)) >>> 0
     seed = (seed * 1274126177) >>> 0
     return (seed & 0xffffff) / 0xffffff
+  }
+
+  private getBuffer(blockType: number): BufferData {
+    let buffer = this.buffers.get(blockType)
+    if (!buffer) {
+      buffer = {
+        positions: [],
+        colors: [],
+        uvs: [],
+        indices: [],
+        vertexCount: 0
+      }
+      this.buffers.set(blockType, buffer)
+    }
+    return buffer
   }
 }

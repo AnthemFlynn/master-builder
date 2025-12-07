@@ -18,6 +18,12 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
       'grass_block_side.png'   // -Z face
     ],
     transparent: false,
+    baseColor: { r: 0.25, g: 0.85, b: 0.35 },
+    faceColors: {
+      top: { r: 0.35, g: 0.9, b: 0.4 },
+      bottom: { r: 0.5, g: 0.32, b: 0.15 },
+      side: { r: 0.45, g: 0.5, b: 0.25 }
+    },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 1.0,  // Fully opaque
     collidable: true,
@@ -33,6 +39,7 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
     category: BlockCategory.GROUND,
     textures: 'sand.png',
     transparent: false,
+    baseColor: { r: 0.95, g: 0.82, b: 0.55 },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 1.0,
     collidable: true,
@@ -48,6 +55,12 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
     category: BlockCategory.GROUND,
     textures: 'dirt.png',
     transparent: false,
+    baseColor: { r: 0.6, g: 0.35, b: 0.18 },
+    faceColors: {
+      top: { r: 0.55, g: 0.32, b: 0.18 },
+      bottom: { r: 0.4, g: 0.22, b: 0.12 },
+      side: { r: 0.5, g: 0.28, b: 0.14 }
+    }
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 1.0,
     collidable: true,

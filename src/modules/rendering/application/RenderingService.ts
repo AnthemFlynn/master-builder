@@ -13,11 +13,7 @@ export class RenderingService {
     private eventBus: EventBus
   ) {
     this.materialSystem = new MaterialSystem()
-    this.chunkRenderer = new ChunkRenderer(
-      scene,
-      this.materialSystem.getChunkMaterial(),
-      eventBus
-    )
+    this.chunkRenderer = new ChunkRenderer(scene, this.materialSystem, eventBus)
   }
 
   // Public API is minimal - rendering is event-driven

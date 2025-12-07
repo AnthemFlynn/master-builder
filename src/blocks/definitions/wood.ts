@@ -14,6 +14,12 @@ export const WOOD_BLOCKS: BlockDefinition[] = [
       'oak_log.png'       // -Z face
     ],
     transparent: false,
+    baseColor: { r: 0.6, g: 0.4, b: 0.2 },
+    faceColors: {
+      top: { r: 0.65, g: 0.45, b: 0.25 },
+      bottom: { r: 0.45, g: 0.3, b: 0.15 },
+      side: { r: 0.55, g: 0.35, b: 0.2 }
+    },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 1.0,
     collidable: true,
@@ -29,6 +35,7 @@ export const WOOD_BLOCKS: BlockDefinition[] = [
     category: BlockCategory.WOOD,
     textures: 'oak_planks.png',
     transparent: false,
+    baseColor: { r: 0.75, g: 0.5, b: 0.3 },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 1.0,
     collidable: true,
@@ -44,6 +51,12 @@ export const WOOD_BLOCKS: BlockDefinition[] = [
     category: BlockCategory.TRANSPARENT,  // Leaves are transparent
     textures: 'oak_leaves.png',
     transparent: true,
+    baseColor: { r: 0.3, g: 0.65, b: 0.3 },
+    faceColors: {
+      top: { r: 0.35, g: 0.75, b: 0.35 },
+      side: { r: 0.3, g: 0.65, b: 0.3 },
+      bottom: { r: 0.25, g: 0.55, b: 0.25 }
+    },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 0.5,  // Partially transparent to light
     collidable: true,

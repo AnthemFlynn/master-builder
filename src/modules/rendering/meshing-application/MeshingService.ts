@@ -22,12 +22,7 @@ export class MeshingService {
   private setupEventListeners(): void {
     // Listen for lighting ready
     this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
-      this.buildMesh(e.chunkCoord)
-    })
-
-    // Listen for lighting changes (rebuilds)
-    this.eventBus.on('lighting', 'LightingInvalidatedEvent', (e: any) => {
-      this.markDirty(e.chunkCoord, 'light')
+      this.markDirty(e.chunkCoord, 'global')
     })
   }
 
@@ -40,12 +35,11 @@ export class MeshingService {
 
     const startTime = performance.now()
 
-    // Build geometry with chunk coordinates for world offset
     const vertexBuilder = new VertexBuilder(this.voxels, this.lighting, coord.x, coord.z)
     const mesher = new GreedyMesher(this.voxels, this.lighting, coord)
 
     mesher.buildMesh(vertexBuilder)
-    const geometry = vertexBuilder.buildGeometry()
+    const geometryMap = vertexBuilder.buildGeometry()
 
     const duration = performance.now() - startTime
 
@@ -54,7 +48,7 @@ export class MeshingService {
       type: 'ChunkMeshBuiltEvent',
       timestamp: Date.now(),
       chunkCoord: coord,
-      geometry: geometry
+      geometryMap
     })
 
     console.log(`🔨 Built mesh for chunk (${coord.x}, ${coord.z}) in ${duration.toFixed(2)}ms`)

@@ -8,6 +8,7 @@ import * as THREE from 'three'
 export class BlockRegistry {
   private blocks = new Map<number, BlockDefinition>()
   private textureLoader = new THREE.TextureLoader()
+  private textureBasePath = '/textures/block/'
 
   /**
    * Register a block definition
@@ -59,41 +60,20 @@ export class BlockRegistry {
   /**
    * Create Three.js material from block definition
    */
-  createMaterial(id: number): THREE.Material | THREE.Material[] {
+  createMaterial(id: number): THREE.Material {
     const block = this.get(id)
     if (!block) {
       console.error(`❌ Block ${id} not found in registry`)
-      return new THREE.MeshStandardMaterial({ color: 0xff00ff })  // Magenta = missing
+      return new THREE.MeshStandardMaterial({ color: 0xff00ff, vertexColors: true })  // Magenta = missing
     }
 
-    // Multi-face materials (grass, logs)
-    if (Array.isArray(block.textures)) {
-      return block.textures.map(texturePath => {
-        const texture = this.textureLoader.load(`/src/static/textures/block/${texturePath}`)
-        texture.magFilter = THREE.NearestFilter
-        texture.minFilter = THREE.NearestFilter
-
-        return new THREE.MeshStandardMaterial({
-          map: texture,
-          transparent: block.transparent,
-          emissive: new THREE.Color(
-            block.emissive.r / 15,
-            block.emissive.g / 15,
-            block.emissive.b / 15
-          ),
-          emissiveIntensity: block.emissive.r > 0 || block.emissive.g > 0 || block.emissive.b > 0 ? 0.8 : 0
-        })
-      })
-    }
-
-    // Single texture
-    const texture = this.textureLoader.load(`/src/static/textures/block/${block.textures}`)
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
+    const textureName = Array.isArray(block.textures) ? block.textures[0] : block.textures
+    const map = this.createTexture(textureName)
 
     return new THREE.MeshStandardMaterial({
-      map: texture,
+      map,
       transparent: block.transparent,
+      vertexColors: true,
       emissive: new THREE.Color(
         block.emissive.r / 15,
         block.emissive.g / 15,
@@ -101,6 +81,40 @@ export class BlockRegistry {
       ),
       emissiveIntensity: block.emissive.r > 0 || block.emissive.g > 0 || block.emissive.b > 0 ? 0.8 : 0
     })
+  }
+
+  getBaseColor(id: number): THREE.Color {
+    const block = this.get(id)
+    if (block?.baseColor) {
+      return new THREE.Color(block.baseColor.r, block.baseColor.g, block.baseColor.b)
+    }
+    return new THREE.Color(0.7, 0.7, 0.7)
+  }
+
+  getFaceColor(id: number, normal: { x: number, y: number, z: number }): THREE.Color {
+    const block = this.get(id)
+    if (!block?.faceColors) {
+      return this.getBaseColor(id)
+    }
+    if (normal.y === 1 && block.faceColors.top) {
+      return new THREE.Color(block.faceColors.top.r, block.faceColors.top.g, block.faceColors.top.b)
+    }
+    if (normal.y === -1 && block.faceColors.bottom) {
+      return new THREE.Color(block.faceColors.bottom.r, block.faceColors.bottom.g, block.faceColors.bottom.b)
+    }
+    if ((normal.x !== 0 || normal.z !== 0) && block.faceColors.side) {
+      return new THREE.Color(block.faceColors.side.r, block.faceColors.side.g, block.faceColors.side.b)
+    }
+    return this.getBaseColor(id)
+  }
+
+  private createTexture(textureName: string): THREE.Texture {
+    const texture = this.textureLoader.load(`${this.textureBasePath}${textureName}`)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.NearestFilter
+    return texture
   }
 
   /**
