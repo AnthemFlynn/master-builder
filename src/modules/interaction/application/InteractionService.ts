@@ -9,13 +9,16 @@ import * as THREE from 'three'
 export class InteractionService implements IInteractionHandler {
   private blockPicker: BlockPicker
   private selectedBlock = 0 // Default: grass
+  private highlightMesh: THREE.Mesh
 
   constructor(
     private commandBus: CommandBus,
     private eventBus: EventBus,
-    private scene: THREE.Scene
+    private scene: THREE.Scene,
+    private worldService: import('../../world/application/WorldService').WorldService
   ) {
-    this.blockPicker = new BlockPicker()
+    this.blockPicker = new BlockPicker(this.worldService)
+    this.highlightMesh = this.createHighlightMesh()
     this.setupEventListeners()
   }
 
@@ -23,19 +26,31 @@ export class InteractionService implements IInteractionHandler {
     // Event handling moved to GameOrchestrator since it has camera access
   }
 
+  private createHighlightMesh(): THREE.Mesh {
+    const geometry = new THREE.PlaneGeometry(1.02, 1.02)
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    })
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.visible = false
+    this.scene.add(mesh)
+    return mesh
+  }
+
   placeBlock(camera: THREE.Camera, blockType: number): void {
     const result = this.blockPicker.pickBlock(camera, this.scene)
 
-    if (result.hit && result.position && result.normal) {
-      // Calculate new block position (adjacent to hit block)
-      const newPosition = result.position.clone().add(result.normal)
-
-      // Send command
+    if (result.hit && result.adjacentBlock) {
+      const { x, y, z } = result.adjacentBlock
       this.commandBus.send(
         new PlaceBlockCommand(
-          Math.floor(newPosition.x),
-          Math.floor(newPosition.y),
-          Math.floor(newPosition.z),
+          Math.floor(x),
+          Math.floor(y),
+          Math.floor(z),
           blockType
         )
       )
@@ -45,15 +60,9 @@ export class InteractionService implements IInteractionHandler {
   removeBlock(camera: THREE.Camera): void {
     const result = this.blockPicker.pickBlock(camera, this.scene)
 
-    if (result.hit && result.position) {
-      // Send command to remove the block at the hit position
-      this.commandBus.send(
-        new RemoveBlockCommand(
-          result.position.x,
-          result.position.y,
-          result.position.z
-        )
-      )
+    if (result.hit && result.hitBlock) {
+      const { x, y, z } = result.hitBlock
+      this.commandBus.send(new RemoveBlockCommand(x, y, z))
     }
   }
 
@@ -70,5 +79,24 @@ export class InteractionService implements IInteractionHandler {
       timestamp: Date.now(),
       blockType
     })
+  }
+
+  updateHighlight(camera: THREE.Camera): void {
+    const result = this.blockPicker.pickBlock(camera, this.scene)
+    if (!result.hit || !result.hitBlock || !result.normal) {
+      this.highlightMesh.visible = false
+      return
+    }
+
+    this.highlightMesh.visible = true
+    const position = result.hitBlock.clone().addScalar(0.5)
+    position.addScaledVector(result.normal, 0.51)
+
+    // Plane geometry faces +Z by default; rotate to match the hit normal
+    const defaultNormal = new THREE.Vector3(0, 0, 1)
+    const targetNormal = result.normal.clone().normalize()
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultNormal, targetNormal)
+    this.highlightMesh.quaternion.copy(quaternion)
+    this.highlightMesh.position.set(position.x, position.y, position.z)
   }
 }
