@@ -106,7 +106,7 @@ export class GameOrchestrator {
     )
     this.commandBus.register(
       'PlaceBlockCommand',
-      new PlaceBlockHandler(this.worldService, this.eventBus)
+      new PlaceBlockHandler(this.worldService, this.eventBus, this.playerService)
     )
     this.commandBus.register(
       'RemoveBlockCommand',
