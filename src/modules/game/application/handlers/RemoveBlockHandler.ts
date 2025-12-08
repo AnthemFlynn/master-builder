@@ -3,7 +3,7 @@ import { CommandHandler } from '../../domain/commands/Command'
 import { RemoveBlockCommand } from '../../domain/commands/RemoveBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'
 import { EventBus } from '../../infrastructure/EventBus'
-import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 
 export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {
   constructor(

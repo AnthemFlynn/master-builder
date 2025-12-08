@@ -1,4 +1,4 @@
-import { initializeBlockRegistry } from '../../../blocks'
+import { initializeBlockRegistry } from '../../../modules/blocks'
 import { NoiseGenerator } from '../adapters/NoiseGenerator'
 import { VoxelChunk } from '../domain/VoxelChunk'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'

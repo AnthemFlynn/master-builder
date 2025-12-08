@@ -1,21 +1,15 @@
 import { ILightingPass } from './ILightingPass'
 import { LightData } from '../../domain/voxel-lighting/LightData'
-import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
+import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
 import { ILightStorage } from '../../ports/ILightStorage'
-import { blockRegistry } from '../../../../../blocks'
+import { blockRegistry } from '../../../../../modules/blocks'
 import { LightValue } from '../../domain/voxel-lighting/LightValue'
 
-interface LightNode {
-  x: number
-  y: number
-  z: number
-  r: number
-  g: number
-  b: number
-}
-
 export class PropagationPass implements ILightingPass {
+  // Pre-allocated reusable coordinate to avoid GC
+  private tempCoord = new ChunkCoordinate(0, 0)
+
   execute(
     lightData: LightData,
     voxels: IVoxelQuery,
@@ -25,190 +19,208 @@ export class PropagationPass implements ILightingPass {
     const worldX = coord.x * 24
     const worldZ = coord.z * 24
 
-    // Queue for flood-fill BFS
-    const lightQueue: LightNode[] = []
-    const visited = new Set<string>()
+    // Queue: Use a flat Int32Array as a ring buffer/queue for ZERO allocation
+    // Format: x, y, z, r, g, b, s (7 ints per node)
+    const QUEUE_SIZE = 2000000 * 7 // Increased to 2M to handle Sky Light flood
+    const queue = new Int32Array(QUEUE_SIZE)
+    let qHead = 0
+    let qTail = 0
+
+    const push = (x: number, y: number, z: number, r: number, g: number, b: number, s: number) => {
+        if ((qTail + 7) % QUEUE_SIZE === qHead) {
+            // Queue Full - Drop logic or expand. For now, drop (rare).
+            return
+        }
+        queue[qTail] = x
+        queue[qTail+1] = y
+        queue[qTail+2] = z
+        queue[qTail+3] = r
+        queue[qTail+4] = g
+        queue[qTail+5] = b
+        queue[qTail+6] = s
+        qTail = (qTail + 7) % QUEUE_SIZE
+    }
+
+    const pop = () => {
+        if (qHead === qTail) return null
+        const x = queue[qHead]
+        const y = queue[qHead+1]
+        const z = queue[qHead+2]
+        const r = queue[qHead+3]
+        const g = queue[qHead+4]
+        const b = queue[qHead+5]
+        const s = queue[qHead+6]
+        qHead = (qHead + 7) % QUEUE_SIZE
+        return { x, y, z, r, g, b, s }
+    }
+
+    const isEmpty = () => qHead === qTail
+
+    const visited = new Map<number, number>()
+    const keyPack = (x: number, y: number, z: number) => (x + 32) | ((z + 32) << 6) | (y << 12)
+    const packLight = (r: number, g: number, b: number, s: number) => (r << 24) | (g << 16) | (b << 8) | s
 
     // Helper to get light from any chunk (current or neighbor)
     const getGlobalLight = (rx: number, ry: number, rz: number): LightValue | null => {
-      // Fast path: inside current chunk
       if (rx >= 0 && rx < 24 && rz >= 0 && rz < 24) {
         return lightData.getLight(rx, ry, rz)
       }
-
-      // Calculate target chunk
       const cx = coord.x + Math.floor(rx / 24)
       const cz = coord.z + Math.floor(rz / 24)
-      const targetCoord = new ChunkCoordinate(cx, cz)
-      
-      const neighborData = storage.getLightData(targetCoord)
+      this.tempCoord.x = cx
+      this.tempCoord.z = cz
+      const neighborData = storage.getLightData(this.tempCoord)
       if (!neighborData) return null
-
-      // Calculate local coordinates in target chunk
       const lx = ((rx % 24) + 24) % 24
       const lz = ((rz % 24) + 24) % 24
-      
       return neighborData.getLight(lx, ry, lz)
     }
 
-    // Helper to set light in any chunk
     const setGlobalLight = (rx: number, ry: number, rz: number, value: LightValue): boolean => {
-      // Fast path: inside current chunk
       if (rx >= 0 && rx < 24 && rz >= 0 && rz < 24) {
         lightData.setLight(rx, ry, rz, value)
         return true
       }
-
       const cx = coord.x + Math.floor(rx / 24)
       const cz = coord.z + Math.floor(rz / 24)
-      const targetCoord = new ChunkCoordinate(cx, cz)
-
-      const neighborData = storage.getLightData(targetCoord)
+      this.tempCoord.x = cx
+      this.tempCoord.z = cz
+      const neighborData = storage.getLightData(this.tempCoord)
       if (!neighborData) return false
-
       const lx = ((rx % 24) + 24) % 24
       const lz = ((rz % 24) + 24) % 24
-
       neighborData.setLight(lx, ry, lz, value)
       return true
     }
 
-    // Phase 0: Seed from neighbors (Pull light)
-    // Check adjacent blocks of neighbors. If they have light, add to queue.
     const borderOffsets = [
-      { dx: -1, dz: 0 }, // Left neighbor
-      { dx: 24, dz: 0 }, // Right neighbor
-      { dx: 0, dz: -1 }, // Back neighbor
-      { dx: 0, dz: 24 }  // Front neighbor
+      { dx: -1, dz: 0 }, { dx: 24, dz: 0 },
+      { dx: 0, dz: -1 }, { dx: 0, dz: 24 }
     ]
 
+    // Phase 0: Seed from neighbors
     for (const { dx, dz } of borderOffsets) {
-      // Iterate the face shared with this neighbor
-      // If dx=-1, we check local x=-1 (neighbor's x=23)
-      // We iterate y (0-256) and the other axis (z 0-24)
-      
       const isXAxis = dx !== 0
-      
-      for (let i = 0; i < 24; i++) { // The other axis (Z or X)
+      for (let i = 0; i < 24; i++) {
         for (let y = 0; y < 256; y++) {
           const checkX = isXAxis ? dx : i
           const checkZ = isXAxis ? i : dz
-          
           const light = getGlobalLight(checkX, y, checkZ)
-          if (light && (light.block.r > 0 || light.block.g > 0 || light.block.b > 0)) {
-             lightQueue.push({
-               x: checkX,
-               y: y,
-               z: checkZ,
-               r: light.block.r,
-               g: light.block.g,
-               b: light.block.b
-             })
+          if (light && (light.block.r > 0 || light.block.g > 0 || light.block.b > 0 || light.sky.r > 0)) {
+             push(checkX, y, checkZ, light.block.r, light.block.g, light.block.b, light.sky.r)
           }
         }
       }
     }
 
-    // Phase 1: Seed from internal emissive blocks
+    // Phase 1: Seed internal
     for (let localX = 0; localX < 24; localX++) {
       for (let localY = 0; localY < 256; localY++) {
         for (let localZ = 0; localZ < 24; localZ++) {
-          const blockType = voxels.getBlockType(
-            worldX + localX,
-            localY,
-            worldZ + localZ
-          )
+          const blockType = voxels.getBlockType(worldX + localX, localY, worldZ + localZ)
+          const currentLight = lightData.getLight(localX, localY, localZ)
+          let r = currentLight.block.r
+          let g = currentLight.block.g
+          let b = currentLight.block.b
+          let s = currentLight.sky.r
 
           if (blockType !== -1) {
             const blockDef = blockRegistry.get(blockType)
             if (blockDef && blockDef.emissive) {
-              const { r, g, b } = blockDef.emissive
-
-              if (r > 0 || g > 0 || b > 0) {
-                lightQueue.push({
-                  x: localX,
-                  y: localY,
-                  z: localZ,
-                  r, g, b
-                })
-                
-                // Ensure the block itself is set
-                const current = lightData.getLight(localX, localY, localZ)
-                lightData.setLight(localX, localY, localZ, {
-                  sky: current.sky,
-                  block: { r, g, b }
-                })
-              }
+              const { r: er, g: eg, b: eb } = blockDef.emissive
+              r = Math.max(r, er)
+              g = Math.max(g, eg)
+              b = Math.max(b, eb)
             }
+          }
+
+          if (r > 0 || g > 0 || b > 0 || s > 0) {
+            push(localX, localY, localZ, r, g, b, s)
+            lightData.setLight(localX, localY, localZ, { sky: { r: s, g: s, b: s }, block: { r, g, b } })
           }
         }
       }
     }
 
-    // Phase 2: Flood-fill (BFS)
-    while (lightQueue.length > 0) {
-      const node = lightQueue.shift()!
+    // Phase 2: Flood-fill (BFS) with High Perf Queue
+    while (!isEmpty()) {
+      const node = pop()!
       
-      // Optimization: If light is 0, stop
-      if (node.r <= 0 && node.g <= 0 && node.b <= 0) continue
-
-      const key = `${node.x},${node.y},${node.z}`
-      if (visited.has(key)) continue
-      visited.add(key)
-
-      const neighbors = [
-        { dx: 1, dy: 0, dz: 0 },
-        { dx: -1, dy: 0, dz: 0 },
-        { dx: 0, dy: 1, dz: 0 },
-        { dx: 0, dy: -1, dz: 0 },
-        { dx: 0, dy: 0, dz: 1 },
-        { dx: 0, dy: 0, dz: -1 }
-      ]
-
-      for (const { dx, dy, dz } of neighbors) {
-        const nx = node.x + dx
-        const ny = node.y + dy
-        const nz = node.z + dz
-
-        if (ny < 0 || ny >= 256) continue
-
-        // Check if block is solid
-        // Note: voxels.getBlockType takes WORLD coordinates
-        const neighborBlock = voxels.getBlockType(worldX + nx, ny, worldZ + nz)
-        
-        if (neighborBlock !== -1) {
-          const neighborDef = blockRegistry.get(neighborBlock)
-          if (neighborDef && neighborDef.lightAbsorption >= 15) {
-            continue
-          }
-        }
-
-        // Calculate attenuated light
-        const newR = Math.max(0, node.r - 1)
-        const newG = Math.max(0, node.g - 1)
-        const newB = Math.max(0, node.b - 1)
-
-        if (newR === 0 && newG === 0 && newB === 0) continue
-
-        // Get current light at neighbor (Global lookup)
-        const currentLight = getGlobalLight(nx, ny, nz)
-        if (!currentLight) continue // Neighbor chunk not loaded
-
-        if (newR > currentLight.block.r || newG > currentLight.block.g || newB > currentLight.block.b) {
-          const success = setGlobalLight(nx, ny, nz, {
-            sky: currentLight.sky,
-            block: {
-              r: Math.max(currentLight.block.r, newR),
-              g: Math.max(currentLight.block.g, newG),
-              b: Math.max(currentLight.block.b, newB)
-            }
-          })
-
-          if (success) {
-            lightQueue.push({ x: nx, y: ny, z: nz, r: newR, g: newG, b: newB })
-          }
-        }
+      // Smart Visited Check
+      const k = keyPack(node.x, node.y, node.z)
+      const packedPrev = visited.get(k)
+      if (packedPrev !== undefined) {
+          const pr = (packedPrev >>> 24) & 0xFF
+          const pg = (packedPrev >>> 16) & 0xFF
+          const pb = (packedPrev >>> 8) & 0xFF
+          const ps = packedPrev & 0xFF
+          // If node is dimmer or equal in ALL channels, skip
+          if (node.r <= pr && node.g <= pg && node.b <= pb && node.s <= ps) continue
       }
+      
+      // Update visited with MAX of each channel
+      if (packedPrev !== undefined) {
+          const pr = (packedPrev >>> 24) & 0xFF
+          const pg = (packedPrev >>> 16) & 0xFF
+          const pb = (packedPrev >>> 8) & 0xFF
+          const ps = packedPrev & 0xFF
+          const maxPacked = packLight(Math.max(node.r, pr), Math.max(node.g, pg), Math.max(node.b, pb), Math.max(node.s, ps))
+          visited.set(k, maxPacked)
+      } else {
+          visited.set(k, packLight(node.r, node.g, node.b, node.s))
+      }
+
+      // Neighbors: Unrolled for speed
+      this.processNeighbor(node.x + 1, node.y, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
+      this.processNeighbor(node.x - 1, node.y, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
+      this.processNeighbor(node.x, node.y + 1, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
+      this.processNeighbor(node.x, node.y - 1, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
+      this.processNeighbor(node.x, node.y, node.z + 1, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
+      this.processNeighbor(node.x, node.y, node.z - 1, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
     }
+  }
+
+  private processNeighbor(
+      nx: number, ny: number, nz: number,
+      node: {r: number, g: number, b: number, s: number},
+      worldX: number, worldZ: number,
+      voxels: IVoxelQuery,
+      getGlobalLight: any,
+      setGlobalLight: any,
+      push: any
+  ) {
+      if (ny < 0 || ny >= 256) return
+
+      const lightAbsorption = voxels.getLightAbsorption(worldX + nx, ny, worldZ + nz)
+      if (lightAbsorption >= 15) return
+
+      const newR = Math.max(0, node.r - 1 - lightAbsorption)
+      const newG = Math.max(0, node.g - 1 - lightAbsorption)
+      const newB = Math.max(0, node.b - 1 - lightAbsorption)
+      
+      // Re-enable Sky Light propagation (Horizontal).
+      const newS = Math.max(0, node.s - 1 - lightAbsorption) 
+
+      if (newR <= 0 && newG <= 0 && newB <= 0 && newS <= 0) return
+
+      const currentLight = getGlobalLight(nx, ny, nz)
+      if (!currentLight) return
+
+      let updated = false
+      const ub = { ...currentLight.block }
+      const us = { ...currentLight.sky } 
+
+      if (newR > currentLight.block.r) { ub.r = newR; updated = true; }
+      if (newG > currentLight.block.g) { ub.g = newG; updated = true; }
+      if (newB > currentLight.block.b) { ub.b = newB; updated = true; }
+      if (newS > currentLight.sky.r) { us.r = newS; us.g = newS; us.b = newS; updated = true; }
+
+      if (updated) {
+          const success = setGlobalLight(nx, ny, nz, { sky: us, block: ub })
+          if (success) {
+              // Push node with updated sky light
+              push(nx, ny, nz, ub.r, ub.g, ub.b, us.r)
+          }
+      }
   }
 }

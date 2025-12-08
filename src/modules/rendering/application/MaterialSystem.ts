@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { blockRegistry } from '../../../blocks'
+import { blockRegistry } from '../../../modules/blocks'
 
 export class MaterialSystem {
   private materials = new Map<string, THREE.Material>()

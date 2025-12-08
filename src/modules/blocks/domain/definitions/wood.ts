@@ -58,7 +58,8 @@ export const WOOD_BLOCKS: BlockDefinition[] = [
       bottom: { r: 0.25, g: 0.55, b: 0.25 }
     },
     emissive: { r: 0, g: 0, b: 0 },
-    lightAbsorption: 0.5,  // Partially transparent to light
+    lightAbsorption: 0.2, // Allow light to penetrate (tuned for darker shadows)
+    transparent: true,
     collidable: true,
     friction: 0.8,  // Slightly impedes movement
     icon: 'block-icon/leaf.png',

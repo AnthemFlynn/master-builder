@@ -2,7 +2,7 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { VoxelChunk } from '../domain/VoxelChunk'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
-import { blockRegistry } from '../../../blocks'
+import { blockRegistry } from '../../../modules/blocks'
 import ChunkWorker from '../workers/ChunkWorker?worker'
 import { ChunkRequest, MainMessage } from '../workers/types'
 import { EventBus } from '../../game/infrastructure/EventBus'
@@ -43,6 +43,8 @@ export class WorldService implements IVoxelQuery {
           renderDistance
         })
       }
+      // Trigger lighting calculation for the newly generated chunk
+      this.calculateLightAsync(coord)
     }
     else if (msg.type === 'MESH_GENERATED') {
         const { x, z, geometry } = msg
@@ -132,11 +134,39 @@ export class WorldService implements IVoxelQuery {
     return blockDef ? blockDef.collidable : true
   }
 
+  getLightAbsorption(worldX: number, worldY: number, worldZ: number): number {
+    const type = this.getBlockType(worldX, worldY, worldZ)
+    if (type === -1) return 0
+    
+    const def = blockRegistry.get(type)
+    if (!def) return 15
+    
+    if (def.transparent) {
+        return def.lightAbsorption ? Math.floor(def.lightAbsorption * 15) : 1
+    }
+    return 15
+  }
+
   setBlock(worldX: number, worldY: number, worldZ: number, blockType: number): void {
     const coord = this.worldToChunkCoord(worldX, worldZ)
     const chunk = this.getOrCreateChunk(coord)
     const local = this.worldToLocal(worldX, worldY, worldZ)
     chunk.setBlockType(local.x, local.y, local.z, blockType)
+    
+    // Trigger Lighting Calculation
+    this.calculateLightAsync(coord)
+    
+    // Check if we need to update neighbors (if on edge)
+    const neighborsToUpdate = new Set<string>()
+    if (local.x === 0) neighborsToUpdate.add(`${coord.x - 1},${coord.z}`)
+    if (local.x === 23) neighborsToUpdate.add(`${coord.x + 1},${coord.z}`)
+    if (local.z === 0) neighborsToUpdate.add(`${coord.x},${coord.z - 1}`)
+    if (local.z === 23) neighborsToUpdate.add(`${coord.x},${coord.z + 1}`)
+    
+    for (const key of neighborsToUpdate) {
+        const [x, z] = key.split(',').map(Number)
+        this.calculateLightAsync(new ChunkCoordinate(x, z))
+    }
   }
 
   getAllChunks(): VoxelChunk[] {

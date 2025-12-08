@@ -2,7 +2,7 @@
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../environment/ports/ILightingQuery'
 import { normalizeLightToColor, combineLightChannels } from '../../environment/domain/voxel-lighting/LightValue'
-import { blockRegistry } from '../../../blocks'
+import { blockRegistry } from '../../../modules/blocks'
 
 interface BufferData {
   positions: number[]
@@ -55,12 +55,22 @@ export class VertexBuilder {
         v.z
       )
 
-      // Read lighting from lighting module using WORLD coordinates
+      // Calculate world coordinates once
       const worldX = Math.floor(v.x + this.worldOffsetX)
       const worldY = Math.floor(v.y)
       const worldZ = Math.floor(v.z + this.worldOffsetZ)
 
-      const lightValue = this.lighting.getLight(worldX, worldY, worldZ)
+      // Read lighting from lighting module using WORLD coordinates
+      // Adjust light sampling position by normal to sample from the air block adjacent to the face
+      let lightSampleX = worldX
+      let lightSampleY = worldY
+      let lightSampleZ = worldZ
+
+      if (normal.x < 0) lightSampleX -= 1 // For -X normal, sample from X-1
+      if (normal.y < 0) lightSampleY -= 1 // For -Y normal, sample from Y-1
+      if (normal.z < 0) lightSampleZ -= 1 // For -Z normal, sample from Z-1
+      
+      const lightValue = this.lighting.getLight(lightSampleX, lightSampleY, lightSampleZ)
       const combined = combineLightChannels(lightValue)
       const light = normalizeLightToColor(combined)
 
@@ -173,42 +183,50 @@ export class VertexBuilder {
     worldX: number, worldY: number, worldZ: number,
     normal: { x: number, y: number, z: number }
   ): number {
-    // AO calculation using voxels port
     let side1 = false, side2 = false, corner = false
 
     const blockX = Math.floor(worldX)
     const blockY = Math.floor(worldY)
     const blockZ = Math.floor(worldZ)
 
+    // AO calculation using voxels port
+    const isOpaque = (bx: number, by: number, bz: number) => {
+        const blockType = this.voxels.getBlockType(bx, by, bz);
+        if (blockType === -1) return false; // Air is not opaque
+        const blockDef = blockRegistry.get(blockType);
+        // Treat transparent blocks as non-opaque for AO purposes
+        return !(blockDef && blockDef.transparent);
+    };
+
     if (normal.y === 1) {
       // Top face
-      side1 = this.voxels.isBlockSolid(blockX + 1, blockY + 1, blockZ)
-      side2 = this.voxels.isBlockSolid(blockX, blockY + 1, blockZ + 1)
-      corner = this.voxels.isBlockSolid(blockX + 1, blockY + 1, blockZ + 1)
+      side1 = isOpaque(blockX + 1, blockY + 1, blockZ); // Block to the right-above
+      side2 = isOpaque(blockX, blockY + 1, blockZ + 1); // Block to the forward-above
+      corner = isOpaque(blockX + 1, blockY + 1, blockZ + 1); // Block to the right-forward-above
     } else if (normal.y === -1) {
       // Bottom face
-      side1 = this.voxels.isBlockSolid(blockX + 1, blockY - 1, blockZ)
-      side2 = this.voxels.isBlockSolid(blockX, blockY - 1, blockZ + 1)
-      corner = this.voxels.isBlockSolid(blockX + 1, blockY - 1, blockZ + 1)
+      side1 = isOpaque(blockX + 1, blockY - 1, blockZ);
+      side2 = isOpaque(blockX, blockY - 1, blockZ + 1);
+      corner = isOpaque(blockX + 1, blockY - 1, blockZ + 1);
     } else if (normal.x !== 0) {
       // Side face (X axis)
-      const offset = normal.x
-      side1 = this.voxels.isBlockSolid(blockX + offset, blockY + 1, blockZ)
-      side2 = this.voxels.isBlockSolid(blockX + offset, blockY, blockZ + 1)
-      corner = this.voxels.isBlockSolid(blockX + offset, blockY + 1, blockZ + 1)
+      const offset = normal.x;
+      side1 = isOpaque(blockX + offset, blockY + 1, blockZ); // Block above
+      side2 = isOpaque(blockX + offset, blockY, blockZ + 1); // Block in front
+      corner = isOpaque(blockX + offset, blockY + 1, blockZ + 1); // Block above and in front
     } else {
       // Side face (Z axis)
-      const offset = normal.z
-      side1 = this.voxels.isBlockSolid(blockX + 1, blockY, blockZ + offset)
-      side2 = this.voxels.isBlockSolid(blockX, blockY + 1, blockZ + offset)
-      corner = this.voxels.isBlockSolid(blockX + 1, blockY + 1, blockZ + offset)
+      const offset = normal.z;
+      side1 = isOpaque(blockX + 1, blockY, blockZ + offset); // Block to the right
+      side2 = isOpaque(blockX, blockY + 1, blockZ + offset); // Block above
+      corner = isOpaque(blockX + 1, blockY + 1, blockZ + offset); // Block to the right and above
     }
-
+  
     if (side1 && side2) {
-      return 0  // Fully occluded
+      return 0; // Fully occluded
     }
-
-    return 3 - (side1 ? 1 : 0) - (side2 ? 1 : 0) - (corner ? 1 : 0)
+  
+    return 3 - (side1 ? 1 : 0) - (side2 ? 1 : 0) - (corner ? 1 : 0);
   }
 
   private getFaceTint(

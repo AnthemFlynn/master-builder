@@ -5,6 +5,7 @@ import { TimeCycle } from '../domain/TimeCycle'
 
 export class ThreeSkyAdapter {
   private sunLight: THREE.DirectionalLight
+  private sunMesh: THREE.Mesh
   private lastUpdate = 0
   
   // Location (Default: San Francisco)
@@ -23,39 +24,45 @@ export class ThreeSkyAdapter {
     private timeCycle: TimeCycle
   ) {
     this.createSunLight()
+    this.createSunMesh()
     this.requestLocation()
   }
 
+  private createSunMesh() {
+      const geometry = new THREE.SphereGeometry(5, 32, 32)
+      const material = new THREE.MeshBasicMaterial({ color: 0xffffaa })
+      this.sunMesh = new THREE.Mesh(geometry, material)
+      this.scene.add(this.sunMesh)
+  }
+
   private createSunLight() {
-    this.sunLight = new THREE.DirectionalLight(0xffffff, 0.8)
+    this.sunLight = new THREE.DirectionalLight(0xffffff, 2.0) // Boost intensity for Tone Mapping
     this.sunLight.position.set(100, 100, 100)
     this.sunLight.castShadow = true
 
     // Optimized shadow settings
-    this.sunLight.shadow.camera.left = -40
-    this.sunLight.shadow.camera.right = 40
-    this.sunLight.shadow.camera.top = 40
-    this.sunLight.shadow.camera.bottom = -40
+    const shadowSize = 160 // Covers 6 chunks diameter (render distance 3)
+    this.sunLight.shadow.camera.left = -shadowSize / 2
+    this.sunLight.shadow.camera.right = shadowSize / 2
+    this.sunLight.shadow.camera.top = shadowSize / 2
+    this.sunLight.shadow.camera.bottom = -shadowSize / 2
     this.sunLight.shadow.camera.near = 0.5
     this.sunLight.shadow.camera.far = 300
     this.sunLight.shadow.mapSize.width = 4096
     this.sunLight.shadow.mapSize.height = 4096
 
-    // OPTIMIZED: Reduced bias for voxel blocks (increased slightly)
-    this.sunLight.shadow.bias = -0.0005
-    // Add normal bias to help with shadow acne on flat surfaces
-    this.sunLight.shadow.normalBias = 0.05
+    // OPTIMIZED: Reduced bias for voxel blocks
+    this.sunLight.shadow.bias = -0.0001
+    // Voxel geometry is sharp, normalBias causes peter-panning. Disable it.
+    this.sunLight.shadow.normalBias = 0.0
 
     this.scene.add(this.sunLight)
-    console.log('☀️ Sun directional light added (4096px shadow map with adjusted bias)')
+    console.log('☀️ Sun directional light added (4096px shadow map with snapped updates)')
   }
 
   update(): void {
-    // Update every 1 second to smooth out transitions without overloading
-    if (Date.now() - this.lastUpdate > 1000) {
-      this.updateLighting()
-      this.lastUpdate = Date.now()
-    }
+    // Update every frame for smooth shadow movement (snapping handles jitter)
+    this.updateLighting()
   }
 
   updateLighting(): void {
@@ -76,8 +83,20 @@ export class ThreeSkyAdapter {
       this.scene.fog = new THREE.Fog(skyColor, 1, 400)
     }
 
-    const ambientLight = this.scene.children.find(c => c instanceof THREE.AmbientLight) as THREE.AmbientLight
-    if (ambientLight) ambientLight.intensity = ambientIntensity
+    // Update Hemisphere Light
+    const hemiLight = this.scene.children.find(c => c instanceof THREE.HemisphereLight) as THREE.HemisphereLight
+    if (hemiLight) {
+        hemiLight.intensity = ambientIntensity
+        hemiLight.color = skyColor // Sky color comes from above
+        
+        // Ground color: Darker version of sky or earthy tone?
+        // Simple heuristic: Mix sky with ground tone
+        // Night: Black/Dark Blue. Day: Brown/Green.
+        const isNight = ambientIntensity < 0.3
+        hemiLight.groundColor = isNight 
+            ? new THREE.Color(0x111111) 
+            : new THREE.Color(0x554433).lerp(skyColor, 0.5) // Stronger sky tint, brighter earth
+    }
 
     // Point lights (fill)
     this.scene.children.filter(c => c instanceof THREE.PointLight).forEach(l => {
@@ -127,11 +146,11 @@ export class ThreeSkyAdapter {
       if (time >= this.goldenHourMorning && time < this.sunriseTod + 0.5) {
          return new THREE.Color().lerpColors(new THREE.Color(0xff9d6e), new THREE.Color(0xffc896), t)
       }
-      return new THREE.Color().lerpColors(new THREE.Color(0x0a1929), new THREE.Color(0x87ceeb), t)
+      return new THREE.Color().lerpColors(new THREE.Color(0x0a1929), new THREE.Color(0x99ddff), t)
     }
 
     // Day
-    if (time >= sunriseEnd && time < sunsetStart) return new THREE.Color(0x87ceeb)
+    if (time >= sunriseEnd && time < sunsetStart) return new THREE.Color(0x99ddff) // Brighter Sky
 
     // Sunset
     if (time >= sunsetStart && time < sunsetEnd) {
@@ -140,10 +159,10 @@ export class ThreeSkyAdapter {
       if (time >= this.sunsetTod - 0.5 && time < this.goldenHourEvening) {
          return new THREE.Color().lerpColors(new THREE.Color(0xff6b35), new THREE.Color(0xcc4125), t)
       }
-      return new THREE.Color().lerpColors(new THREE.Color(0x87ceeb), new THREE.Color(0x0a1929), t)
+      return new THREE.Color().lerpColors(new THREE.Color(0x99ddff), new THREE.Color(0x0a1929), t)
     }
 
-    return new THREE.Color(0x87ceeb)
+    return new THREE.Color(0x99ddff)
   }
 
   private calculateAmbientIntensity(): number {
@@ -153,17 +172,17 @@ export class ThreeSkyAdapter {
     const sunsetStart = this.sunsetTod - 1
     const sunsetEnd = this.sunsetTod + 1
 
-    if (time < sunriseStart || time >= sunsetEnd) return 0.2
-    if (time >= sunriseEnd && time < sunsetStart) return 1.0
+    if (time < sunriseStart || time >= sunsetEnd) return 0.3 // Night base
+    if (time >= sunriseEnd && time < sunsetStart) return 0.8 // Reduce Day Ambient for more contrast
     
     // Transition
     if (time >= sunriseStart && time < sunriseEnd) {
-      return 0.2 + ((time - sunriseStart) / (sunriseEnd - sunriseStart)) * 0.8
+      return 0.3 + ((time - sunriseStart) / (sunriseEnd - sunriseStart)) * 0.5
     }
     if (time >= sunsetStart && time < sunsetEnd) {
-      return 1.0 - ((time - sunsetStart) / (sunsetEnd - sunsetStart)) * 0.8
+      return 0.8 - ((time - sunsetStart) / (sunsetEnd - sunsetStart)) * 0.5
     }
-    return 1.0
+    return 0.8
   }
 
   private updateSunPosition(date: Date): void {
@@ -171,9 +190,15 @@ export class ThreeSkyAdapter {
     const azimuth = pos.azimuth
     const altitude = pos.altitude
 
-    // Follow player
+    // Follow player with SNAPPING to prevent shadow swimming
+    // Snap to 1-block increments (or larger power of 2 like 8 or 16 for stability)
+    // A snap of 1 unit is usually enough if map size is high.
+    const snap = 1 
     const playerPos = this.camera.position
-    this.sunLight.target.position.set(playerPos.x, playerPos.y, playerPos.z)
+    const targetX = Math.round(playerPos.x / snap) * snap
+    const targetZ = Math.round(playerPos.z / snap) * snap
+    
+    this.sunLight.target.position.set(targetX, 0, targetZ)
     this.sunLight.target.updateMatrixWorld()
 
     if (altitude > 0) {
@@ -181,15 +206,26 @@ export class ThreeSkyAdapter {
       // Convert spherical to Cartesian (Three.js Y-up)
       // SunCalc: azimuth from SOUTH (-PI to PI, positive is East)
       // Three.js: +X = East, +Y = Up, +Z = South
-      const x = dist * Math.cos(altitude) * Math.sin(azimuth) + playerPos.x
-      const y = dist * Math.sin(altitude) + playerPos.y
-      const z = dist * Math.cos(altitude) * Math.cos(azimuth) + playerPos.z
+      const x = dist * Math.cos(altitude) * Math.sin(azimuth) + targetX
+      const y = dist * Math.sin(altitude)
+      const z = dist * Math.cos(altitude) * Math.cos(azimuth) + targetZ
 
       this.sunLight.position.set(x, y, z)
-      this.sunLight.intensity = Math.max(0.3, Math.sin(altitude))
+      this.sunLight.intensity = Math.max(0.3, Math.sin(altitude)) * 2.5 // Boost intensity
       this.sunLight.color = this.getSunColor(altitude)
+      
+      // Update Visual Sun Mesh
+      // Place it further away than the light so it looks like skybox
+      const sunDist = 400
+      const sx = sunDist * Math.cos(altitude) * Math.sin(azimuth) + playerPos.x
+      const sy = sunDist * Math.sin(altitude) + playerPos.y
+      const sz = sunDist * Math.cos(altitude) * Math.cos(azimuth) + playerPos.z
+      this.sunMesh.position.set(sx, sy, sz)
+      this.sunMesh.visible = true
+      
     } else {
       this.sunLight.intensity = 0
+      this.sunMesh.visible = false
     }
   }
 

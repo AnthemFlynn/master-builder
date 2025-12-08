@@ -41,6 +41,11 @@ export default class Core {
     const webGLRenderer = this.renderer as THREE.WebGLRenderer
     webGLRenderer.shadowMap.enabled = true
     webGLRenderer.shadowMap.type = THREE.PCFSoftShadowMap // Soft shadows
+    
+    // Color Management (Fixes "Dull/Cloudy" look)
+    webGLRenderer.outputColorSpace = THREE.SRGBColorSpace
+    webGLRenderer.toneMapping = THREE.ACESFilmicToneMapping
+    webGLRenderer.toneMappingExposure = 1.0
 
     document.body.appendChild(this.renderer.domElement)
 

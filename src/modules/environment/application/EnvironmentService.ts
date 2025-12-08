@@ -20,18 +20,21 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
   constructor(
     scene: THREE.Scene, 
     camera: THREE.Camera,
-    private eventBus?: EventBus
+    private eventBus: EventBus
   ) {
     this.timeCycle = new TimeCycle()
     this.skyAdapter = new ThreeSkyAdapter(scene, camera, this.timeCycle)
     
+    // Add Hemisphere Light (Sky + Ground Reflection)
+    // Sky: Light Blue, Ground: Brownish Green, Intensity: 0.6
+    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x444422, 0.6)
+    scene.add(hemiLight)
+
     // Initialize Lighting Worker
     this.worker = new LightingWorker()
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
 
-    if (this.eventBus) {
-        this.setupEventListeners()
-    }
+    this.setupEventListeners()
 
     console.log('🌍 EnvironmentModule initialized (Real-time sync + Voxel Lighting)')
   }
@@ -43,7 +46,8 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
       const coord = new ChunkCoordinate(cx, cz)
       const data = this.lightDataMap.get(coord.toKey())
       
-      if (!data) return { sky: {r:15,g:15,b:15}, block: {r:0,g:0,b:0} }
+      // Default to DARKNESS if chunk is missing
+      if (!data) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
       
       const lx = ((worldX % 24) + 24) % 24
       const lz = ((worldZ % 24) + 24) % 24
@@ -62,7 +66,41 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
 
   private setupEventListeners(): void {
       // Listen for chunk generation -> Trigger lighting
-      // This is now handled by WorldService delegating to calculateLight()
+      this.eventBus.on('world', 'ChunkGeneratedEvent', (e: any) => {
+          // We need Voxel Data to calculate lighting.
+          // WorldService handles the initial trigger.
+      })
+      
+      // Listen for block updates to trigger lighting
+      this.eventBus.on('world', 'BlockPlacedEvent', (e: any) => {
+          this.handleBlockUpdate(e.chunkCoord)
+      })
+      this.eventBus.on('world', 'BlockRemovedEvent', (e: any) => {
+          this.handleBlockUpdate(e.chunkCoord)
+      })
+  }
+  
+  private handleBlockUpdate(coord: ChunkCoordinate): void {
+      // When a block changes, we need to recalculate lighting for this chunk
+      // AND potentially neighbors if the block is on the edge.
+      // Ideally, we should ask WorldService to trigger the calculation because
+      // WorldService has the voxel data.
+      
+      // TODO: Implement efficient partial updates.
+      // For now, we rely on WorldService calling calculateLightAsync() manually?
+      // WorldService *doesn't* call calculateLightAsync on block updates currently.
+      // It only emits the event.
+      
+      // We need to trigger the calculation.
+      // But EnvironmentService doesn't have the voxels.
+      // This architecture flaw (Push vs Pull) makes this hard.
+      
+      // Solution: Emit a request back to WorldService? 
+      // Or just accept that we need WorldService reference?
+      // We can't import WorldService (Circular).
+      
+      // Alternative: WorldService should listen to its OWN events?
+      // Or the Handler should call calculateLightAsync.
   }
   
   // Called by WorldService
@@ -102,13 +140,11 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
           
           this.lightDataMap.set(coord.toKey(), lightData)
 
-          if (this.eventBus) {
-              this.eventBus.emit('lighting', {
+          this.eventBus.emit('lighting', {
                   type: 'LightingCalculatedEvent',
                   chunkCoord: coord,
                   lightBuffer
               })
-          }
       }
   }
 

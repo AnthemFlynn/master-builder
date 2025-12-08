@@ -54,6 +54,14 @@ export class MeshingService {
     // Listen for lighting ready
     this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
       this.markDirty(e.chunkCoord, 'global')
+      
+      // Also mark neighbors dirty because their faces might be revealed/hidden
+      // by changes in this chunk (border culling).
+      const { x, z } = e.chunkCoord
+      this.markDirty(new ChunkCoordinate(x + 1, z), 'global')
+      this.markDirty(new ChunkCoordinate(x - 1, z), 'global')
+      this.markDirty(new ChunkCoordinate(x, z + 1), 'global')
+      this.markDirty(new ChunkCoordinate(x, z - 1), 'global')
     })
   }
 

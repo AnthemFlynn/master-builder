@@ -4,7 +4,7 @@ import { WorkerMessage, MainMessage } from './types'
 import { LightingPipeline } from '../application/voxel-lighting/LightingPipeline'
 import { WorkerVoxelQuery } from './WorkerVoxelQuery'
 import { WorkerLightStorage } from './WorkerLightStorage'
-import { blockRegistry } from '../../../blocks'
+import { blockRegistry } from '../../../modules/blocks'
 
 // Initialize blocks definitions (needed for lighting properties)
 // Note: initializeBlockRegistry creates a TextureLoader which crashes in worker.

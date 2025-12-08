@@ -13,7 +13,7 @@ import { InteractionService } from '../../interaction/application/InteractionSer
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
 import { CommandBus } from '../infrastructure/CommandBus'
 import { EventBus } from '../infrastructure/EventBus'
-import { ChunkCoordinate } from '../../shared/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { GenerateChunkHandler } from './handlers/GenerateChunkHandler'
 import { PlaceBlockHandler } from './handlers/PlaceBlockHandler'
 import { RemoveBlockHandler } from './handlers/RemoveBlockHandler'
@@ -79,7 +79,6 @@ export class GameOrchestrator {
     // MeshingService depends on World (voxels) and Environment (lighting)
     // EnvironmentService will now implement ILightingQuery/Storage (TODO)
     this.meshingService = new MeshingService(
-        this.worldService, 
         this.worldService, 
         this.environmentService, // Acts as ILightingQuery & ILightStorage
         this.eventBus
@@ -207,12 +206,23 @@ export class GameOrchestrator {
 
   private generateChunksInRenderDistance(centerChunk: ChunkCoordinate): void {
     const distance = this.renderDistance
+    const chunksToLoad: ChunkCoordinate[] = []
 
     for (let x = -distance; x <= distance; x++) {
       for (let z = -distance; z <= distance; z++) {
-        const coord = new ChunkCoordinate(centerChunk.x + x, centerChunk.z + z)
-        this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
+        chunksToLoad.push(new ChunkCoordinate(centerChunk.x + x, centerChunk.z + z))
       }
+    }
+
+    // Sort by distance from center (Radial Loading)
+    chunksToLoad.sort((a, b) => {
+        const distA = Math.pow(a.x - centerChunk.x, 2) + Math.pow(a.z - centerChunk.z, 2)
+        const distB = Math.pow(b.x - centerChunk.x, 2) + Math.pow(b.z - centerChunk.z, 2)
+        return distA - distB
+    })
+
+    for (const coord of chunksToLoad) {
+        this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
     }
   }
 

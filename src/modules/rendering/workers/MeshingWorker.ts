@@ -8,16 +8,10 @@ import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../../modules/environment/ports/ILightingQuery'
 import { LightValue } from '../../../modules/environment/domain/voxel-lighting/LightValue'
 import { ILightStorage } from '../../../modules/environment/ports/ILightStorage'
-import { blockRegistry } from '../../../blocks'
+import { initializeBlockRegistry } from '../../../modules/blocks'
 
-// Initialize block registry (assumes lazy loading of textures)
-// We need blocks for culling properties (transparency, etc.)
-// No explicit initialize call if blockRegistry is singleton and self-initializing?
-// Actually, initializeBlockRegistry is a function in 'blocks/index.ts'.
-// We probably need to call it.
-// Let's assume we can import it.
-// Wait, standard way is `import { initializeBlockRegistry } from '../../../blocks'`
-// and call it.
+// Initialize block registry
+initializeBlockRegistry()
 
 // Mock implementation for worker
 class WorkerVoxelQuery implements IVoxelQuery {
@@ -41,6 +35,19 @@ class WorkerVoxelQuery implements IVoxelQuery {
     isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean {
         return this.getBlockType(worldX, worldY, worldZ) !== -1
     }
+
+    getLightAbsorption(worldX: number, worldY: number, worldZ: number): number {
+        const type = this.getBlockType(worldX, worldY, worldZ)
+        if (type === -1) return 0
+        
+        const def = blockRegistry.get(type)
+        if (!def) return 15
+        
+        if (def.transparent) {
+            return def.lightAbsorption ? Math.floor(def.lightAbsorption * 15) : 1
+        }
+        return 15
+    }
     
     getChunk(coord: ChunkCoordinate): VoxelChunk | null {
         return this.chunks.get(coord.toKey()) || null
@@ -63,11 +70,21 @@ class WorkerLightingQuery implements ILightingQuery {
     constructor(private storage: WorkerLightStorage) {}
     
     getLight(worldX: number, worldY: number, worldZ: number): LightValue {
+        // Boundary Checks
+        if (worldY < 0) {
+            return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} } // Void
+        }
+        if (worldY >= 256) {
+            return { sky: {r:15,g:15,b:15}, block: {r:0,g:0,b:0} } // Sky
+        }
+
         const cx = Math.floor(worldX / 24)
         const cz = Math.floor(worldZ / 24)
         const coord = new ChunkCoordinate(cx, cz)
         const data = this.storage.getLightData(coord)
-        if (!data) return { sky: {r:15,g:15,b:15}, block: {r:0,g:0,b:0} }
+        
+        // Default to DARKNESS if chunk is missing to prevent light leaks underground
+        if (!data) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
         
         const lx = ((worldX % 24) + 24) % 24
         const lz = ((worldZ % 24) + 24) % 24

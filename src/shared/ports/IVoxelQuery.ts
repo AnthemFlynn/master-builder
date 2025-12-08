@@ -20,6 +20,12 @@ export interface IVoxelQuery {
   isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean
 
   /**
+   * Get light absorption of block at world coordinates
+   * Returns 0-15 (0 = transparent, 15 = opaque)
+   */
+  getLightAbsorption(worldX: number, worldY: number, worldZ: number): number
+
+  /**
    * Get chunk by coordinate (may return null if not generated)
    */
   getChunk(coord: ChunkCoordinate): VoxelChunk | null

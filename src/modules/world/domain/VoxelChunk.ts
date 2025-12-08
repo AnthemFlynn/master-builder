@@ -25,7 +25,8 @@ export class VoxelChunk {
       return -1  // Air
     }
 
-    const index = x + y * this.size + z * this.size * this.height
+    // Standard Y-major order: x changes fastest, then z, then y
+    const index = x + z * this.size + y * this.size * this.size
     return this.blockTypes[index]
   }
 
@@ -34,7 +35,7 @@ export class VoxelChunk {
       return
     }
 
-    const index = x + y * this.size + z * this.size * this.height
+    const index = x + z * this.size + y * this.size * this.size
     this.blockTypes[index] = blockType
   }
 

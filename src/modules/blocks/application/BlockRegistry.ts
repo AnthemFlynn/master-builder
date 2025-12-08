@@ -1,4 +1,4 @@
-import { BlockDefinition, BlockCategory } from './types'
+import { BlockDefinition, BlockCategory } from '../domain/types'
 import * as THREE from 'three'
 
 /**
@@ -74,6 +74,8 @@ export class BlockRegistry {
       map,
       transparent: block.transparent,
       vertexColors: true,
+      roughness: 1.0, // Matte surface for better light diffusion
+      metalness: 0.0, // Non-metallic
       emissive: new THREE.Color(
         block.emissive.r / 15,
         block.emissive.g / 15,
@@ -138,6 +140,8 @@ export class BlockRegistry {
       map,
       transparent: block?.transparent ?? false,
       vertexColors: true,
+      roughness: 1.0,
+      metalness: 0.0,
       emissive: block ? new THREE.Color(block.emissive.r / 15, block.emissive.g / 15, block.emissive.b / 15) : new THREE.Color(0, 0, 0),
       emissiveIntensity: block && (block.emissive.r || block.emissive.g || block.emissive.b) ? 0.8 : 0
     })

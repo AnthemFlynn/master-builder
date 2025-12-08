@@ -66,9 +66,12 @@ export class LightData {
 
   private getIndex(x: number, y: number, z: number): number {
     if (x < 0 || x >= this.size || y < 0 || y >= this.height || z < 0 || z >= this.size) {
-      return 0
+      // This is an error case for local access, but check bounds for safety
+      console.warn(`Attempted to get/set light out of bounds: (${x},${y},${z}) for chunk (${this.coord.x},${this.coord.z})`)
+      return 0 // Return a safe default index, will likely be overwritten
     }
-    return x + y * this.size + z * this.size * this.height
+    // Standard Y-major order: x changes fastest, then z, then y
+    return x + z * this.size + y * this.size * this.size
   }
 
   getMemoryUsage(): number {

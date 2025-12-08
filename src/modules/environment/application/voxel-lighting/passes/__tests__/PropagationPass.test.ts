@@ -4,7 +4,7 @@ import { LightData } from '../../../lighting-domain/LightData'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../ports/IVoxelQuery'
 import { ILightStorage } from '../../../lighting-ports/ILightStorage'
-import { blockRegistry } from '../../../../../blocks'
+import { blockRegistry } from '../../../../../modules/blocks'
 import { VoxelChunk } from '../../../domain/VoxelChunk'
 
 // Mock implementations

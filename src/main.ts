@@ -6,7 +6,7 @@ import { getWorldPreset } from './modules/world/domain/WorldPreset'
 import { DEFAULT_WORLD_PRESET_ID } from './modules/world/domain/WorldConfig'
 
 // Initialize BlockRegistry
-import { initializeBlockRegistry } from './blocks'
+import { initializeBlockRegistry } from './modules/blocks'
 initializeBlockRegistry()
 
 // Initialize Three.js core
@@ -41,6 +41,9 @@ if (typeof window !== 'undefined') {
     setHour: (hour: number) => game.getEnvironmentService().setHour(hour),
     getWorldPreset: () => activePreset
   }
+
+  // Force time to Solar Noon for consistent development lighting
+  game.getEnvironmentService().setHour(12)
 
   console.log('✅ Hexagonal architecture active - 10 modules loaded')
   console.log('🐛 Debug: window.debug.enableTracing()')

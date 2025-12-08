@@ -18,10 +18,11 @@ export function combineLightChannels(light: LightValue): RGB {
   }
 }
 
-export function normalizeLightToColor(rgb: RGB): { r: number, g: number, b: number } {
+export function normalizeLightToColor(light: RGB): RGB {
+  // No clamp, allow full darkness (0.0)
   return {
-    r: Math.max(0.6, rgb.r / 15),
-    g: Math.max(0.6, rgb.g / 15),
-    b: Math.max(0.6, rgb.b / 15)
+    r: light.r / 15,
+    g: light.g / 15,
+    b: light.b / 15
   }
 }

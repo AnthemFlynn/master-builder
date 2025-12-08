@@ -1,8 +1,8 @@
 // src/modules/lighting/application/passes/SkyLightPass.ts
 import { ILightingPass } from './ILightingPass'
 import { LightData } from '../../domain/voxel-lighting/LightData'
-import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
+import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
 import { ILightStorage } from '../../ports/ILightStorage'
 
 export class SkyLightPass implements ILightingPass {
@@ -17,16 +17,14 @@ export class SkyLightPass implements ILightingPass {
 
         // Scan from top to bottom
         for (let localY = 255; localY >= 0; localY--) {
-          const blockType = voxels.getBlockType(
+          // Attenuate light based on block absorption
+          const absorption = voxels.getLightAbsorption(
             worldX + localX,
             localY,
             worldZ + localZ
           )
-
-          if (blockType !== -1) {
-            // Hit solid block - shadow below this point
-            skyLight = 0
-          }
+          
+          skyLight = Math.max(0, skyLight - absorption)
 
           // Set sky light (block light still 0, comes from PropagationPass)
           lightData.setLight(localX, localY, localZ, {
