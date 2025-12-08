@@ -1,6 +1,6 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { LightData } from '../domain/voxel-lighting/LightData'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 
 export interface ILightStorage {
-  getLightData(coord: ChunkCoordinate): LightData | undefined
+  getLightData(coord: ChunkCoordinate): ChunkData | undefined
 }

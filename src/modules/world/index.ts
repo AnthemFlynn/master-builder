@@ -1,5 +1,4 @@
 // src/modules/world/index.ts
-export { VoxelChunk } from './domain/VoxelChunk'
 export { WorldService } from './application/WorldService'
 
 // Note: ChunkCoordinate and IVoxelQuery are now in src/shared

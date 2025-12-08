@@ -13,6 +13,7 @@ export type ChunkResponse =
       z: number
       renderDistance: number
       blockBuffer: ArrayBuffer
+      metadata: Map<number, any>
     }
 
 export type WorkerMessage = ChunkRequest

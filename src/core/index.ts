@@ -20,7 +20,7 @@ export default class Core {
     this.camera.near = 0.01
     this.camera.far = 500
     this.camera.updateProjectionMatrix()
-    this.camera.position.set(12, 32, 12)
+    this.camera.position.set(12, 80, 12)
     this.camera.lookAt(12, 32, 0)
 
     window.addEventListener('resize', () => {

@@ -1,19 +1,13 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { LightData } from '../domain/voxel-lighting/LightData'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { ILightStorage } from '../ports/ILightStorage'
+import { WorkerVoxelQuery } from './WorkerVoxelQuery'
 
+// Adapter: LightStorage IS VoxelQuery in the Unified Model
 export class WorkerLightStorage implements ILightStorage {
-  private chunks = new Map<string, LightData>()
+  constructor(private voxelQuery: WorkerVoxelQuery) {}
 
-  addLightData(lightData: LightData) {
-    this.chunks.set(lightData.coord.toKey(), lightData)
-  }
-
-  getLightData(coord: ChunkCoordinate): LightData | undefined {
-    return this.chunks.get(coord.toKey())
-  }
-  
-  getAll(): LightData[] {
-    return Array.from(this.chunks.values())
+  getLightData(coord: ChunkCoordinate): ChunkData | undefined {
+    return this.voxelQuery.getChunk(coord) || undefined
   }
 }

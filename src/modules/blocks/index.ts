@@ -1,4 +1,5 @@
 import { blockRegistry } from './application/BlockRegistry'
+import { AIR_BLOCKS } from './domain/definitions/air'
 import { GROUND_BLOCKS } from './domain/definitions/ground'
 import { STONE_BLOCKS } from './domain/definitions/stone'
 import { WOOD_BLOCKS } from './domain/definitions/wood'
@@ -13,6 +14,7 @@ import { TRANSPARENT_BLOCKS } from './domain/definitions/transparent'
 export function initializeBlockRegistry(): void {
   // Register all block types
   blockRegistry.registerAll([
+    ...AIR_BLOCKS,
     ...GROUND_BLOCKS,
     ...STONE_BLOCKS,
     ...WOOD_BLOCKS,

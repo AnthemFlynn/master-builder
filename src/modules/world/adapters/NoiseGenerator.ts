@@ -1,5 +1,5 @@
 // src/modules/world/adapters/NoiseGenerator.ts
-import { VoxelChunk } from '../domain/VoxelChunk'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ImprovedNoise } from 'three/examples/jsm/math/ImprovedNoise.js'
 import { BlockType } from '../domain/BlockType'
@@ -27,7 +27,7 @@ export class NoiseGenerator {
     ]
   }
 
-  populate(chunk: VoxelChunk, coord: ChunkCoordinate): void {
+  populate(chunk: ChunkData, coord: ChunkCoordinate): void {
     const chunkWorldX = coord.x * 24
     const chunkWorldZ = coord.z * 24
     const heightMap: number[][] = Array.from({ length: chunk.size }, () => new Array(chunk.size).fill(0))
@@ -65,7 +65,7 @@ export class NoiseGenerator {
           }
 
           if (blockType !== -1) {
-            chunk.setBlockType(localX, localY, localZ, blockType)
+            chunk.setBlockId(localX, localY, localZ, blockType)
           }
         }
       }

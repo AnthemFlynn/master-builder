@@ -1,6 +1,6 @@
 import { initializeBlockRegistry } from '../../../modules/blocks'
 import { NoiseGenerator } from '../adapters/NoiseGenerator'
-import { VoxelChunk } from '../domain/VoxelChunk'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { WorkerMessage, MainMessage } from './types'
 
@@ -16,20 +16,22 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
   if (msg.type === 'GENERATE_CHUNK') {
     const { x, z, renderDistance } = msg
     const coord = new ChunkCoordinate(x, z)
-    const chunk = new VoxelChunk(coord)
+    const chunk = new ChunkData(coord)
     
     // Generate terrain
     generator.populate(chunk, coord)
     
     // Get buffer and transfer ownership
     const buffer = chunk.getRawBuffer()
+    const metadata = chunk.getMetadata()
     
     const response: MainMessage = {
       type: 'CHUNK_GENERATED',
       x,
       z,
       renderDistance,
-      blockBuffer: buffer
+      blockBuffer: buffer,
+      metadata: metadata // TODO: Handle Map serialization if needed (Worker postMessage supports Map!)
     }
 
     self.postMessage(response, [buffer])

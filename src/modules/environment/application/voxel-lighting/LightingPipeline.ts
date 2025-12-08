@@ -1,7 +1,7 @@
-// src/modules/world/lighting-application/LightingPipeline.ts
-import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
-import { LightData } from '../../domain/voxel-lighting/LightData'
+// src/modules/environment/application/voxel-lighting/LightingPipeline.ts
+import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
+import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
+import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ILightingPass } from './passes/ILightingPass'
 import { ILightStorage } from '../../ports/ILightStorage'
 import { SkyLightPass } from './passes/SkyLightPass'
@@ -17,20 +17,22 @@ export class LightingPipeline {
 
   /**
    * Execute full lighting pipeline for a chunk
-   * Returns fully calculated LightData
+   * Modifies ChunkData in-place.
    */
-  execute(coord: ChunkCoordinate, storage: ILightStorage): LightData {
+  execute(coord: ChunkCoordinate, storage: ILightStorage): ChunkData {
     const startTime = performance.now()
-    const lightData = new LightData(coord)
+    // We assume the chunk is already in storage (via voxelQuery)
+    const chunkData = storage.getLightData(coord)
+    if (!chunkData) throw new Error("Chunk not found for lighting")
 
-    // Run all passes in sequence (EXPLICIT ORDER)
+    // Run all passes in sequence
     for (const pass of this.passes) {
-      pass.execute(lightData, this.voxelQuery, coord, storage)
+      pass.execute(chunkData, this.voxelQuery, coord, storage)
     }
 
     const duration = performance.now() - startTime
-    console.log(`💡 Lighting pipeline complete for chunk (${coord.x}, ${coord.z}) in ${duration.toFixed(2)}ms`)
+    // console.log(`💡 Lighting pipeline complete for chunk (${coord.x}, ${coord.z}) in ${duration.toFixed(2)}ms`)
 
-    return lightData
+    return chunkData
   }
 }

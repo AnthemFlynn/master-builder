@@ -76,6 +76,9 @@ export class GameOrchestrator {
     // Link services (resolve circular dependency)
     this.worldService.setEnvironmentService(this.environmentService)
 
+    // Initialize player position from camera (ensure spawning above ground)
+    this.playerService.updatePosition(this.camera.position)
+
     // MeshingService depends on World (voxels) and Environment (lighting)
     // EnvironmentService will now implement ILightingQuery/Storage (TODO)
     this.meshingService = new MeshingService(

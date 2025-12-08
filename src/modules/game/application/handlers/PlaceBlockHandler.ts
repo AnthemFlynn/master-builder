@@ -14,6 +14,12 @@ export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
 
   execute(command: PlaceBlockCommand): void {
     const { x, y, z, blockType } = command
+    
+    if (blockType <= 0) {
+        console.warn('Cannot place Air or Void block')
+        return
+    }
+
     const targetBlockX = Math.floor(x)
     const targetBlockY = Math.floor(y)
     const targetBlockZ = Math.floor(z)

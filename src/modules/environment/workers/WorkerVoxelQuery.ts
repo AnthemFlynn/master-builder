@@ -1,14 +1,13 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { VoxelChunk } from '../../../modules/world/domain/VoxelChunk'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
-
 import { blockRegistry } from '../../../modules/blocks'
 
 // Mock implementation for worker
 export class WorkerVoxelQuery implements IVoxelQuery {
-    private chunks = new Map<string, VoxelChunk>()
+    private chunks = new Map<string, ChunkData>()
     
-    addChunk(chunk: VoxelChunk) {
+    addChunk(chunk: ChunkData) {
         this.chunks.set(chunk.coord.toKey(), chunk)
     }
     
@@ -20,7 +19,7 @@ export class WorkerVoxelQuery implements IVoxelQuery {
         if (!chunk) return -1
         const lx = ((worldX % 24) + 24) % 24
         const lz = ((worldZ % 24) + 24) % 24
-        return chunk.getBlockType(lx, worldY, lz)
+        return chunk.getBlockId(lx, worldY, lz)
     }
     
     isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean {
@@ -29,20 +28,18 @@ export class WorkerVoxelQuery implements IVoxelQuery {
 
     getLightAbsorption(worldX: number, worldY: number, worldZ: number): number {
         const type = this.getBlockType(worldX, worldY, worldZ)
-        if (type === -1) return 0 // Air
+        if (type === -1 || type === 0) return 0 // Air or Void
         
         const def = blockRegistry.get(type)
         if (!def) return 15 // Unknown = Opaque
         
-        // Definition uses 0-1 float? Or is it undefined?
-        // Default to 15 (solid) if not specified or opaque
         if (def.transparent) {
             return def.lightAbsorption ? Math.floor(def.lightAbsorption * 15) : 1
         }
         return 15
     }
     
-    getChunk(coord: ChunkCoordinate): VoxelChunk | null {
+    getChunk(coord: ChunkCoordinate): ChunkData | null {
         return this.chunks.get(coord.toKey()) || null
     }
 }

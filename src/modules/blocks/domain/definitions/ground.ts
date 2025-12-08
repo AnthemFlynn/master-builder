@@ -6,7 +6,7 @@ import { BlockDefinition, BlockCategory } from '../types'
  */
 export const GROUND_BLOCKS: BlockDefinition[] = [
   {
-    id: 0,  // BlockType.grass
+    id: 14,  // BlockType.grass (Moved from 8 to avoid Diamond Block conflict)
     name: 'Grass Block',
     category: BlockCategory.GROUND,
     textures: [
