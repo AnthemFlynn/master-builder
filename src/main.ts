@@ -1,36 +1,78 @@
-import Core from './core'
-import Control from './control'
-import Player from './player'
-import Terrain from './terrain'
-import UI from './ui'
-import Audio from './audio'
-
 import './style.css'
+import Core from './core'
+import { GameOrchestrator } from './modules/game'
+import { PlayerMode } from './modules/player/domain/PlayerMode'
+import { getWorldPreset } from './modules/world/domain/WorldPreset'
+import { DEFAULT_WORLD_PRESET_ID } from './modules/world/domain/WorldConfig'
 
+// Initialize BlockRegistry
+import { initializeBlockRegistry } from './modules/blocks'
+initializeBlockRegistry()
+
+// Initialize Three.js core
 const core = new Core()
 const camera = core.camera
 const scene = core.scene
 const renderer = core.renderer
-const timeOfDay = core.timeOfDay
+const activePreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
-const player = new Player()
-const audio = new Audio(camera)
+// Initialize game (all modules)
+const game = new GameOrchestrator(scene, camera)
 
-const terrain = new Terrain(scene, camera)
-const control = new Control(scene, camera, player, terrain, audio, timeOfDay)
+// Expose for debugging
+if (typeof window !== 'undefined') {
+  const global = window as any
 
-const ui = new UI(terrain, control, timeOfDay)
+  if (typeof global.game === 'function') {
+    console.warn('window.game already defined. Exposing GameOrchestrator as window.gameOrchestrator instead.')
+    global.gameOrchestrator = game
+  } else {
+    global.game = game
+    global.gameOrchestrator = game
+  }
 
-// animation
+  global.debug = {
+    enableTracing: () => game.enableEventTracing(),
+    replayCommands: (from: number) => game.replayCommands(from),
+    getCommandLog: () => game.getCommandLog(),
+    getPlayerMode: () => game.getPlayerService().getMode(),
+    setPlayerMode: (mode: PlayerMode) => game.getPlayerService().setMode(mode),
+    getPlayerPosition: () => game.getPlayerService().getPosition().clone(),
+    setHour: (hour: number) => game.getEnvironmentService().setHour(hour),
+    getWorldPreset: () => activePreset
+  }
+
+  // Force time to Solar Noon for consistent development lighting
+  game.getEnvironmentService().setHour(12)
+
+  console.log('✅ Hexagonal architecture active - 10 modules loaded')
+  console.log('🐛 Debug: window.debug.enableTracing()')
+}
+
+// Animation loop
 ;(function animate() {
-  // let p1 = performance.now()
   requestAnimationFrame(animate)
 
-  control.update()
-  terrain.update()
-  ui.update()
-  timeOfDay.update()
+  try {
+    game.update()
 
-  renderer.render(scene, camera)
-  // console.log(performance.now()-p1)
+    const uiService = game.getUIService()
+    if (uiService && uiService.updateFPS) {
+      uiService.updateFPS()
+    }
+
+    renderer.render(scene, camera)
+  } catch (error) {
+    console.error('❌ Animation loop error:', error)
+    throw error
+  }
 })()
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth, window.innerHeight)
+})
+
+console.log('✅ Game initialized - all hexagonal modules operational')

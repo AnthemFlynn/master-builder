@@ -1,0 +1,15 @@
+import { VoxelChunk } from '../domain/VoxelChunk'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
+import { WorldPreset, BiomeDefinition } from '../domain/WorldPreset'
+
+export interface DecorationContext {
+  preset: WorldPreset
+  chunkCoord: ChunkCoordinate
+  getBiomeAt(localX: number, localZ: number): BiomeDefinition
+  getHeightAt(localX: number, localZ: number): number
+  random(): number
+}
+
+export interface ChunkDecorator {
+  decorate(chunk: VoxelChunk, context: DecorationContext): void
+}

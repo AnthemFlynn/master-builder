@@ -23,6 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 
+# Git worktrees
+.worktrees/
+
+# Sessions
+.sessions/
+
 # Environment
 .env
 .env.local
