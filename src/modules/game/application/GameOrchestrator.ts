@@ -196,15 +196,12 @@ export class GameOrchestrator {
       movement.sneak = true
     }
 
-    // Apply movement through physics
-    const movementController = this.physicsService.getMovementController()
-    const newPosition = movementController.applyMovement(movement, this.camera, deltaTime)
+    // Apply movement through physics worker
+    this.physicsService.update(movement, this.camera, deltaTime)
 
-    // Update player position
-    this.playerService.updatePosition(newPosition)
-
-    // Sync camera to player position
-    this.camera.position.copy(newPosition)
+    // PlayerService is updated by PhysicsService directly (via worker message)
+    // Sync camera to player position (after physics update)
+    this.camera.position.copy(this.playerService.getPosition())
   }
 
   private generateChunksInRenderDistance(centerChunk: ChunkCoordinate): void {

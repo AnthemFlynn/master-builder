@@ -4,6 +4,7 @@ import { PlayerMode } from './PlayerMode'
 
 export class PlayerState {
   position: THREE.Vector3
+  velocity: THREE.Vector3
   mode: PlayerMode
   speed: number
   falling: boolean
@@ -11,6 +12,7 @@ export class PlayerState {
 
   constructor() {
     this.position = new THREE.Vector3(8, 40, 8)
+    this.velocity = new THREE.Vector3() // Initialize velocity
     this.mode = PlayerMode.Walking  // Default to walking so collisions apply
     this.speed = 5
     this.falling = false
