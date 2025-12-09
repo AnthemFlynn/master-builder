@@ -9,6 +9,12 @@ import { LightValue } from '../../../../../shared/domain/LightValue'
 export class PropagationPass implements ILightingPass {
   // Pre-allocated reusable coordinate to avoid GC
   private tempCoord = new ChunkCoordinate(0, 0)
+  
+  // Reusable queue and visited set as class properties to prevent allocation per execution
+  private queue = new Int32Array(2000000 * 7) // Max size, same as QUEUE_SIZE
+  private qHead = 0
+  private qTail = 0
+  private visited = new Map<number, number>() // Stores packed light values
 
   execute(
     chunkData: ChunkData,
@@ -19,41 +25,38 @@ export class PropagationPass implements ILightingPass {
     const worldX = coord.x * 24
     const worldZ = coord.z * 24
 
-    // Queue: Use a flat Int32Array as a ring buffer/queue for ZERO allocation
-    // Format: x, y, z, r, g, b, s (7 ints per node)
-    const QUEUE_SIZE = 2000000 * 7
-    const queue = new Int32Array(QUEUE_SIZE)
-    let qHead = 0
-    let qTail = 0
+    // Reset queue and visited for this execution
+    this.qHead = 0
+    this.qTail = 0
+    this.visited.clear()
 
     const push = (x: number, y: number, z: number, r: number, g: number, b: number, s: number) => {
-        if ((qTail + 7) % QUEUE_SIZE === qHead) return
-        queue[qTail] = x
-        queue[qTail+1] = y
-        queue[qTail+2] = z
-        queue[qTail+3] = r
-        queue[qTail+4] = g
-        queue[qTail+5] = b
-        queue[qTail+6] = s
-        qTail = (qTail + 7) % QUEUE_SIZE
+        if ((this.qTail + 7) % this.queue.length === this.qHead) return
+        this.queue[this.qTail] = x
+        this.queue[this.qTail+1] = y
+        this.queue[this.qTail+2] = z
+        this.queue[this.qTail+3] = r
+        this.queue[this.qTail+4] = g
+        this.queue[this.qTail+5] = b
+        this.queue[this.qTail+6] = s
+        this.qTail = (this.qTail + 7) % this.queue.length
     }
 
     const pop = () => {
-        if (qHead === qTail) return null
-        const x = queue[qHead]
-        const y = queue[qHead+1]
-        const z = queue[qHead+2]
-        const r = queue[qHead+3]
-        const g = queue[qHead+4]
-        const b = queue[qHead+5]
-        const s = queue[qHead+6]
-        qHead = (qHead + 7) % QUEUE_SIZE
+        if (this.qHead === this.qTail) return null
+        const x = this.queue[this.qHead]
+        const y = this.queue[this.qHead+1]
+        const z = this.queue[this.qHead+2]
+        const r = this.queue[this.qHead+3]
+        const g = this.queue[this.qHead+4]
+        const b = this.queue[this.qHead+5]
+        const s = this.queue[this.qHead+6]
+        this.qHead = (this.qHead + 7) % this.queue.length
         return { x, y, z, r, g, b, s }
     }
 
-    const isEmpty = () => qHead === qTail
+    const isEmpty = () => this.qHead === this.qTail
 
-    const visited = new Map<number, number>()
     const keyPack = (x: number, y: number, z: number) => (x + 128) | ((z + 128) << 8) | (y << 16)
     const packLight = (r: number, g: number, b: number, s: number) => (r << 24) | (g << 16) | (b << 8) | s
 
@@ -114,6 +117,43 @@ export class PropagationPass implements ILightingPass {
       return true
     }
 
+    // Inlined processNeighbor closure to capture scope without passing 12 arguments
+    const processNeighbor = (
+        nx: number, ny: number, nz: number,
+        node: {r: number, g: number, b: number, s: number}
+    ) => {
+        if (ny < 0 || ny >= 256) return
+
+        const lightAbsorption = voxels.getLightAbsorption(worldX + nx, ny, worldZ + nz)
+        if (lightAbsorption >= 15) return
+
+        const newR = Math.max(0, node.r - 1 - lightAbsorption)
+        const newG = Math.max(0, node.g - 1 - lightAbsorption)
+        const newB = Math.max(0, node.b - 1 - lightAbsorption)
+        const newS = Math.max(0, node.s - 1 - lightAbsorption)
+
+        if (newR <= 0 && newG <= 0 && newB <= 0 && newS <= 0) return
+
+        const currentLight = getGlobalLight(nx, ny, nz)
+        if (!currentLight) return
+
+        let updated = false
+        const ub = { ...currentLight.block }
+        const us = { ...currentLight.sky }
+
+        if (newR > currentLight.block.r) { ub.r = newR; updated = true; }
+        if (newG > currentLight.block.g) { ub.g = newG; updated = true; }
+        if (newB > currentLight.block.b) { ub.b = newB; updated = true; }
+        if (newS > currentLight.sky.r) { us.r = newS; us.g = newS; us.b = newS; updated = true; }
+
+        if (updated) {
+            const success = setGlobalLight(nx, ny, nz, ub.r, ub.g, ub.b, us.r)
+            if (success) {
+                push(nx, ny, nz, ub.r, ub.g, ub.b, us.r)
+            }
+        }
+    }
+
     // Phase 0: Seed from neighbors
     for (const { dx, dz } of borderOffsets) {
       const isXAxis = dx !== 0
@@ -163,14 +203,11 @@ export class PropagationPass implements ILightingPass {
     }
 
     // Phase 2: Flood-fill (BFS) with High Perf Queue
-    // console.log(`💡 PropagationPass: Queue seeded with ${Math.abs(qTail - qHead) / 7} nodes`)
-    let processed = 0
     while (!isEmpty()) {
-      processed++
       const node = pop()!
       
       const k = keyPack(node.x, node.y, node.z)
-      const packedPrev = visited.get(k)
+      const packedPrev = this.visited.get(k)
       if (packedPrev !== undefined) {
           const pr = (packedPrev >>> 24) & 0xFF
           const pg = (packedPrev >>> 16) & 0xFF
@@ -185,59 +222,18 @@ export class PropagationPass implements ILightingPass {
           const pb = (packedPrev >>> 8) & 0xFF
           const ps = packedPrev & 0xFF
           const maxPacked = packLight(Math.max(node.r, pr), Math.max(node.g, pg), Math.max(node.b, pb), Math.max(node.s, ps))
-          visited.set(k, maxPacked)
+          this.visited.set(k, maxPacked)
       } else {
-          visited.set(k, packLight(node.r, node.g, node.b, node.s))
+          this.visited.set(k, packLight(node.r, node.g, node.b, node.s))
       }
 
       // Neighbors: Unrolled for speed
-      this.processNeighbor(node.x + 1, node.y, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
-      this.processNeighbor(node.x - 1, node.y, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
-      this.processNeighbor(node.x, node.y + 1, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
-      this.processNeighbor(node.x, node.y - 1, node.z, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
-      this.processNeighbor(node.x, node.y, node.z + 1, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
-      this.processNeighbor(node.x, node.y, node.z - 1, node, worldX, worldZ, voxels, getGlobalLight, setGlobalLight, push)
+      processNeighbor(node.x + 1, node.y, node.z, node)
+      processNeighbor(node.x - 1, node.y, node.z, node)
+      processNeighbor(node.x, node.y + 1, node.z, node)
+      processNeighbor(node.x, node.y - 1, node.z, node)
+      processNeighbor(node.x, node.y, node.z + 1, node)
+      processNeighbor(node.x, node.y, node.z - 1, node)
     }
-  }
-
-  private processNeighbor(
-      nx: number, ny: number, nz: number,
-      node: {r: number, g: number, b: number, s: number},
-      worldX: number, worldZ: number,
-      voxels: IVoxelQuery,
-      getGlobalLight: any,
-      setGlobalLight: any,
-      push: any
-  ) {
-      if (ny < 0 || ny >= 256) return
-
-      const lightAbsorption = voxels.getLightAbsorption(worldX + nx, ny, worldZ + nz)
-      if (lightAbsorption >= 15) return
-
-      const newR = Math.max(0, node.r - 1 - lightAbsorption)
-      const newG = Math.max(0, node.g - 1 - lightAbsorption)
-      const newB = Math.max(0, node.b - 1 - lightAbsorption)
-      const newS = Math.max(0, node.s - 1 - lightAbsorption)
-
-      if (newR <= 0 && newG <= 0 && newB <= 0 && newS <= 0) return
-
-      const currentLight = getGlobalLight(nx, ny, nz)
-      if (!currentLight) return
-
-      let updated = false
-      const ub = { ...currentLight.block }
-      const us = { ...currentLight.sky }
-
-      if (newR > currentLight.block.r) { ub.r = newR; updated = true; }
-      if (newG > currentLight.block.g) { ub.g = newG; updated = true; }
-      if (newB > currentLight.block.b) { ub.b = newB; updated = true; }
-      if (newS > currentLight.sky.r) { us.r = newS; us.g = newS; us.b = newS; updated = true; }
-
-      if (updated) {
-          const success = setGlobalLight(nx, ny, nz, ub.r, ub.g, ub.b, us.r)
-          if (success) {
-              push(nx, ny, nz, ub.r, ub.g, ub.b, us.r)
-          }
-      }
   }
 }

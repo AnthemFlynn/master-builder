@@ -8,12 +8,13 @@ import { SkyLightPass } from './passes/SkyLightPass'
 import { PropagationPass } from './passes/PropagationPass'
 
 export class LightingPipeline {
-  private passes: ILightingPass[] = [
-    new SkyLightPass(),      // Phase 1: Vertical shadows
-    new PropagationPass(),   // Phase 2: Horizontal flood-fill
-  ]
+  private skyLightPass: SkyLightPass
+  private propagationPass: PropagationPass
 
-  constructor(private voxelQuery: IVoxelQuery) {}
+  constructor(private voxelQuery: IVoxelQuery) {
+    this.skyLightPass = new SkyLightPass()
+    this.propagationPass = new PropagationPass()
+  }
 
   /**
    * Execute full lighting pipeline for a chunk
@@ -21,14 +22,12 @@ export class LightingPipeline {
    */
   execute(coord: ChunkCoordinate, storage: ILightStorage): ChunkData {
     const startTime = performance.now()
-    // We assume the chunk is already in storage (via voxelQuery)
     const chunkData = storage.getLightData(coord)
     if (!chunkData) throw new Error("Chunk not found for lighting")
 
-    // Run all passes in sequence
-    for (const pass of this.passes) {
-      pass.execute(chunkData, this.voxelQuery, coord, storage)
-    }
+    // Run passes in sequence
+    this.skyLightPass.execute(chunkData, this.voxelQuery, coord, storage)
+    this.propagationPass.execute(chunkData, this.voxelQuery, coord, storage)
 
     const duration = performance.now() - startTime
     // console.log(`💡 Lighting pipeline complete for chunk (${coord.x}, ${coord.z}) in ${duration.toFixed(2)}ms`)

@@ -42,4 +42,8 @@ export class WorkerVoxelQuery implements IVoxelQuery {
     getChunk(coord: ChunkCoordinate): ChunkData | null {
         return this.chunks.get(coord.toKey()) || null
     }
+
+    clear(): void {
+        this.chunks.clear()
+    }
 }

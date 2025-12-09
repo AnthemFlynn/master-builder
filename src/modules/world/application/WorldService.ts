@@ -22,10 +22,6 @@ export class WorldService implements IVoxelQuery {
             const coord = new ChunkCoordinate(e.chunkCoord.x, e.chunkCoord.z)
             const chunk = this.getChunk(coord)
             if (chunk && e.lightBuffer) {
-                console.log(`💡 Lighting Sync: Updating buffer for (${coord.x}, ${coord.z})`)
-                // Debug: Check a sample block ID (e.g. at 0,0,0) before and after
-                // Note: We don't know where the user modified, but general check helps.
-                // Actually, let's just log that we are overwriting.
                 chunk.setBuffer(e.lightBuffer)
             }
         })
@@ -158,12 +154,7 @@ export class WorldService implements IVoxelQuery {
     const coord = this.worldToChunkCoord(worldX, worldZ)
     const chunk = this.getOrCreateChunk(coord)
     const local = this.worldToLocal(worldX, worldY, worldZ)
-    
-    console.log(`🧱 SetBlock: ${blockType} at ${local.x},${local.y},${local.z} (Chunk ${coord.x},${coord.z})`)
-    const before = chunk.getBlockId(local.x, local.y, local.z)
     chunk.setBlockId(local.x, local.y, local.z, blockType)
-    const after = chunk.getBlockId(local.x, local.y, local.z)
-    console.log(`   Change: ${before} -> ${after}`)
     
     // Trigger Lighting Calculation
     this.calculateLightAsync(coord)
