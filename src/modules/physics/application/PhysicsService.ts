@@ -3,7 +3,6 @@ import { MovementController } from './MovementController'
 import { CollisionDetector } from './CollisionDetector'
 import { IVoxelQuery } from '../../shared/ports/IVoxelQuery'
 import { IPlayerQuery } from '../../player/ports/IPlayerQuery'
-import PhysicsWorker from '../workers/PhysicsWorker?worker'
 import { WorkerMessage, MainMessage } from '../workers/types'
 import { PlayerService } from '../../player/application/PlayerService'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
@@ -18,7 +17,7 @@ export class PhysicsService {
     private voxels: IVoxelQuery, // This is WorldService. The worker needs its own IVoxelQuery.
     private playerService: PlayerService // PlayerState is managed by PlayerService
   ) {
-    this.worker = new PhysicsWorker()
+    this.worker = new Worker("/assets/PhysicsWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
   }
 

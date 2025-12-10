@@ -1,6 +1,6 @@
 // src/modules/game/application/GameOrchestrator.ts
 import * as THREE from 'three'
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js'
 import { WorldService } from '../../world/application/WorldService'
 import { MeshingService } from '../../rendering/meshing-application/MeshingService'
 import { RenderingService } from '../../rendering/application/RenderingService'

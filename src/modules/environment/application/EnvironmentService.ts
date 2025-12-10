@@ -2,7 +2,6 @@
 import * as THREE from 'three'
 import { TimeCycle } from '../domain/TimeCycle'
 import { ThreeSkyAdapter } from '../adapters/ThreeSkyAdapter'
-import LightingWorker from '../workers/LightingWorker?worker'
 import { ChunkRequest, MainMessage } from '../workers/types'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { EventBus } from '../../game/infrastructure/EventBus'
@@ -31,7 +30,7 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
     scene.add(hemiLight)
 
     // Initialize Lighting Worker
-    this.worker = new LightingWorker()
+    this.worker = new Worker("/assets/LightingWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
 
     this.setupEventListeners()

@@ -3,7 +3,6 @@ import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { blockRegistry } from '../../blocks'
-import ChunkWorker from '../workers/ChunkWorker?worker'
 import { ChunkRequest, MainMessage } from '../workers/types'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
@@ -14,7 +13,7 @@ export class WorldService implements IVoxelQuery {
   private environmentService?: EnvironmentService
 
   constructor(private eventBus?: EventBus) {
-    this.worker = new ChunkWorker()
+    this.worker = new Worker("/assets/ChunkWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
     
     if (this.eventBus) {
