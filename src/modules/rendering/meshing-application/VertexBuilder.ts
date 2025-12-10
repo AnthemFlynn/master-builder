@@ -23,9 +23,9 @@ function combineLightChannels(light: LightValue): RGB {
 
 function normalizeLightToColor(light: RGB): RGB {
   return {
-    r: light.r / 15,
-    g: light.g / 15,
-    b: light.b / 15
+    r: Math.max(0.2, light.r / 15),
+    g: Math.max(0.2, light.g / 15),
+    b: Math.max(0.2, light.b / 15)
   }
 }
 

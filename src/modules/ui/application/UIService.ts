@@ -3,6 +3,9 @@ import { UIState } from '../domain/UIState'
 import { IUIQuery } from '../ports/IUIQuery'
 import { HUDManager } from './HUDManager'
 import { MenuManager } from './MenuManager'
+import { RadialMenuManager } from './components/RadialMenuManager'
+import { CreativeModalManager } from './components/CreativeModalManager'
+import { InventoryService } from '../../inventory/application/InventoryService'
 
 export interface UIServiceOptions {
   requestPointerLock?: () => void
@@ -13,10 +16,13 @@ export class UIService implements IUIQuery {
   private state: UIState = UIState.SPLASH
   private hudManager: HUDManager
   private menuManager: MenuManager
+  private radialMenuManager: RadialMenuManager
+  private creativeModalManager: CreativeModalManager
 
   constructor(
     private eventBus: EventBus,
-    private options: UIServiceOptions = {}
+    private options: UIServiceOptions = {},
+    private inventory: InventoryService
   ) {
     this.hudManager = new HUDManager()
     this.menuManager = new MenuManager(
@@ -37,6 +43,16 @@ export class UIService implements IUIQuery {
         exitPointerLock: this.options.exitPointerLock
       }
     )
+    
+    this.radialMenuManager = new RadialMenuManager(inventory)
+    this.creativeModalManager = new CreativeModalManager(inventory)
+    
+    // Listen for mouse movements for the radial menu
+    this.eventBus.on('input', 'InputMouseMoveEvent', (e: any) => {
+        if (this.state === UIState.RADIAL_MENU) {
+            this.radialMenuManager.updateMouse(e.x, e.y)
+        }
+    })
 
     // Start in menu state (HTML shows menu by default)
     this.setState(UIState.MENU)
@@ -49,6 +65,20 @@ export class UIService implements IUIQuery {
     // Update UI components
     this.hudManager.updateState(newState)
     this.menuManager.updateState(newState)
+    
+    // Radial Menu Control
+    if (newState === UIState.RADIAL_MENU) {
+        this.radialMenuManager.show()
+    } else {
+        this.radialMenuManager.hide()
+    }
+    
+    // Creative Modal Control
+    if (newState === UIState.CREATIVE_INVENTORY) {
+        this.creativeModalManager.show()
+    } else {
+        this.creativeModalManager.hide()
+    }
 
     // Emit event
     this.eventBus.emit('ui', {
@@ -60,6 +90,8 @@ export class UIService implements IUIQuery {
 
     console.log(`🎮 UI State: ${oldState} → ${newState}`)
   }
+
+  // ... (rest of the file)
 
   getState(): UIState {
     return this.state

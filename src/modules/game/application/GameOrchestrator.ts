@@ -11,6 +11,7 @@ import { UIService } from '../../ui/application/UIService'
 import { AudioService } from '../../audio/application/AudioService'
 import { InteractionService } from '../../interaction/application/InteractionService'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
+import { InventoryService } from '../../inventory/application/InventoryService'
 import { CommandBus } from '../infrastructure/CommandBus'
 import { EventBus } from '../infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
@@ -23,13 +24,14 @@ import { PlayerMode } from '../../player/domain/PlayerMode'
 import { DEFAULT_WORLD_PRESET_ID } from '../../world/domain/WorldConfig'
 import { getWorldPreset } from '../../world/domain/WorldPreset'
 import { GameState } from '../../input/domain/InputState'
+import { UIState } from '../../ui/domain/UIState'
 
 export class GameOrchestrator {
   // Infrastructure
   public commandBus: CommandBus
   public eventBus: EventBus
 
-  // Services (all 9 hexagonal modules)
+  // Services (all 10 hexagonal modules)
   private worldService: WorldService
   private meshingService: MeshingService
   private renderingService: RenderingService
@@ -40,6 +42,7 @@ export class GameOrchestrator {
   private audioService: AudioService
   private interactionService: InteractionService
   private environmentService: EnvironmentService
+  private inventoryService: InventoryService
   private worldPreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
   private currentChunk = new ChunkCoordinate(0, 0)
@@ -65,10 +68,11 @@ export class GameOrchestrator {
     this.playerService = new PlayerService(this.eventBus)
     this.physicsService = new PhysicsService(this.worldService, this.playerService)
     this.inputService = new InputService(this.eventBus)
+    this.inventoryService = new InventoryService(this.eventBus)
     this.uiService = new UIService(this.eventBus, {
       requestPointerLock: () => this.cameraControls.lock(),
       exitPointerLock: () => this.cameraControls.unlock()
-    })
+    }, this.inventoryService)
     this.audioService = new AudioService(camera, this.eventBus)
     this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)
     this.environmentService = new EnvironmentService(scene, camera, this.eventBus)
@@ -94,7 +98,9 @@ export class GameOrchestrator {
         SPLASH: GameState.SPLASH,
         MENU: GameState.MENU,
         PLAYING: GameState.PLAYING,
-        PAUSE: GameState.PAUSE
+        PAUSE: GameState.PAUSE,
+        RADIAL_MENU: GameState.RADIAL_MENU,
+        CREATIVE_INVENTORY: GameState.CREATIVE_INVENTORY
       }
       const mapped = stateMap[event.newState]
       if (mapped) {
@@ -227,8 +233,39 @@ export class GameOrchestrator {
   }
 
   private setupInteractionListeners(): void {
-    // Listen for block placement/removal from input system
+    // Listen for all input actions in one place
     this.eventBus.on('input', 'InputActionEvent', (event: any) => {
+      // DEBUG: Trace events reaching the orchestrator
+      if (['open_radial_menu', 'open_creative_inventory', 'place_block'].includes(event.action)) {
+          console.log(`[Game] Input Received: ${event.action} (${event.eventType})`)
+      }
+
+      // Toggle Radial Menu (Tab)
+      if (event.action === 'open_radial_menu') {
+          if (event.eventType === 'pressed') {
+              if (this.uiService.isPlaying()) {
+                  this.uiService.setState(UIState.RADIAL_MENU) // Set state BEFORE unlocking
+                  document.exitPointerLock()
+              }
+          } else if (event.eventType === 'released') {
+              if (this.uiService.getState() === UIState.RADIAL_MENU) {
+                  this.cameraControls.lock()
+                  this.uiService.setState(UIState.PLAYING)
+              }
+          }
+      }
+      
+      // Toggle Creative Inventory (B)
+      if (event.action === 'open_creative_inventory' && event.eventType === 'pressed') {
+          if (this.uiService.isPlaying()) {
+              this.uiService.setState(UIState.CREATIVE_INVENTORY) // Set state BEFORE unlocking
+              document.exitPointerLock()
+          } else if (this.uiService.getState() === UIState.CREATIVE_INVENTORY) {
+              this.cameraControls.lock()
+              this.uiService.setState(UIState.PLAYING)
+          }
+      }
+
       if (event.action === 'place_block' && event.eventType === 'pressed') {
         const selectedBlock = this.interactionService.getSelectedBlock()
         this.interactionService.placeBlock(this.camera, selectedBlock)
@@ -255,6 +292,12 @@ export class GameOrchestrator {
           this.uiService.setSelectedSlot(i - 1)
         }
       }
+    })
+    
+    // Listen for Inventory Changes
+    this.eventBus.on('inventory', 'InventoryChangedEvent', (event: any) => {
+        this.interactionService.setSelectedBlock(event.selectedBlock)
+        this.uiService.setSelectedSlot(event.selectedSlot)
     })
   }
 
@@ -336,6 +379,21 @@ export class GameOrchestrator {
       defaultKey: 'KeyF'
     })
 
+    // Inventory / Radial Menu
+    this.inputService.registerAction({
+      id: 'open_radial_menu',
+      category: 'inventory',
+      description: 'Open Radial Menu',
+      defaultKey: 'Tab'
+    })
+
+    this.inputService.registerAction({
+      id: 'open_creative_inventory',
+      category: 'inventory',
+      description: 'Open Creative Inventory',
+      defaultKey: 'KeyB'
+    })
+
     // Block selection (1-9)
     for (let i = 1; i <= 9; i++) {
       this.inputService.registerAction({
@@ -361,7 +419,6 @@ export class GameOrchestrator {
     })
   }
 
-
   // Expose services via getters (ports pattern)
   getWorldService() { return this.worldService }
   getPlayerService() { return this.playerService }
@@ -370,6 +427,7 @@ export class GameOrchestrator {
   getInputService() { return this.inputService }
   getAudioService() { return this.audioService }
   getEnvironmentService() { return this.environmentService }
+  getInventoryService() { return this.inventoryService }
 
   // Debug methods
   enableEventTracing(): void {
