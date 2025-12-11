@@ -18,7 +18,12 @@ export class EventBus {
     const handlers = this.listeners.get(key) || []
 
     for (const handler of handlers) {
-      handler(event)
+      try {
+        handler(event)
+      } catch (error) {
+        console.error(`[EventBus] Error in handler for ${key}:`, error)
+        // Continue to next handler instead of stopping
+      }
     }
   }
 

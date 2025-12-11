@@ -27,7 +27,13 @@ export class CommandBus {
       throw new Error(`No handler registered for command: ${command.type}`)
     }
 
-    handler.execute(command)
+    try {
+      handler.execute(command)
+    } catch (error) {
+      console.error(`[CommandBus] Error executing command ${command.type}:`, error)
+      // Re-throw to notify caller of command failure
+      throw error
+    }
   }
 
   replay(fromIndex: number = 0): void {
@@ -36,7 +42,12 @@ export class CommandBus {
     for (let i = fromIndex; i < this.log.length; i++) {
       const handler = this.handlers.get(this.log[i].type)
       if (handler) {
-        handler.execute(this.log[i])
+        try {
+          handler.execute(this.log[i])
+        } catch (error) {
+          console.error(`[CommandBus] Error replaying command ${this.log[i].type} at index ${i}:`, error)
+          // Continue to next command instead of stopping replay
+        }
       }
     }
   }
