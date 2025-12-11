@@ -18,6 +18,10 @@ export class ChunkRenderer {
     this.eventBus.on('meshing', 'ChunkMeshBuiltEvent', (e: any) => {
       this.updateMesh(e.chunkCoord, e.geometryMap)
     })
+
+    this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
+      this.disposeChunk(e.chunkCoord)
+    })
   }
 
   private updateMesh(coord: ChunkCoordinate, geometryMap: Map<string, THREE.BufferGeometry>): void {
@@ -45,6 +49,21 @@ export class ChunkRenderer {
     group.position.set(coord.x * 24, 0, coord.z * 24)
     this.scene.add(group)
     this.meshes.set(key, group)
+  }
+
+  disposeChunk(coord: ChunkCoordinate): void {
+    const key = coord.toKey()
+    const group = this.meshes.get(key)
+
+    if (group) {
+      group.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose()
+        }
+      })
+      this.scene.remove(group)
+      this.meshes.delete(key)
+    }
   }
 
   disposeAll(): void {

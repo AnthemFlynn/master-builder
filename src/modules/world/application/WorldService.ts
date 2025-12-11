@@ -175,6 +175,46 @@ export class WorldService implements IVoxelQuery {
     return Array.from(this.chunks.values())
   }
 
+  unloadChunk(coord: ChunkCoordinate): void {
+    const key = coord.toKey()
+    const chunk = this.chunks.get(key)
+
+    if (chunk) {
+      this.chunks.delete(key)
+
+      if (this.eventBus) {
+        this.eventBus.emit('world', {
+          type: 'ChunkUnloadedEvent',
+          timestamp: Date.now(),
+          chunkCoord: coord
+        })
+      }
+
+      console.log(`🗑️ Unloaded chunk (${coord.x}, ${coord.z})`)
+    }
+  }
+
+  unloadChunksOutsideRadius(centerChunk: ChunkCoordinate, maxDistance: number): number {
+    const chunksToUnload: ChunkCoordinate[] = []
+
+    for (const chunk of this.chunks.values()) {
+      const dx = chunk.coord.x - centerChunk.x
+      const dz = chunk.coord.z - centerChunk.z
+      const distanceSquared = dx * dx + dz * dz
+
+      // Unload if beyond max distance (add 1 to maxDistance for buffer zone)
+      if (distanceSquared > (maxDistance + 1) * (maxDistance + 1)) {
+        chunksToUnload.push(chunk.coord)
+      }
+    }
+
+    for (const coord of chunksToUnload) {
+      this.unloadChunk(coord)
+    }
+
+    return chunksToUnload.length
+  }
+
   private worldToChunkCoord(worldX: number, worldZ: number): ChunkCoordinate {
     return new ChunkCoordinate(
       Math.floor(worldX / 24),
