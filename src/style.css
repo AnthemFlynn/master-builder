@@ -11,12 +11,12 @@ body {
 
 @font-face {
   font-family: Minecraft;
-  src: url(/src/static/mc-font.otf);
+  /* src: url('/mc-font.otf'); Missing */
   font-display: swap;
 }
 
 .start {
-  background-image: url(/src/static/master-builder-splash.png);
+  /* background-image: url('/master-builder-splash.png'); Missing */
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
@@ -136,6 +136,28 @@ body {
   color: white;
 }
 
+.mode-indicator {
+  position: fixed;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  background-color: rgba(33, 131, 6, 0.9);
+  border: 2px solid #17cd07;
+  color: white;
+  font-family: Minecraft, sans-serif;
+  font-size: 16px;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: pulse-border 1s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: #17cd07; }
+  50% { border-color: #33ff22; }
+}
+
 .hidden {
   display: none;
 }
@@ -218,11 +240,12 @@ body {
   z-index: 2;
   position: fixed;
   left: 50%;
-  top: 20%;
+  top: 10%;
   transform: translate(-50%, 0%);
 
-  width: 300px;
-  height: 370px;
+  width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
   color: white;
   background-color: #727272;
   border-left: 2px solid #a4a4a4;
@@ -298,6 +321,142 @@ body {
   box-shadow: 0 0 0 2px black;
 
   cursor: pointer;
+}
+
+/* ============================================================================
+   CONTROLS UI
+   ============================================================================ */
+
+.settings-scroll {
+  overflow-y: auto;
+  max-height: calc(80vh - 80px);
+  padding: 0 10px;
+}
+
+.settings-divider {
+  border: none;
+  border-top: 2px solid #545655;
+  margin: 20px 0;
+}
+
+.settings h3 {
+  color: white;
+  font-family: 'Minecraft', sans-serif;
+  font-size: 18px;
+  margin: 15px 0 10px 0;
+}
+
+#controls-container {
+  margin-top: 10px;
+}
+
+.controls-category {
+  margin-bottom: 20px;
+}
+
+.controls-category-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #17cd07;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #545655;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.controls-row {
+  display: contents;
+}
+
+.control-label {
+  color: white;
+  padding: 4px 0;
+}
+
+.control-binding {
+  background-color: #545655;
+  border: 2px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 4px 12px;
+  min-width: 80px;
+  text-align: center;
+  color: #d4d4d4;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.control-binding:hover {
+  background-color: #6a6a6a;
+  border-color: #17cd07;
+  color: white;
+}
+
+.control-binding.rebinding {
+  background-color: #218306;
+  border-color: #17cd07;
+  color: white;
+  animation: pulse-binding 1s infinite;
+}
+
+.control-binding.conflict {
+  background-color: #8b0000;
+  border-color: #ff0000;
+}
+
+.control-binding.gamepad-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.control-binding.gamepad-disabled:hover {
+  background-color: #545655;
+  border-color: #3a3a3a;
+}
+
+@keyframes pulse-binding {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.controls-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.controls-btn {
+  background-color: #545655;
+  color: white;
+  border: 2px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 8px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.controls-btn:hover {
+  background-color: #6a6a6a;
+  border-color: #17cd07;
+}
+
+.controls-btn:active {
+  transform: translateY(1px);
 }
 
 * {
