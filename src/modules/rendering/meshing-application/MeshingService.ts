@@ -53,7 +53,7 @@ export class MeshingService {
     // Listen for lighting ready
     this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
       this.markDirty(e.chunkCoord, 'global')
-      
+
       // Also mark neighbors dirty because their faces might be revealed/hidden
       // by changes in this chunk (border culling).
       const { x, z } = e.chunkCoord
@@ -61,6 +61,12 @@ export class MeshingService {
       this.markDirty(new ChunkCoordinate(x - 1, z), 'global')
       this.markDirty(new ChunkCoordinate(x, z + 1), 'global')
       this.markDirty(new ChunkCoordinate(x, z - 1), 'global')
+    })
+
+    // Listen for chunk unloads to clean up dirty queue
+    this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
+      const key = e.chunkCoord.toKey()
+      this.dirtyQueue.delete(key)
     })
   }
 

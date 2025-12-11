@@ -49,6 +49,8 @@ export class GameOrchestrator {
   private previousChunk = new ChunkCoordinate(0, 0)
   private renderDistance = 3
   private lastUpdateTime = performance.now()
+  private lastChunkUnloadTime = performance.now()
+  private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
   private cameraControls: PointerLockControls
 
   constructor(
@@ -169,6 +171,15 @@ export class GameOrchestrator {
     if (!newChunk.equals(this.previousChunk)) {
       this.generateChunksInRenderDistance(newChunk)
       this.previousChunk = newChunk
+    }
+
+    // Periodically unload chunks that are outside render distance
+    if (now - this.lastChunkUnloadTime > this.chunkUnloadInterval) {
+      const unloadedCount = this.worldService.unloadChunksOutsideRadius(newChunk, this.renderDistance)
+      if (unloadedCount > 0) {
+        console.log(`🗑️ Unloaded ${unloadedCount} chunks outside render distance`)
+      }
+      this.lastChunkUnloadTime = now
     }
 
     // Process meshing queue

@@ -75,12 +75,17 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
       this.eventBus.on('world', 'ChunkGeneratedEvent', (e: any) => {
           // Trigger handled by WorldService call
       })
-      
+
       this.eventBus.on('world', 'BlockPlacedEvent', (e: any) => {
           this.handleBlockUpdate(e.chunkCoord)
       })
       this.eventBus.on('world', 'BlockRemovedEvent', (e: any) => {
           this.handleBlockUpdate(e.chunkCoord)
+      })
+
+      this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
+          const key = e.chunkCoord.toKey()
+          this.chunkDataMap.delete(key)
       })
   }
   
