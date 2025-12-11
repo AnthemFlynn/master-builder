@@ -94,9 +94,10 @@ class WorkerLightingQuery implements ILightingQuery {
 }
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
-    const msg = e.data
-    
-    if (msg.type === 'GEN_MESH') {
+    try {
+        const msg = e.data
+
+        if (msg.type === 'GEN_MESH') {
         const { x, z, neighborVoxels, neighborLight } = msg
         const coord = new ChunkCoordinate(x, z)
         
@@ -152,5 +153,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         }
         
         self.postMessage(response, transferList)
+        }
+    } catch (error) {
+        console.error('[MeshingWorker] Error processing message:', error)
+        self.postMessage({
+            type: 'MESH_ERROR',
+            error: error instanceof Error ? error.message : String(error)
+        })
     }
 }
