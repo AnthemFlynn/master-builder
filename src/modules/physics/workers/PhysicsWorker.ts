@@ -25,9 +25,10 @@ const cameraRight = new THREE.Vector3()
 const cameraUp = new THREE.Vector3(0,1,0) // Y-up world
 
 self.onmessage = (e: MessageEvent<any>) => {
-  const { type, playerState: rawPlayerState, movementVector, deltaTime, worldVoxels } = e.data
-  
-  if (type === 'UPDATE_PHYSICS') {
+  try {
+    const { type, playerState: rawPlayerState, movementVector, deltaTime, worldVoxels } = e.data
+
+    if (type === 'UPDATE_PHYSICS') {
     // Reconstruct player state
     playerPosition.set(rawPlayerState.position.x, rawPlayerState.position.y, rawPlayerState.position.z)
     playerVelocity.set(rawPlayerState.velocity.x, rawPlayerState.velocity.y, rawPlayerState.velocity.z)
@@ -81,5 +82,12 @@ self.onmessage = (e: MessageEvent<any>) => {
     }
 
     self.postMessage(response)
+    }
+  } catch (error) {
+    console.error('[PhysicsWorker] Error processing message:', error)
+    self.postMessage({
+      type: 'PHYSICS_ERROR',
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
 }
