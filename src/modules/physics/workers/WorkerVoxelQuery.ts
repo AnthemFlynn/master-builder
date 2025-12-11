@@ -36,11 +36,12 @@ export class WorkerVoxelQuery implements IVoxelQuery {
     getLightAbsorption(worldX: number, worldY: number, worldZ: number): number {
         const type = this.getBlockType(worldX, worldY, worldZ)
         if (type === -1 || type === 0) return 0 // Air or Void
-        
+
         const def = blockRegistry.get(type)
         if (!def) return 15 // Unknown = Opaque
-        
-        if (def.transparent) {
+
+        // Use collidable flag: non-collidable blocks (glass, leaves) let light through
+        if (!def.collidable) {
             return def.lightAbsorption ? Math.floor(def.lightAbsorption * 15) : 1
         }
         return 15
