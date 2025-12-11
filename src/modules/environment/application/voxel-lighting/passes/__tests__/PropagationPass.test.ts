@@ -5,7 +5,7 @@ import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../ports/IVoxelQuery'
 import { ILightStorage } from '../../../lighting-ports/ILightStorage'
 import { blockRegistry } from '../../../../../modules/blocks'
-import { VoxelChunk } from '../../../domain/VoxelChunk'
+import { ChunkData } from '../../../../../../shared/domain/ChunkData'
 
 // Mock implementations
 class MockVoxelQuery implements IVoxelQuery {
@@ -23,7 +23,11 @@ class MockVoxelQuery implements IVoxelQuery {
     return this.getBlockType(x, y, z) !== -1
   }
 
-  getChunk(coord: ChunkCoordinate): VoxelChunk | null {
+  getLightAbsorption(x: number, y: number, z: number): number {
+      return 0
+  }
+
+  getChunk(coord: ChunkCoordinate): ChunkData | null {
     return null
   }
 }

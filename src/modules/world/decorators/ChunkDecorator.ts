@@ -1,4 +1,4 @@
-import { VoxelChunk } from '../domain/VoxelChunk'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { WorldPreset, BiomeDefinition } from '../domain/WorldPreset'
 
@@ -11,5 +11,5 @@ export interface DecorationContext {
 }
 
 export interface ChunkDecorator {
-  decorate(chunk: VoxelChunk, context: DecorationContext): void
+  decorate(chunk: ChunkData, context: DecorationContext): void
 }

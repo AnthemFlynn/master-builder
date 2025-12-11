@@ -1,9 +1,9 @@
 import { ChunkDecorator, DecorationContext } from './ChunkDecorator'
 import { BlockType } from '../domain/BlockType'
-import { VoxelChunk } from '../domain/VoxelChunk'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 
 export class TreeDecorator implements ChunkDecorator {
-  decorate(chunk: VoxelChunk, context: DecorationContext): void {
+  decorate(chunk: ChunkData, context: DecorationContext): void {
     for (let localX = 0; localX < chunk.size; localX += 2) {
       for (let localZ = 0; localZ < chunk.size; localZ += 2) {
         const biome = context.getBiomeAt(localX, localZ)
@@ -24,7 +24,7 @@ export class TreeDecorator implements ChunkDecorator {
   }
 
   private placeTree(
-    chunk: VoxelChunk,
+    chunk: ChunkData,
     baseX: number,
     baseY: number,
     baseZ: number,
@@ -38,7 +38,7 @@ export class TreeDecorator implements ChunkDecorator {
     for (let y = 0; y < height; y++) {
       const yPos = baseY + y
       if (yPos >= chunk.height) break
-      chunk.setBlockType(baseX, yPos, baseZ, trunkBlock)
+      chunk.setBlockId(baseX, yPos, baseZ, trunkBlock)
     }
 
     const crownRadius = 2
@@ -53,9 +53,12 @@ export class TreeDecorator implements ChunkDecorator {
           const lz = baseZ + z
           if (lx < 0 || lx >= chunk.size || lz < 0 || lz >= chunk.size) continue
           if (ly < 0 || ly >= chunk.height) continue
-          const existing = chunk.getBlockType(lx, ly, lz)
-          if (existing !== -1) continue
-          chunk.setBlockType(lx, ly, lz, leavesBlock)
+          const existing = chunk.getBlockId(lx, ly, lz)
+          if (existing !== -1 && existing !== 0) continue // 0 is air usually? or -1? ChunkData returns 0 for out of bounds. We need to check if it's AIR.
+          // Assuming 0 is AIR in ChunkData (from getBlockId default).
+          // But BlockType enum might have Air as something else?
+          // Let's assume 0 is not solid.
+          chunk.setBlockId(lx, ly, lz, leavesBlock)
         }
       }
     }

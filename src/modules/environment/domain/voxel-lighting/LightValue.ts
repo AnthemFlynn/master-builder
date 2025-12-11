@@ -1,14 +1,5 @@
-// src/modules/lighting/domain/LightValue.ts
-export interface RGB {
-  r: number  // 0-15
-  g: number  // 0-15
-  b: number  // 0-15
-}
-
-export interface LightValue {
-  sky: RGB
-  block: RGB
-}
+// src/modules/environment/domain/voxel-lighting/LightValue.ts
+import { RGB, LightValue } from '../../../../../shared/domain/LightValue' // Corrected import path
 
 export function combineLightChannels(light: LightValue): RGB {
   return {

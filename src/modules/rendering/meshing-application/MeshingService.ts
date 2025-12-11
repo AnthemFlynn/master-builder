@@ -5,7 +5,6 @@ import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../environment/ports/ILightingQuery'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { ILightStorage } from '../../environment/ports/ILightStorage'
-import MeshingWorker from '../workers/MeshingWorker?worker'
 import { WorkerMessage, MainMessage } from '../workers/types'
 
 export class MeshingService {
@@ -18,7 +17,7 @@ export class MeshingService {
     private lighting: ILightingQuery & ILightStorage, // Need storage access to get raw buffers
     private eventBus: EventBus
   ) {
-    this.worker = new MeshingWorker()
+    this.worker = new Worker("/assets/MeshingWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
     this.setupEventListeners()
   }
@@ -66,49 +65,23 @@ export class MeshingService {
   }
 
   buildMesh(coord: ChunkCoordinate): void {
-    // Collect Neighbor Light Data
-    const neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }> = {}
+    // Collect Neighbor Light Data (Light is now inside ChunkData)
+    // We only need to check if the center chunk data is available to proceed
+    const centerChunk = this.voxels.getChunk(coord)
+    if (!centerChunk) {
+        // console.warn(`MeshingService: Center chunk data not available for (${coord.x}, ${coord.z})`)
+        return
+    }
+
+    // Collect Neighbor Voxel Data (which now includes Light Data)
+    const neighborVoxels: Record<string, ArrayBuffer> = {}
     const offsets = ['0,0', '1,0', '-1,0', '0,1', '0,-1']
     
     for (const key of offsets) {
         const [dx, dz] = key.split(',').map(Number)
         const c = new ChunkCoordinate(coord.x + dx, coord.z + dz)
-        const lightData = this.lighting.getLightData(c)
-        if (lightData) {
-            const size = 24 * 256 * 24
-            const sky = lightData.getSkyBuffers()
-            const block = lightData.getBlockBuffers()
-            
-            const skyBuffer = new Uint8Array(size * 3)
-            skyBuffer.set(new Uint8Array(sky.r), 0)
-            skyBuffer.set(new Uint8Array(sky.g), size)
-            skyBuffer.set(new Uint8Array(sky.b), size * 2)
-
-            const blockBuffer = new Uint8Array(size * 3)
-            blockBuffer.set(new Uint8Array(block.r), 0)
-            blockBuffer.set(new Uint8Array(block.g), size)
-            blockBuffer.set(new Uint8Array(block.b), size * 2)
-            
-            neighborLight[key] = {
-                sky: skyBuffer.buffer,
-                block: blockBuffer.buffer
-            }
-        }
-    }
-    
-    if (!neighborLight['0,0']) {
-         return // Center light not ready
-    }
-
-    // Collect Neighbor Voxel Data
-    // We need raw buffers. IVoxelQuery doesn't expose getChunk by default,
-    // but WorldService implements it. We cast it in constructor or require it.
-    const neighborVoxels: Record<string, ArrayBuffer> = {}
-    for (const key of offsets) {
-        const [dx, dz] = key.split(',').map(Number)
-        const c = new ChunkCoordinate(coord.x + dx, coord.z + dz)
         const chunk = this.voxels.getChunk(c)
-        if (chunk && chunk.isGenerated()) {
+        if (chunk) { // Chunk can be null if not loaded
             neighborVoxels[key] = chunk.getRawBuffer()
         }
     }
@@ -119,9 +92,9 @@ export class MeshingService {
         x: coord.x,
         z: coord.z,
         neighborVoxels,
-        neighborLight
+        neighborLight: {} // Empty as it's now in neighborVoxels
     }
-    this.worker.postMessage(request)
+    this.worker.postMessage(request) // Browser will copy buffers, preventing DataCloneError
   }
 
   markDirty(coord: ChunkCoordinate, reason: 'block' | 'light' | 'global'): void {

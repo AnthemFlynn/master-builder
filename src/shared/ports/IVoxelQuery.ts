@@ -1,12 +1,6 @@
-// src/shared/ports/IVoxelQuery.ts
 import { ChunkCoordinate } from '../domain/ChunkCoordinate'
-import { VoxelChunk } from '../domain/VoxelChunk'
+import { ChunkData } from '../domain/ChunkData'
 
-/**
- * Port for querying voxel data
- * Implemented by WorldService
- * Used by: Lighting, Meshing modules
- */
 export interface IVoxelQuery {
   /**
    * Get block type at world coordinates
@@ -28,5 +22,5 @@ export interface IVoxelQuery {
   /**
    * Get chunk by coordinate (may return null if not generated)
    */
-  getChunk(coord: ChunkCoordinate): VoxelChunk | null
+  getChunk(coord: ChunkCoordinate): ChunkData | null
 }

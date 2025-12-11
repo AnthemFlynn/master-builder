@@ -25,7 +25,7 @@ export class ChunkMesher {
           const worldZ = startZ + z
           
           const blockType = this.voxels.getBlockType(worldX, worldY, worldZ)
-          if (blockType === -1) continue
+          if (blockType === -1 || blockType === 0) continue // Skip Air and Void
 
           // Check all 6 faces
           this.checkFace(vertexBuilder, worldX, worldY, worldZ, blockType, 1, 0, 0, 0, 1)  // Right (+X)
@@ -92,21 +92,15 @@ export class ChunkMesher {
 
     if (shouldDraw) {
       // Calculate local coords for vertex builder (relative to chunk)
-      const lx = wx % 24 // this might be wrong if wx is negative? 
-      // Wait, vertexBuilder takes local coords for addQuad?
-      // Looking at VertexBuilder.ts: 
-      // addQuad(x, y, z...) -> getQuadVertices -> x+width...
-      // AND "Read lighting... worldX = floor(v.x + worldOffsetX)"
-      // So VertexBuilder expects LOCAL coordinates (0-23).
-      
-      const localX = (wx % 24 + 24) % 24
-      const localY = wy
-      const localZ = (wz % 24 + 24) % 24
+      // Ensure positive local coordinates even if world coords are negative
+      const lx = ((wx % 24) + 24) % 24
+      const ly = wy
+      const lz = ((wz % 24) + 24) % 24
 
       const faceIndex = this.getFaceIndex(axis, direction)
       
       vertexBuilder.addQuad(
-        localX, localY, localZ,
+        lx, ly, lz, // Use correct local coords
         1, 1, // Width, Height (always 1 for naive meshing)
         axis, direction,
         currentBlock,

@@ -33,9 +33,14 @@ export class InputService implements IInputQuery {
   private actionStates: Map<string, boolean> = new Map()
   private currentState: GameState = GameState.SPLASH
   private nextSubscriptionId = 0
+  private mousePosition: { x: number, y: number } = { x: 0, y: 0 }
 
   constructor(private eventBus: EventBus) {
     this.setupEventListeners()
+  }
+
+  getMousePosition(): { x: number, y: number } {
+    return this.mousePosition
   }
 
   // Register action
@@ -126,13 +131,34 @@ export class InputService implements IInputQuery {
     document.addEventListener('mousedown', this.handleMouseDown.bind(this), true)
     document.addEventListener('mouseup', this.handleMouseUp.bind(this), true)
     document.addEventListener('dblclick', this.handleDoubleClick.bind(this), true)
+    document.addEventListener('mousemove', this.handleMouseMove.bind(this), true)
+  }
+
+  private handleMouseMove(event: MouseEvent): void {
+    this.mousePosition = { x: event.clientX, y: event.clientY }
+    
+    // Emit for UI components (Radial Menu)
+    this.eventBus.emit('input', {
+      type: 'InputMouseMoveEvent',
+      timestamp: Date.now(),
+      x: event.clientX,
+      y: event.clientY
+    })
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
     if (event.repeat) return
 
     const actionName = this.findActionByKey(event.code)
+    
+    // DEBUG: Targeted logging for problem keys
+    if (['Space', 'Tab', 'KeyB'].includes(event.code)) {
+        console.log(`[Input] Debug KeyDown: ${event.code} mapped to ${actionName}`)
+    }
+    
     if (!actionName) return
+
+    event.preventDefault() // Prevent browser default (e.g., Tab focus)
 
     this.actionStates.set(actionName, true)
     this.triggerAction(actionName, ActionEventType.PRESSED, event)
@@ -142,40 +168,56 @@ export class InputService implements IInputQuery {
     const actionName = this.findActionByKey(event.code)
     if (!actionName) return
 
+    event.preventDefault() // Prevent browser default
+
     this.actionStates.set(actionName, false)
     this.triggerAction(actionName, ActionEventType.RELEASED, event)
   }
 
   private handleMouseDown(event: MouseEvent): void {
+    // Allow UI interactions
+    if (event.target instanceof HTMLElement) {
+        const tag = event.target.tagName
+        if (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'A'].includes(tag)) return
+        
+        // Also allow interactions inside UI containers
+        if (event.target.closest('.creative-modal') || event.target.closest('.menu')) return
+    }
+
     const buttonMap: Record<number, string> = {
       0: 'mouse:left',
       1: 'mouse:middle',
       2: 'mouse:right'
     }
 
-    event.preventDefault()
-
     const actionName = this.findActionByKey(buttonMap[event.button])
-    if (!actionName) return
-
-    this.actionStates.set(actionName, true)
-    this.triggerAction(actionName, ActionEventType.PRESSED, event)
+    if (actionName) {
+        event.preventDefault()
+        this.actionStates.set(actionName, true)
+        this.triggerAction(actionName, ActionEventType.PRESSED, event)
+    }
   }
 
   private handleMouseUp(event: MouseEvent): void {
+    // Allow UI interactions
+    if (event.target instanceof HTMLElement) {
+        const tag = event.target.tagName
+        if (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'A'].includes(tag)) return
+        if (event.target.closest('.creative-modal') || event.target.closest('.menu')) return
+    }
+
     const buttonMap: Record<number, string> = {
       0: 'mouse:left',
       1: 'mouse:middle',
       2: 'mouse:right'
     }
 
-    event.preventDefault()
-
     const actionName = this.findActionByKey(buttonMap[event.button])
-    if (!actionName) return
-
-    this.actionStates.set(actionName, false)
-    this.triggerAction(actionName, ActionEventType.RELEASED, event)
+    if (actionName) {
+        event.preventDefault()
+        this.actionStates.set(actionName, false)
+        this.triggerAction(actionName, ActionEventType.RELEASED, event)
+    }
   }
 
   private handleDoubleClick(event: MouseEvent): void {

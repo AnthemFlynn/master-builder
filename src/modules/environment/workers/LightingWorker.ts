@@ -1,69 +1,53 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { VoxelChunk } from '../../../modules/world/domain/VoxelChunk'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { WorkerMessage, MainMessage } from './types'
 import { LightingPipeline } from '../application/voxel-lighting/LightingPipeline'
 import { WorkerVoxelQuery } from './WorkerVoxelQuery'
 import { WorkerLightStorage } from './WorkerLightStorage'
-import { blockRegistry } from '../../../modules/blocks'
+import { blockRegistry, initializeBlockRegistry } from '../../../modules/blocks'
 
-// Initialize blocks definitions (needed for lighting properties)
-// Note: initializeBlockRegistry creates a TextureLoader which crashes in worker.
-// We must assume the Registry is already patched to be lazy-loading textures.
-// OR we just use the registry for properties.
-// In a previous step, we patched BlockRegistry to be safe.
+// Initialize blocks definitions
+initializeBlockRegistry()
+
+// Create reusable instances for performance
+const voxelQuery = new WorkerVoxelQuery()
+const lightStorage = new WorkerLightStorage(voxelQuery) 
+const pipeline = new LightingPipeline(voxelQuery)
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const msg = e.data
 
   if (msg.type === 'CALC_LIGHT') {
-    const { x, z, neighborVoxels, neighborLight } = msg
+    const { x, z, neighborVoxels } = msg
     const coord = new ChunkCoordinate(x, z)
 
-    // Reconstruct Voxel Environment
-    const voxelQuery = new WorkerVoxelQuery()
+    // Clear previous chunks and hydrate for this message
+    voxelQuery.clear()
     
     // Hydrate center and neighbors
     for (const [key, buffer] of Object.entries(neighborVoxels)) {
       const [dx, dz] = key.split(',').map(Number)
       const c = new ChunkCoordinate(x + dx, z + dz)
-      const chunk = VoxelChunk.fromBuffer(c, buffer)
+      const chunk = new ChunkData(c, buffer)
       voxelQuery.addChunk(chunk)
     }
 
-    // Reconstruct Light Environment
-    const lightStorage = new WorkerLightStorage()
-    // TODO: Hydrate neighbor lights if provided
+    // Pipeline modifies the ChunkData IN PLACE.
+    pipeline.execute(coord, lightStorage)
 
-    // Execute Pipeline
-    const pipeline = new LightingPipeline(voxelQuery)
-    const lightData = pipeline.execute(coord, lightStorage)
+    // Extract the modified buffer (which now contains light)
+    const centerChunk = voxelQuery.getChunk(coord)
+    if (!centerChunk) return // Should not happen
 
-    // Extract Buffers
-    const size = 24 * 256 * 24
-    const skyBuffer = new Uint8Array(size * 3)
-    const blockBuffer = new Uint8Array(size * 3)
+    const buffer = centerChunk.getRawBuffer()
     
-    const sky = lightData.getSkyBuffers()
-    const block = lightData.getBlockBuffers()
-    
-    skyBuffer.set(new Uint8Array(sky.r), 0)
-    skyBuffer.set(new Uint8Array(sky.g), size)
-    skyBuffer.set(new Uint8Array(sky.b), size * 2)
-
-    blockBuffer.set(new Uint8Array(block.r), 0)
-    blockBuffer.set(new Uint8Array(block.g), size)
-    blockBuffer.set(new Uint8Array(block.b), size * 2)
-
-    const response: MainMessage = {
+    const response: any = {
       type: 'LIGHT_CALCULATED',
       x,
       z,
-      lightBuffer: {
-        sky: skyBuffer.buffer,
-        block: blockBuffer.buffer
-      }
+      chunkBuffer: buffer
     }
 
-    self.postMessage(response, [skyBuffer.buffer, blockBuffer.buffer])
+    self.postMessage(response, [buffer])
   }
 }

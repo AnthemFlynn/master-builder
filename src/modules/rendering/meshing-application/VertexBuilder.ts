@@ -1,8 +1,8 @@
 // src/modules/meshing/application/VertexBuilder.ts
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../environment/ports/ILightingQuery'
-import { normalizeLightToColor, combineLightChannels } from '../../environment/domain/voxel-lighting/LightValue'
 import { blockRegistry } from '../../../modules/blocks'
+import { LightValue, RGB } from '../../../shared/domain/LightValue' // Import LightValue from shared
 
 interface BufferData {
   positions: number[]
@@ -10,6 +10,23 @@ interface BufferData {
   uvs: number[]
   indices: number[]
   vertexCount: number
+}
+
+// Helper functions (moved from LightValue.ts to here for direct usage)
+function combineLightChannels(light: LightValue): RGB {
+  return {
+    r: Math.max(light.sky.r, light.block.r),
+    g: Math.max(light.sky.g, light.block.g),
+    b: Math.max(light.sky.b, light.block.b)
+  }
+}
+
+function normalizeLightToColor(light: RGB): RGB {
+  return {
+    r: Math.max(0.2, light.r / 15),
+    g: Math.max(0.2, light.g / 15),
+    b: Math.max(0.2, light.b / 15)
+  }
 }
 
 export class VertexBuilder {

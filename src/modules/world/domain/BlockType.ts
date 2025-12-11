@@ -1,5 +1,5 @@
 export enum BlockType {
-  grass = 0,
+  air = 0,
   sand = 1,
   tree = 2,
   leaf = 3,
@@ -8,9 +8,10 @@ export enum BlockType {
   coal = 6,
   wood = 7,
   diamond = 8,
-  quartz = 9,
-  glass = 10,
+  gold = 9,
+  glowstone = 10,
   bedrock = 11,
-  glowstone = 12,
-  redstone_lamp = 13
+  glass = 12,
+  redstone_lamp = 13,
+  grass = 14
 }

@@ -25,7 +25,7 @@ export class MenuManager {
     // Play button - matches HTML id="play"
     const playButton = document.querySelector('#play')
     playButton?.addEventListener('click', () => {
-      this.options.requestPointerLock?.()
+      console.log('MenuManager: Play button clicked')
       this.onPlay()
     })
 

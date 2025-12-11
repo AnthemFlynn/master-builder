@@ -3,8 +3,7 @@ export type ChunkRequest =
       type: 'CALC_LIGHT'
       x: number
       z: number
-      neighborVoxels: Record<string, ArrayBuffer>
-      neighborLight?: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
+      neighborVoxels: Record<string, ArrayBuffer> // Now contains Blocks AND Light
     }
 
 export type ChunkResponse = 
@@ -12,10 +11,7 @@ export type ChunkResponse =
       type: 'LIGHT_CALCULATED'
       x: number
       z: number
-      lightBuffer: {
-        sky: ArrayBuffer
-        block: ArrayBuffer
-      }
+      chunkBuffer: ArrayBuffer // Updated buffer with light
     }
 
 export type WorkerMessage = ChunkRequest

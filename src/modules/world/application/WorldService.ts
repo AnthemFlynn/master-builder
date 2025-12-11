@@ -1,21 +1,30 @@
 // src/modules/world/application/WorldService.ts
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { VoxelChunk } from '../domain/VoxelChunk'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
-import { blockRegistry } from '../../../modules/blocks'
-import ChunkWorker from '../workers/ChunkWorker?worker'
+import { blockRegistry } from '../../blocks'
 import { ChunkRequest, MainMessage } from '../workers/types'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
 
 export class WorldService implements IVoxelQuery {
-  private chunks = new Map<string, VoxelChunk>()
+  private chunks = new Map<string, ChunkData>()
   private worker: Worker
   private environmentService?: EnvironmentService
 
   constructor(private eventBus?: EventBus) {
-    this.worker = new ChunkWorker()
+    this.worker = new Worker("/assets/ChunkWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
+    
+    if (this.eventBus) {
+        this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
+            const coord = new ChunkCoordinate(e.chunkCoord.x, e.chunkCoord.z)
+            const chunk = this.getChunk(coord)
+            if (chunk && e.lightBuffer) {
+                chunk.setBuffer(e.lightBuffer)
+            }
+        })
+    }
   }
 
   setEnvironmentService(service: EnvironmentService) {
@@ -26,12 +35,15 @@ export class WorldService implements IVoxelQuery {
     const msg = e.data
     
     if (msg.type === 'CHUNK_GENERATED') {
-      const { x, z, blockBuffer, renderDistance } = msg
+      const { x, z, blockBuffer, metadata, renderDistance } = msg
       const coord = new ChunkCoordinate(x, z)
       const chunk = this.getOrCreateChunk(coord)
       
-      chunk.setRawBuffer(blockBuffer)
-      chunk.markGenerated()
+      // Reconstruct ChunkData from buffer
+      // We need a way to load the buffer into the existing ChunkData instance or replace it.
+      // ChunkData constructor accepts buffer.
+      const newChunk = new ChunkData(coord, blockBuffer, metadata)
+      this.chunks.set(coord.toKey(), newChunk)
       
       console.log(`🌍 Worker generated chunk (${x}, ${z})`)
 
@@ -46,26 +58,17 @@ export class WorldService implements IVoxelQuery {
       // Trigger lighting calculation for the newly generated chunk
       this.calculateLightAsync(coord)
     }
-    else if (msg.type === 'MESH_GENERATED') {
-        const { x, z, geometry } = msg
-        const coord = new ChunkCoordinate(x, z)
-        
-        if (this.eventBus) {
-            this.eventBus.emit('meshing', {
-                type: 'MeshingWorkerCompleteEvent',
-                chunkCoord: coord,
-                geometry
-            })
-        }
-    }
   }
 
   generateChunkAsync(coord: ChunkCoordinate, renderDistance: number): void {
-    const chunk = this.getOrCreateChunk(coord)
-    
-    if (chunk.isGenerated()) {
+    // If already generated? Check chunks map.
+    if (this.chunks.has(coord.toKey())) {
       return
     }
+    
+    // Mark as pending? Or just send request.
+    // To avoid duplicate requests, we can add a placeholder or set a pending flag.
+    // For now, simple check.
 
     const request: ChunkRequest = {
       type: 'GENERATE_CHUNK',
@@ -92,7 +95,7 @@ export class WorldService implements IVoxelQuery {
           const [dx, dz] = key.split(',').map(Number)
           const nCoord = new ChunkCoordinate(coord.x + dx, coord.z + dz)
           const nChunk = this.getChunk(nCoord)
-          if (nChunk && nChunk.isGenerated()) {
+          if (nChunk) {
               neighborVoxels[key] = nChunk.getRawBuffer()
           }
       }
@@ -101,17 +104,16 @@ export class WorldService implements IVoxelQuery {
       this.environmentService.calculateLight(coord, neighborVoxels)
   }
 
-  getChunk(coord: ChunkCoordinate): VoxelChunk | null {
+  getChunk(coord: ChunkCoordinate): ChunkData | null {
     return this.chunks.get(coord.toKey()) || null
   }
 
-  getOrCreateChunk(coord: ChunkCoordinate): VoxelChunk {
+  getOrCreateChunk(coord: ChunkCoordinate): ChunkData {
     const existing = this.chunks.get(coord.toKey())
     if (existing) return existing
 
-    const chunk = new VoxelChunk(coord)
+    const chunk = new ChunkData(coord)
     this.chunks.set(coord.toKey(), chunk)
-    console.log(`📦 Created VoxelChunk at (${coord.x}, ${coord.z})`)
     return chunk
   }
 
@@ -122,7 +124,7 @@ export class WorldService implements IVoxelQuery {
     if (!chunk) return -1
 
     const local = this.worldToLocal(worldX, worldY, worldZ)
-    return chunk.getBlockType(local.x, local.y, local.z)
+    return chunk.getBlockId(local.x, local.y, local.z)
   }
 
   isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean {
@@ -131,12 +133,12 @@ export class WorldService implements IVoxelQuery {
 
     // Check block definition for collidable flag
     const blockDef = blockRegistry.get(blockType)
-    return blockDef ? blockDef.collidable : true
+    return blockDef ? blockDef.collidable : false // Default to false (Air) if unknown
   }
 
   getLightAbsorption(worldX: number, worldY: number, worldZ: number): number {
     const type = this.getBlockType(worldX, worldY, worldZ)
-    if (type === -1) return 0
+    if (type === -1 || type === 0) return 0
     
     const def = blockRegistry.get(type)
     if (!def) return 15
@@ -151,7 +153,7 @@ export class WorldService implements IVoxelQuery {
     const coord = this.worldToChunkCoord(worldX, worldZ)
     const chunk = this.getOrCreateChunk(coord)
     const local = this.worldToLocal(worldX, worldY, worldZ)
-    chunk.setBlockType(local.x, local.y, local.z, blockType)
+    chunk.setBlockId(local.x, local.y, local.z, blockType)
     
     // Trigger Lighting Calculation
     this.calculateLightAsync(coord)
@@ -169,7 +171,7 @@ export class WorldService implements IVoxelQuery {
     }
   }
 
-  getAllChunks(): VoxelChunk[] {
+  getAllChunks(): ChunkData[] {
     return Array.from(this.chunks.values())
   }
 

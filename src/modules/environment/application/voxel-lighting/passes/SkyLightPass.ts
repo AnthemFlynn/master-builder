@@ -1,12 +1,12 @@
-// src/modules/lighting/application/passes/SkyLightPass.ts
+// src/modules/environment/application/voxel-lighting/passes/SkyLightPass.ts
 import { ILightingPass } from './ILightingPass'
-import { LightData } from '../../domain/voxel-lighting/LightData'
+import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
 import { ILightStorage } from '../../ports/ILightStorage'
 
 export class SkyLightPass implements ILightingPass {
-  execute(lightData: LightData, voxels: IVoxelQuery, coord: ChunkCoordinate, storage: ILightStorage): void {
+  execute(lightData: ChunkData, voxels: IVoxelQuery, coord: ChunkCoordinate, storage: ILightStorage): void {
     const worldX = coord.x * 24
     const worldZ = coord.z * 24
 
@@ -26,15 +26,12 @@ export class SkyLightPass implements ILightingPass {
           
           skyLight = Math.max(0, skyLight - absorption)
 
-          // Set sky light (block light still 0, comes from PropagationPass)
-          lightData.setLight(localX, localY, localZ, {
-            sky: { r: skyLight, g: skyLight, b: skyLight },
-            block: { r: 0, g: 0, b: 0 }
-          })
+          // Set sky light using ChunkData API
+          lightData.setSkyLight(localX, localY, localZ, skyLight)
         }
       }
     }
 
-    console.log(`☀️ SkyLightPass complete for chunk (${coord.x}, ${coord.z})`)
+    // console.log(`☀️ SkyLightPass complete for chunk (${coord.x}, ${coord.z})`)
   }
 }

@@ -1,262 +1,513 @@
-   1 # Master Builder - Claude Context Management
-   2 
-   3 **Project**: Master Builder (Minecraft-inspired voxel game)
-   4 **Tech Stack**: TypeScript, Three.js 0.181, Vite 6.4.1
-   5 **Status**: Active Development
-   6 **Dev Server**: http://localhost:3000
-   7 
-   8 ---
-   9 
-  10 ## CRITICAL: Read This First
-  11 
-  12 ### Current Working State (2025-11-28)
-  13 ✅ **Splash screen working** - Image at `/src/static/master-builder-splash.png` (3.2MB)
-  14 ✅ **Game states functioning** - Splash → Menu → Play → Pause
-  15 ✅ **Controls properly gated** - Only active during gameplay
-  16 ✅ **Dependencies modernized** - Three.js 0.181, Vite 6.4.1, TypeScript 5.7
-  17 
-  18 ### What Was Just Fixed
-  19 1. Event listeners in `Bag` class now only active during gameplay (`enable()`/`disable()` methods)
-  20 2. Splash screen z-index set to 10000 (top layer)
-  21 3. All in-game UI hidden initially (crosshair, FPS, inventory)
-  22 4. Camera mouse look controls implemented with proper sensitivity
-  23 
-  24 ### Known Issues
-  25 - None critical, game is playable
-  26 - Performance optimization needed for high render distances
-  27 - Legacy React code in `/src/components/` can be removed
-  28 
-  29 ---
-  30 
-  31 ## Mandatory Workflow for AI Agents
-  32 
-  33 ### 1. ALWAYS Start with Exploration
-  34 ```
-  35 User Request → Use Explore Agent → Understand Full System → Then Code
-  36 ```
-  37 **NEVER** make changes without understanding the complete architecture first.
-  38 
-  39 ### 2. Verify Every Change
-  40 ```
-  41 Make Change → Check Dev Server → User Confirms in Browser → Mark Complete
-  42 ```
-  43 **NEVER** assume something works. Always verify.
-  44 
-  45 ### 3. Persist Assets Immediately
-  46 ```
-  47 User Provides File → Save to Disk → Verify Exists → Reference in Code
-  48 ```
-  49 **NEVER** lose assets during context truncation.
-  50 
-  51 ### 4. Use TodoWrite
-  52 ```
-  53 Create Checklist → Work Through Items → Mark Complete → Verify All Done
-  54 ```
-  55 **NEVER** skip steps or batch completions.
-  56 
-  57 ---
-  58 
-  59 ## Project Architecture
-  60 
-  61 ### Entry Point Flow
-  62 ```
-  63 index.html → src/main.ts → Initializes in order:
-  64 1. Core (Three.js renderer/camera/scene)
-  65 2. Player (mode, speed, body)
-  66 3. Audio (music and SFX)
-  67 4. Terrain (procedural generation)
-  68 5. Control (input, physics, collision)
-  69 6. UI (state machine, HUD)
-  70 7. Animation loop starts
-  71 ```
-  72 
-  73 ### Game State Machine
-  74 ```
-  75 SPLASH (initial)
-  76   ↓ (any key/click)
-  77 MENU
-  78   ↓ (Play button)
-  79 PLAYING (pointer locked)
-  80   ↓ (E key or unlock)
-  81 PAUSE (menu overlay)
-  82   ↓ (Resume)
-  83 PLAYING
-  84   ↓ (Exit button)
-  85 SPLASH
-  86 ```
-  87 
-  88 ### Event Listener Management (CRITICAL)
-  89 
-  90 **Problem We Just Fixed:**
-  91 The `Bag` class was registering keyboard and wheel listeners **on construction**, meaning they were always active even on splash screen.
-  92 
-  93 **Solution:**
-  94 ```typescript
-  95 // src/ui/bag/index.ts now has:
-  96 enable()  - Called when entering play mode
-  97 disable() - Called when leaving play mode
-  98 ```
-  99 
- 100 **When Listeners Are Active:**
- 101 - **Always**: pointerlockchange, fullscreen toggle, context menu prevention
- 102 - **Only During Pointer Lock**: Movement keys, mouse, building
- 103 - **Only When Bag Enabled**: Number keys 1-9, mouse wheel
- 104 
- 105 ---
- 106 
- 107 ## File Structure
- 108 
- 109 ### Core (`/`)
- 110 - `index.html` - DOM structure
- 111 - `package.json` - Dependencies (three@0.181, vite@6.4.1, typescript@5.7)
- 112 - `vite.config.ts` - Dev server config
- 113 - `PROJECT_STATE.md` - Detailed documentation
- 114 
- 115 ### Source (`/src/`)
- 116 - `main.ts` (35 lines) - Entry point
- 117 - `style.css` (292 lines) - All styling
- 118 - `core/` - Three.js setup
- 119 - `player/` - Player state
- 120 - `terrain/` - World generation
- 121 - `control/` (1178 lines) - Input, physics, collision
- 122 - `ui/` (323 lines) - State machine + HUD
- 123   - `bag/` - Inventory (**has enable/disable**)
- 124   - `fps/` - FPS counter
- 125   - `joystick/` - Mobile controls
- 126 
- 127 ### Assets (`/src/static/`)
- 128 - `master-builder-splash.png` ✅ (3.2MB)
- 129 - `mc-font.otf` - Minecraft font
- 130 - `block-icon/*.png` - 7 block icons
- 131 - `textures/*.png` - Block textures
- 132 
- 133 ---
- 134 
- 135 ## Testing Protocol
- 136 
- 137 ### Manual State Test
- 138 1. Load → Splash with image visible
- 139 2. Any key → Menu with 5 buttons
- 140 3. Play → Pointer locks, HUD appears
- 141 4. Mouse → Camera rotates
- 142 5. WASD → Movement
- 143 6. 1-9 → Block selection
- 144 7. Clicks → Build/destroy
- 145 8. E → Menu overlay
- 146 9. Resume → Back to game
- 147 10. Exit → Back to splash
- 148 
- 149 ### Performance Targets
- 150 - 60fps at render distance 3
- 151 - <100ms chunk generation
- 152 - <500MB memory
- 153 
- 154 ---
- 155 
- 156 ## Next Steps
- 157 
- 158 1. ✅ Splash image installed
- 159 2. Run full state transition test
- 160 3. Performance profiling
- 161 4. Clean up legacy code
- 162 5. Optimize if needed
- 163 
- 164 ---
- 165 
- 166 ## Key Learnings
- 167 
- 168 ### What Failed Before
- 169 - Started coding without understanding
- 170 - Fixed symptoms not root causes
- 171 - No verification loop
- 172 - Lost assets in context
- 173 
- 174 ### What Works Now
- 175 - Explore agent first
- 176 - Root cause identified
- 177 - Verification after each change
- 178 - Assets persisted immediately
- 179 - Comprehensive docs
- 180 
- 181 **Last Updated**: 2025-11-28
+# CLAUDE.md
 
-## Vertex Color Lighting System (NEW - 2025-12-05)
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-### Architecture Overview
+**Project**: Kingdom Builder (Minecraft-inspired voxel game)
+**Tech Stack**: TypeScript, Three.js 0.181, Bun (build/serve)
+**Architecture**: Hexagonal (10 modules + infrastructure)
+**Dev Server**: http://localhost:4173
 
-**Rendering System:**
-- BufferGeometry per chunk (replaces InstancedMesh)
-- Lighting baked into vertex colors during mesh generation
-- Greedy meshing merges adjacent faces (90% polygon reduction)
-- Rebuild budget: 3ms/frame for dynamic updates
+---
 
-### Lighting Pipeline
+## Development Commands
+
+```bash
+# Development
+bun dev          # Build + start dev server
+bun serve        # Start dev server only
+bun build        # Build project
+
+# Type checking
+bun lint         # TypeScript type check (no emit)
+```
+
+**Note**: This project uses **Bun** (not npm/node). All scripts run via `bun`.
+
+---
+
+## Architecture Overview
+
+### Hexagonal Architecture (Ports & Adapters)
+
+The codebase follows a strict hexagonal architecture with 10 independent modules:
 
 ```
-Block/Light Change → Chunk.dirty = true
-                         ↓
+src/modules/
+├── game/           Infrastructure (CommandBus, EventBus, GameOrchestrator)
+├── world/          Voxel data storage (chunks, blocks)
+├── rendering/      Mesh generation (greedy meshing, vertex colors)
+├── environment/    Lighting system (sunlight, block lights, AO)
+├── physics/        Movement + collision (Web Worker)
+├── player/         Player state (position, mode, velocity)
+├── input/          Input system (keyboard, mouse, gamepad-ready)
+├── interaction/    Block placement/removal, raycasting
+├── ui/             Game states, HUD, menus
+├── audio/          Sound effects
+└── blocks/         Block registry and definitions
+```
+
+### Key Architectural Principles
+
+1. **Ports Pattern**: Modules expose interfaces (ports) in `src/modules/*/ports/`
+   - `IVoxelQuery` - Read voxel data
+   - `IVoxelStorage` - Write voxel data
+   - `ILightingQuery` - Read lighting data
+   - `IPlayerQuery` - Read player state
+
+2. **Web Workers**: Heavy computation offloaded to workers
+   - `PhysicsWorker.ts` - Movement, collision detection
+   - `ChunkWorker.ts` - Terrain generation (simplex noise)
+   - `MeshingWorker.ts` - Greedy meshing algorithm
+   - `LightingWorker.ts` - Light propagation
+
+3. **Infrastructure Buses**:
+   - `CommandBus` - Command pattern (GenerateChunk, PlaceBlock, RemoveBlock)
+   - `EventBus` - Domain events (9 categories: world, lighting, meshing, rendering, time, player, input, ui, interaction)
+
+### Initialization Flow (main.ts → GameOrchestrator)
+
+```
+1. initializeBlockRegistry()       # Block definitions loaded
+2. Core (Three.js setup)            # Renderer, camera, scene
+3. GameOrchestrator created:
+   a. Infrastructure (CommandBus, EventBus)
+   b. Services (10 modules in dependency order)
+   c. Register command handlers
+   d. Register input actions
+   e. Setup event listeners
+   f. Generate initial chunks
+4. Animation loop starts            # 60fps game loop
+```
+
+### Game State Machine
+
+```
+SPLASH (initial)
+  ↓ (any key/click)
+MENU (5 buttons)
+  ↓ (Play button)
+PLAYING (pointer locked, HUD visible)
+  ↓ (Escape or pointer unlock)
+PAUSE (menu overlay)
+  ↓ (Resume)
+PLAYING
+  ↓ (Exit button)
+SPLASH
+```
+
+**Critical**: Event listeners are state-aware. Input only processes during PLAYING state.
+
+---
+
+## Rendering System (Vertex Color Lighting)
+
+### Architecture
+
+The rendering system uses **BufferGeometry** with **vertex colors** (not shader-based lighting):
+
+```
+Block Change → Chunk.dirty = true
+              ↓
 ChunkMeshManager.markDirty(reason: block/light/global)
-                         ↓
-ChunkMeshManager.update() (respects 3ms budget)
-                         ↓
+              ↓
+ChunkMeshManager.update() (3ms budget per frame)
+              ↓
 GreedyMesher.buildMesh() → FaceBuilder.addQuad()
-                         ↓
-BufferGeometry with vertex colors → THREE.Mesh → Scene
+              ↓
+BufferGeometry (positions, colors, uvs, indices)
+              ↓
+THREE.Mesh → Scene
 ```
 
-### Core Classes
+### Key Classes
 
-**FaceBuilder** (`src/terrain/mesh/FaceBuilder.ts`):
-- Generates quad vertices with lighting and AO
-- Smooth lighting: Averages 3x3x3 cube of neighbors
-- Ambient occlusion: 0fps.net algorithm
-- Output: BufferGeometry with position, color, uv, indices
+- **GreedyMesher** (`src/modules/rendering/meshing-application/GreedyMesher.ts`)
+  - Greedy meshing algorithm: merges adjacent faces with matching block type + lighting
+  - 90%+ polygon reduction (from 300k to 30k)
+  - Processes each axis (X, Y, Z) and direction (+/-)
 
-**GreedyMesher** (`src/terrain/mesh/GreedyMesher.ts`):
-- Greedy meshing algorithm for voxel terrain
-- Merges adjacent faces with matching block type and lighting
-- Processes each axis and direction separately
-- Reduces polygon count by 90%+
+- **FaceBuilder** (`src/modules/rendering/meshing-application/FaceBuilder.ts`)
+  - Generates quad vertices with smooth lighting and ambient occlusion
+  - Lighting: Averages 3x3x3 cube of neighbor light values
+  - AO: 0fps.net algorithm (corner vertex darkening)
 
-**ChunkMesh** (`src/terrain/mesh/ChunkMesh.ts`):
-- Manages the visual mesh for one chunk
-- Handles rebuild and disposal
-- Positions mesh at chunk world coordinates
+- **ChunkMeshManager** (`src/modules/rendering/application/ChunkRenderer.ts`)
+  - Dirty tracking with priority (block > light > global)
+  - 3ms rebuild budget per frame (prevents stuttering)
+  - Staggered updates for smooth performance
 
-**ChunkMeshManager** (`src/terrain/ChunkMeshManager.ts`):
-- Manages all chunk meshes with dirty tracking
-- Priority system: block > light > global
-- Rebuild budget prevents frame drops
-- Staggered updates for smooth performance
+### Performance Targets
 
-### Performance
+- Single chunk rebuild: <2ms
+- FPS: 60 stable at render distance 3
+- Memory: ~12MB geometry per visible chunk
 
-- Single chunk rebuild: < 2ms target
-- Polygons: ~30k (down from 300k with InstancedMesh)
-- Memory: ~12MB geometry (down from 50MB)
-- FPS: 60 stable at render distance 3 (needs testing)
+---
 
-### Key Files Modified
+## World Generation & Chunks
 
-- `src/terrain/index.ts` - Replaced InstancedMesh with ChunkMeshManager
-- `src/terrain/Chunk.ts` - Added block type storage
-- `src/terrain/mesh/materials.ts` - Enabled vertex colors
-- Deleted: `src/lighting/LightShader.ts`, `src/lighting/LightDataTexture.ts`
+### Chunk System
 
-### Testing Protocol
+- **Chunk size**: 24×48×24 blocks (X×Y×Z)
+- **Coordinate system**: `ChunkCoordinate(x, z)` - no Y coordinate (chunks are vertical columns)
+- **Storage**: `Uint8Array` (1 byte per block = block type ID)
+- **Generation**: Simplex noise in `ChunkWorker.ts`
 
-1. Run `npm run dev`
-2. Check console for chunk generation and rebuild messages
-3. Verify terrain renders with lighting gradients
-4. Test block placement → should trigger immediate rebuild
-5. Test glowstone placement → should see light spread
+### World Presets
 
-### Next Steps
+Located in `src/modules/world/domain/WorldPreset.ts`:
+- **DEFAULT**: Rolling hills, trees, water
+- **FLAT**: Flat terrain for testing
+- **MOUNTAINS**: High peaks
+- **ISLANDS**: Floating islands
 
-- [ ] Run full manual test (Tasks 20-21 from plan)
-- [ ] Performance profiling (Task 24)
-- [ ] Optional: Sunrise/sunset staggered updates (Task 23)
-- [ ] Optional: Texture atlas support (Task 25)
-- [ ] Final benchmarking (Task 26)
+Change preset via `DEFAULT_WORLD_PRESET_ID` in `WorldConfig.ts`.
 
-**Last Updated**: 2025-12-05 (Vertex Color Lighting Implementation)
+---
+
+## Input System
+
+### Action-Based Input
+
+The input system is **action-based** (not key-based):
+
+```typescript
+// Register action
+inputService.registerAction({
+  id: 'move_forward',
+  category: 'movement',
+  description: 'Move forward',
+  defaultKey: 'KeyW'
+})
+
+// Add alternate binding
+inputService.addBinding('move_forward', {
+  key: 'ArrowUp',
+  ctrl: false,
+  shift: false,
+  alt: false
+})
+
+// Query state
+if (inputService.isActionPressed('move_forward')) {
+  // Move forward
+}
+```
+
+### Default Controls
+
+**Movement**:
+- W/S/A/D - Forward/Back/Left/Right
+- Space/Q - Jump/Fly Up
+- Shift/E - Sneak/Fly Down
+- F - Toggle flying mode
+
+**Building**:
+- Left Click / N - Remove block
+- Right Click / C - Place block
+- 1-9 - Select block type
+
+**UI**:
+- Escape - Pause menu
+
+---
+
+## Physics System (Web Worker)
+
+### Architecture
+
+Physics runs entirely in a **Web Worker** to avoid blocking the main thread:
+
+```
+GameOrchestrator.update()
+  ↓
+PhysicsService.update(movementVector, camera, deltaTime)
+  ↓
+PostMessage → PhysicsWorker
+              ↓
+              MovementController.update()
+              CollisionDetector.checkCollisions()
+              ↓
+PostMessage → Main Thread
+  ↓
+PlayerService.updatePosition/setVelocity()
+  ↓
+Camera syncs to player position
+```
+
+### Worker Communication
+
+**Main → Worker** (`WorkerMessage`):
+```typescript
+{
+  type: 'UPDATE_PHYSICS',
+  playerState: { position, velocity, mode, speed, falling, jumpVelocity, cameraQuaternion },
+  movementVector: { forward, strafe, vertical, jump, sneak },
+  deltaTime: number,
+  worldVoxels: Record<string, ArrayBuffer> // Nearby chunks for collision
+}
+```
+
+**Worker → Main** (`MainMessage`):
+```typescript
+{
+  type: 'PHYSICS_UPDATED',
+  playerState: { position, velocity, mode, falling, jumpVelocity }
+}
+```
+
+### Player Modes
+
+- **Walking**: Gravity, collision detection, jumping
+- **Flying**: No gravity, vertical movement with Q/E
+
+---
+
+## Event System
+
+The `EventBus` has 9 event categories:
+
+```typescript
+type EventCategory =
+  | 'world'       // ChunkGenerated, BlockPlaced, BlockRemoved
+  | 'lighting'    // LightUpdated, LightPropagated
+  | 'meshing'     // MeshBuilt, MeshDisposed
+  | 'rendering'   // RenderStateChanged
+  | 'time'        // HourChanged, DayNightCycle
+  | 'player'      // PlayerMoved, ModeChanged
+  | 'input'       // InputActionEvent (pressed/released/held)
+  | 'ui'          // UIStateChangedEvent (SPLASH/MENU/PLAYING/PAUSE)
+  | 'interaction' // BlockHighlighted, BlockSelected
+```
+
+### Usage
+
+```typescript
+// Emit event
+eventBus.emit('world', new BlockPlacedEvent(position, blockId))
+
+// Listen for event
+eventBus.on('world', 'BlockPlacedEvent', (event) => {
+  console.log('Block placed at', event.position)
+})
+
+// Debug: Enable tracing
+eventBus.enableTracing() // Logs all events to console
+```
+
+---
+
+## Command System
+
+Commands are the **only way** to mutate world state:
+
+```typescript
+// Define command
+class PlaceBlockCommand implements Command {
+  type = 'PlaceBlockCommand'
+  constructor(
+    public position: Vector3,
+    public blockId: number
+  ) {}
+}
+
+// Register handler
+commandBus.register('PlaceBlockCommand', new PlaceBlockHandler(worldService, eventBus))
+
+// Execute command
+commandBus.send(new PlaceBlockCommand(position, blockId))
+```
+
+**Built-in commands**:
+- `GenerateChunkCommand` - Generate terrain for chunk
+- `PlaceBlockCommand` - Place block at position
+- `RemoveBlockCommand` - Remove block at position
+
+**Command Replay**: All commands are logged. Use `commandBus.replay(fromIndex)` for debugging.
+
+---
+
+## Block System
+
+### BlockRegistry
+
+All block types are registered in `src/modules/blocks/application/BlockRegistry.ts`:
+
+```typescript
+// Block definition
+interface BlockDefinition {
+  id: number              // Unique ID (0-255)
+  name: string            // "grass_block"
+  category: string        // "ground", "stone", "wood", etc.
+  transparent: boolean    // Is it transparent?
+  lightEmission: number   // 0-15 (0 = no light, 15 = max)
+  textureTop?: string     // Texture for +Y face
+  textureSide?: string    // Texture for ±X/±Z faces
+  textureBottom?: string  // Texture for -Y face
+}
+
+// Access registry
+const grass = BlockRegistry.getBlock(2)
+const glowstone = BlockRegistry.getBlockByName('glowstone')
+```
+
+### Block Categories
+
+Defined in `src/modules/blocks/definitions/*.ts`:
+- `ground.ts` - Grass, dirt, sand, gravel
+- `stone.ts` - Stone, cobblestone, ores
+- `wood.ts` - Oak, birch, spruce planks/logs
+- `illumination.ts` - Glowstone, redstone lamp
+- `metals.ts` - Iron, gold, diamond blocks
+- `transparent.ts` - Glass, ice, water
+
+---
+
+## Debugging Tools
+
+Exposed on `window.debug`:
+
+```typescript
+// Enable event tracing
+window.debug.enableTracing()
+
+// Replay commands
+window.debug.replayCommands(0) // Replay all commands
+
+// Get command log
+window.debug.getCommandLog()
+
+// Player state
+window.debug.getPlayerMode()     // "Walking" | "Flying"
+window.debug.setPlayerMode('Flying')
+window.debug.getPlayerPosition() // Vector3
+
+// Time control
+window.debug.setHour(12)         // Solar noon (default)
+window.debug.setHour(0)          // Midnight
+window.debug.setHour(18)         // Sunset
+
+// World preset
+window.debug.getWorldPreset()
+```
+
+---
+
+## Testing & Verification
+
+### Manual State Test
+
+1. Load → Splash screen visible
+2. Any key → Menu with 5 buttons
+3. Play → Pointer locks, HUD appears
+4. Mouse → Camera rotates
+5. WASD → Movement
+6. 1-9 → Block selection
+7. Clicks → Build/destroy blocks
+8. Escape → Pause menu overlay
+9. Resume → Back to game
+10. Exit → Back to splash
+
+### Performance Checks
+
+- `window.debug.getPlayerPosition()` - Verify player position
+- Console logs - Check for chunk generation/rebuild messages
+- FPS counter (top-left) - Should be 60fps at render distance 3
+
+### Common Issues
+
+**Black screen**: Check console for WebGL errors. Ensure graphics drivers are updated.
+
+**Controls not working**: Check game state. Input only active during PLAYING state.
+
+**Low FPS**: Reduce render distance (modify `renderDistance` in `GameOrchestrator.ts`).
+
+**Blocks not placing**: Check console for command errors. Ensure pointer is locked.
+
+---
+
+## Critical Implementation Notes
+
+### Event Listener Lifecycle
+
+**Problem**: Event listeners active during splash/menu caused unintended behavior.
+
+**Solution**: Services now have `enable()`/`disable()` methods:
+- Called by `UIService` during state transitions
+- Only input listeners for current state are active
+
+### Pointer Lock Management
+
+Pointer lock is **required** for PLAYING state:
+- Lock: `cameraControls.lock()` (via UI "Play" button)
+- Unlock: `cameraControls.unlock()` (via Escape key or browser action)
+- Listeners: `lock` event → `UIService.onPlay()`, `unlock` event → `UIService.onPause()`
+
+### Chunk Loading Strategy
+
+- **Radial loading**: Chunks sorted by distance from player (closest first)
+- **Render distance**: Default 3 (7×7 grid = 49 chunks)
+- **Unloading**: Not implemented (chunks persist until page reload)
+
+### Worker Data Transfer
+
+Workers receive **cloned data** (structured clone algorithm):
+- `worldVoxels`: `Record<string, ArrayBuffer>` (transferable)
+- Chunks are serialized as raw `ArrayBuffer` for performance
+
+---
+
+## File Naming Conventions
+
+- **Application layer**: `*Service.ts` - Business logic
+- **Domain layer**: `*.ts` (value objects, entities)
+- **Infrastructure**: `*Bus.ts`, `*Manager.ts`
+- **Workers**: `*Worker.ts`
+- **Ports**: `I*.ts` (interfaces)
+
+### Module Structure
+
+```
+src/modules/<module>/
+├── application/      # Services (business logic)
+├── domain/           # Entities, value objects, commands, events
+├── ports/            # Interfaces (dependency inversion)
+├── workers/          # Web Workers (if applicable)
+└── infrastructure/   # EventBus, CommandBus (only in game/)
+```
+
+---
+
+## Current Development State
+
+**Last Updated**: 2025-12-09
+
+**Working**:
+- ✅ Hexagonal architecture (10 modules)
+- ✅ Physics in Web Worker
+- ✅ Vertex color lighting system
+- ✅ Greedy meshing (90%+ polygon reduction)
+- ✅ Game state machine (SPLASH/MENU/PLAYING/PAUSE)
+- ✅ Input system (action-based, rebindable)
+
+**Known Issues**:
+- Performance optimization needed for render distance >3
+- Chunk unloading not implemented (memory grows over time)
+
+**Next Steps**:
+- Implement chunk unloading for distant chunks
+- Add texture atlas support
+- Optimize lighting propagation for sunrise/sunset
+- Add gamepad support to input system
+
+---
+
+## Important Reminders for AI Agents
+
+1. **ALWAYS use Explore agent first** - Never make changes without understanding the full system
+2. **NEVER assume something works** - Always verify in browser
+3. **Use TodoWrite** - Track all multi-step tasks
+4. **Read related modules** - Hexagonal architecture means changes often affect multiple modules
+5. **Check worker communication** - If physics/meshing/lighting bugs occur, check worker message types
+6. **Test all game states** - SPLASH → MENU → PLAYING → PAUSE → SPLASH
+7. **Respect the 3ms budget** - ChunkMeshManager rebuilds must stay under 3ms/frame

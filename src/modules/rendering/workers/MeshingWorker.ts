@@ -1,6 +1,5 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { VoxelChunk } from '../../../modules/world/domain/VoxelChunk'
-import { LightData } from '../../../modules/environment/domain/voxel-lighting/LightData'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { ChunkMesher } from '../meshing-application/ChunkMesher'
 import { VertexBuilder } from '../meshing-application/VertexBuilder'
 import { WorkerMessage, MainMessage } from './types'
@@ -8,16 +7,16 @@ import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../../modules/environment/ports/ILightingQuery'
 import { LightValue } from '../../../modules/environment/domain/voxel-lighting/LightValue'
 import { ILightStorage } from '../../../modules/environment/ports/ILightStorage'
-import { initializeBlockRegistry } from '../../../modules/blocks'
+import { initializeBlockRegistry, blockRegistry } from '../../../modules/blocks'
 
 // Initialize block registry
 initializeBlockRegistry()
 
 // Mock implementation for worker
 class WorkerVoxelQuery implements IVoxelQuery {
-    private chunks = new Map<string, VoxelChunk>()
+    private chunks = new Map<string, ChunkData>()
     
-    addChunk(chunk: VoxelChunk) {
+    addChunk(chunk: ChunkData) {
         this.chunks.set(chunk.coord.toKey(), chunk)
     }
     
@@ -29,7 +28,7 @@ class WorkerVoxelQuery implements IVoxelQuery {
         if (!chunk) return -1
         const lx = ((worldX % 24) + 24) % 24
         const lz = ((worldZ % 24) + 24) % 24
-        return chunk.getBlockType(lx, worldY, lz)
+        return chunk.getBlockId(lx, worldY, lz)
     }
     
     isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean {
@@ -38,7 +37,7 @@ class WorkerVoxelQuery implements IVoxelQuery {
 
     getLightAbsorption(worldX: number, worldY: number, worldZ: number): number {
         const type = this.getBlockType(worldX, worldY, worldZ)
-        if (type === -1) return 0
+        if (type === -1 || type === 0) return 0
         
         const def = blockRegistry.get(type)
         if (!def) return 15
@@ -49,20 +48,17 @@ class WorkerVoxelQuery implements IVoxelQuery {
         return 15
     }
     
-    getChunk(coord: ChunkCoordinate): VoxelChunk | null {
+    getChunk(coord: ChunkCoordinate): ChunkData | null {
         return this.chunks.get(coord.toKey()) || null
     }
 }
 
+// In unified model, VoxelQuery IS LightStorage
 class WorkerLightStorage implements ILightStorage {
-    private chunks = new Map<string, LightData>()
+    constructor(private query: WorkerVoxelQuery) {}
     
-    addLightData(data: LightData) {
-        this.chunks.set(data.coord.toKey(), data)
-    }
-    
-    getLightData(coord: ChunkCoordinate): LightData | undefined {
-        return this.chunks.get(coord.toKey())
+    getLightData(coord: ChunkCoordinate): ChunkData | undefined {
+        return this.query.getChunk(coord) || undefined
     }
 }
 
@@ -70,25 +66,26 @@ class WorkerLightingQuery implements ILightingQuery {
     constructor(private storage: WorkerLightStorage) {}
     
     getLight(worldX: number, worldY: number, worldZ: number): LightValue {
-        // Boundary Checks
-        if (worldY < 0) {
-            return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} } // Void
-        }
-        if (worldY >= 256) {
-            return { sky: {r:15,g:15,b:15}, block: {r:0,g:0,b:0} } // Sky
-        }
+        if (worldY < 0) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
+        if (worldY >= 256) return { sky: {r:15,g:15,b:15}, block: {r:0,g:0,b:0} }
 
         const cx = Math.floor(worldX / 24)
         const cz = Math.floor(worldZ / 24)
         const coord = new ChunkCoordinate(cx, cz)
         const data = this.storage.getLightData(coord)
         
-        // Default to DARKNESS if chunk is missing to prevent light leaks underground
         if (!data) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
         
         const lx = ((worldX % 24) + 24) % 24
         const lz = ((worldZ % 24) + 24) % 24
-        return data.getLight(lx, worldY, lz)
+        
+        const b = data.getBlockLight(lx, worldY, lz)
+        const s = data.getSkyLight(lx, worldY, lz)
+        
+        return { 
+            sky: { r: s, g: s, b: s }, 
+            block: b 
+        }
     }
     
     isLightingReady(coord: ChunkCoordinate): boolean {
@@ -103,37 +100,23 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const { x, z, neighborVoxels, neighborLight } = msg
         const coord = new ChunkCoordinate(x, z)
         
-        // Hydrate Voxels
+        // Hydrate Voxels (ChunkData)
+        // Note: neighborLight is technically redundant if neighborVoxels are ChunkData buffers
+        // But MeshingService might still be sending them separately?
+        // MeshingService calls getRawBuffer().
+        // If we switched to ChunkData, getRawBuffer() returns the full uint32 array.
+        // So neighborVoxels contains LIGHT too.
+        // We can ignore neighborLight.
+        
         const voxelQuery = new WorkerVoxelQuery()
         for (const [key, buffer] of Object.entries(neighborVoxels)) {
             const [dx, dz] = key.split(',').map(Number)
             const c = new ChunkCoordinate(x + dx, z + dz)
-            const chunk = VoxelChunk.fromBuffer(c, buffer)
+            const chunk = new ChunkData(c, buffer)
             voxelQuery.addChunk(chunk)
         }
         
-        // Hydrate Lights
-        const lightStorage = new WorkerLightStorage()
-        for (const [key, buffers] of Object.entries(neighborLight)) {
-            const [dx, dz] = key.split(',').map(Number)
-            const c = new ChunkCoordinate(x + dx, z + dz)
-            const ld = new LightData(c)
-            
-            // Manual unpack
-            const size = 24 * 256 * 24
-            const skyArr = new Uint8Array(buffers.sky)
-            const blockArr = new Uint8Array(buffers.block)
-            const raw = ld as any
-            raw.skyLightR = skyArr.slice(0, size)
-            raw.skyLightG = skyArr.slice(size, size * 2)
-            raw.skyLightB = skyArr.slice(size * 2, size * 3)
-            raw.blockLightR = blockArr.slice(0, size)
-            raw.blockLightG = blockArr.slice(size, size * 2)
-            raw.blockLightB = blockArr.slice(size * 2, size * 3)
-            
-            lightStorage.addLightData(ld)
-        }
-        
+        const lightStorage = new WorkerLightStorage(voxelQuery)
         const lightingQuery = new WorkerLightingQuery(lightStorage)
         
         // Meshing
@@ -142,13 +125,8 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         mesher.buildMesh(vertexBuilder)
         
         const buffersMap = vertexBuilder.getBuffers()
-        const geometry: MainMessage['geometry'] = {} // Type constraint check?
-        // Typescript in worker is loose unless strict.
-        // Let's just build the object.
         
         const transferList: ArrayBuffer[] = []
-        
-        // We need to match the MainMessage structure exactly
         const outputGeometry: Record<string, any> = {}
         
         for (const [key, buffers] of buffersMap.entries()) {

@@ -11,7 +11,7 @@ export const ILLUMINATION_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 0.0,  // Transparent to light
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/glowstone.png',
+    icon: '/textures/block/glowstone.png',
     inventorySlot: 8,
     categorySlot: 1
   },
@@ -26,7 +26,7 @@ export const ILLUMINATION_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 0.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/redstone-lamp.png',
+    icon: '/textures/block/redstone_lamp_on.png',
     inventorySlot: 9,
     categorySlot: 2
   }

@@ -15,7 +15,7 @@ export class BlockRegistry {
    */
   register(block: BlockDefinition): void {
     if (this.blocks.has(block.id)) {
-      console.warn(`⚠️ Block ID ${block.id} already registered. Overwriting.`)
+      throw new Error(`❌ Block ID Collision! ID ${block.id} is already registered. Check your block definitions.`)
     }
     this.blocks.set(block.id, block)
   }

@@ -55,7 +55,8 @@ export class BlockPicker {
 
     while (distanceTravelled <= maxDistance) {
       const blockType = this.world.getBlockType(voxel.x, voxel.y, voxel.z)
-      if (blockType !== -1) {
+      // Skip Air (0) and Void (-1)
+      if (blockType !== -1 && blockType !== 0) {
         const hitBlock = voxel.clone()
         const adjacentBlock = hitBlock.clone().add(faceNormal)
         return {

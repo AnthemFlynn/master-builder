@@ -2,20 +2,20 @@
 import * as THREE from 'three'
 import { TimeCycle } from '../domain/TimeCycle'
 import { ThreeSkyAdapter } from '../adapters/ThreeSkyAdapter'
-import LightingWorker from '../workers/LightingWorker?worker'
 import { ChunkRequest, MainMessage } from '../workers/types'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { ILightingQuery } from '../ports/ILightingQuery'
 import { ILightStorage } from '../ports/ILightStorage'
-import { LightData } from '../domain/voxel-lighting/LightData'
+import { ChunkData } from '../../../shared/domain/ChunkData'
 import { LightValue } from '../domain/voxel-lighting/LightValue'
 
 export class EnvironmentService implements ILightingQuery, ILightStorage {
   private timeCycle: TimeCycle
   private skyAdapter: ThreeSkyAdapter
   private worker: Worker
-  private lightDataMap = new Map<string, LightData>()
+  // Use ChunkData instead of LightData
+  private chunkDataMap = new Map<string, ChunkData>()
 
   constructor(
     scene: THREE.Scene, 
@@ -26,12 +26,11 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
     this.skyAdapter = new ThreeSkyAdapter(scene, camera, this.timeCycle)
     
     // Add Hemisphere Light (Sky + Ground Reflection)
-    // Sky: Light Blue, Ground: Brownish Green, Intensity: 0.6
     const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x444422, 0.6)
     scene.add(hemiLight)
 
     // Initialize Lighting Worker
-    this.worker = new LightingWorker()
+    this.worker = new Worker("/assets/LightingWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
 
     this.setupEventListeners()
@@ -44,34 +43,39 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
       const cx = Math.floor(worldX / 24)
       const cz = Math.floor(worldZ / 24)
       const coord = new ChunkCoordinate(cx, cz)
-      const data = this.lightDataMap.get(coord.toKey())
+      const data = this.chunkDataMap.get(coord.toKey())
       
       // Default to DARKNESS if chunk is missing
       if (!data) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
       
       const lx = ((worldX % 24) + 24) % 24
       const lz = ((worldZ % 24) + 24) % 24
-      // LightData uses local Y (0-255)
-      return data.getLight(lx, worldY, lz)
+      
+      // Use ChunkData API
+      const b = data.getBlockLight(lx, worldY, lz)
+      const s = data.getSkyLight(lx, worldY, lz)
+      
+      // Sky light is 4-bit intensity (white)
+      return { 
+          sky: { r: s, g: s, b: s }, 
+          block: b 
+      }
   }
 
   isLightingReady(coord: ChunkCoordinate): boolean {
-      return this.lightDataMap.has(coord.toKey())
+      return this.chunkDataMap.has(coord.toKey())
   }
 
   // ILightStorage Implementation
-  getLightData(coord: ChunkCoordinate): LightData | undefined {
-      return this.lightDataMap.get(coord.toKey())
+  getLightData(coord: ChunkCoordinate): ChunkData | undefined {
+      return this.chunkDataMap.get(coord.toKey())
   }
 
   private setupEventListeners(): void {
-      // Listen for chunk generation -> Trigger lighting
       this.eventBus.on('world', 'ChunkGeneratedEvent', (e: any) => {
-          // We need Voxel Data to calculate lighting.
-          // WorldService handles the initial trigger.
+          // Trigger handled by WorldService call
       })
       
-      // Listen for block updates to trigger lighting
       this.eventBus.on('world', 'BlockPlacedEvent', (e: any) => {
           this.handleBlockUpdate(e.chunkCoord)
       })
@@ -81,26 +85,7 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
   }
   
   private handleBlockUpdate(coord: ChunkCoordinate): void {
-      // When a block changes, we need to recalculate lighting for this chunk
-      // AND potentially neighbors if the block is on the edge.
-      // Ideally, we should ask WorldService to trigger the calculation because
-      // WorldService has the voxel data.
-      
-      // TODO: Implement efficient partial updates.
-      // For now, we rely on WorldService calling calculateLightAsync() manually?
-      // WorldService *doesn't* call calculateLightAsync on block updates currently.
-      // It only emits the event.
-      
-      // We need to trigger the calculation.
-      // But EnvironmentService doesn't have the voxels.
-      // This architecture flaw (Push vs Pull) makes this hard.
-      
-      // Solution: Emit a request back to WorldService? 
-      // Or just accept that we need WorldService reference?
-      // We can't import WorldService (Circular).
-      
-      // Alternative: WorldService should listen to its OWN events?
-      // Or the Handler should call calculateLightAsync.
+      // Placeholder for incremental updates
   }
   
   // Called by WorldService
@@ -120,30 +105,18 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
   private handleWorkerMessage(e: MessageEvent<MainMessage>) {
       const msg = e.data
       if (msg.type === 'LIGHT_CALCULATED') {
-          const { x, z, lightBuffer } = msg
+          const { x, z, chunkBuffer } = msg
           const coord = new ChunkCoordinate(x, z)
           
-          // Hydrate LightData
-          const lightData = new LightData(coord)
-          const size = 24 * 256 * 24
-          const skyArr = new Uint8Array(lightBuffer.sky)
-          const blockArr = new Uint8Array(lightBuffer.block)
+          // Create ChunkData from buffer (Bit Packed)
+          const chunkData = new ChunkData(coord, chunkBuffer)
           
-          // Manual unpack (TODO: Refactor LightData to have setBuffers)
-          const raw = lightData as any
-          raw.skyLightR = skyArr.slice(0, size)
-          raw.skyLightG = skyArr.slice(size, size * 2)
-          raw.skyLightB = skyArr.slice(size * 2, size * 3)
-          raw.blockLightR = blockArr.slice(0, size)
-          raw.blockLightG = blockArr.slice(size, size * 2)
-          raw.blockLightB = blockArr.slice(size * 2, size * 3)
-          
-          this.lightDataMap.set(coord.toKey(), lightData)
+          this.chunkDataMap.set(coord.toKey(), chunkData)
 
           this.eventBus.emit('lighting', {
                   type: 'LightingCalculatedEvent',
                   chunkCoord: coord,
-                  lightBuffer
+                  lightBuffer: chunkBuffer // Pass the unified buffer back to subscribers (WorldService)
               })
       }
   }

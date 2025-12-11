@@ -11,7 +11,7 @@ export const METAL_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/diamond.png',
+    icon: '/textures/block/diamond_block.png',
     inventorySlot: 5,
     categorySlot: 1
   },
@@ -26,7 +26,7 @@ export const METAL_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/quartz.png',
+    icon: '/textures/block/quartz_block_side.png',
     inventorySlot: 6,
     categorySlot: 2
   }

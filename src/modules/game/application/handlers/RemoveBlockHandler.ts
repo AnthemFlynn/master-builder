@@ -27,12 +27,12 @@ export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {
       Math.floor(z)
     )
 
-    // Remove block (set to air = -1)
+    // Update world with AIR (0)
     this.worldService.setBlock(
       Math.floor(x),
       Math.floor(y),
       Math.floor(z),
-      -1
+      0 // Air
     )
 
     // Calculate chunk coordinate

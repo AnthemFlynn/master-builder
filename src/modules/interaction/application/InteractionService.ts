@@ -8,7 +8,7 @@ import * as THREE from 'three'
 
 export class InteractionService implements IInteractionHandler {
   private blockPicker: BlockPicker
-  private selectedBlock = 0 // Default: grass
+  private selectedBlock = 14 // Default: Grass Block
   private highlightMesh: THREE.Mesh
 
   constructor(
