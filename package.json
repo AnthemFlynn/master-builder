@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "bun build.ts",
-    "dev": "vite",
+    "dev": "bun build.ts && bun serve.ts",
     "preview": "bun build.ts && bun serve.ts",
     "serve": "bun serve.ts",
     "lint": "tsc --noEmit"

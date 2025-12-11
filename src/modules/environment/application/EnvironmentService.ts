@@ -9,7 +9,6 @@ import { ILightingQuery } from '../ports/ILightingQuery'
 import { ILightStorage } from '../ports/ILightStorage'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { LightValue } from '../domain/voxel-lighting/LightValue'
-import LightingWorker from '../workers/LightingWorker?worker'
 
 export class EnvironmentService implements ILightingQuery, ILightStorage {
   private timeCycle: TimeCycle
@@ -31,7 +30,7 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
     scene.add(hemiLight)
 
     // Initialize Lighting Worker
-    this.worker = new LightingWorker()
+    this.worker = new Worker("/assets/LightingWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
 
     this.setupEventListeners()

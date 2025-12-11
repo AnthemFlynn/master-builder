@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Project**: Kingdom Builder (Minecraft-inspired voxel game)
 **Tech Stack**: TypeScript, Three.js 0.181, Bun (build/serve)
 **Architecture**: Hexagonal (10 modules + infrastructure)
-**Dev Server**: http://localhost:3000
+**Dev Server**: http://localhost:4173
 
 ---
 

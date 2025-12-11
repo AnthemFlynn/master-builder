@@ -35,7 +35,8 @@ const build = await Bun.build({
   outdir: "./dist",
   target: "browser",
   minify: true,
-  naming: "index.js", // Explicitly name it
+  splitting: false, // Disable code splitting
+  naming: "index.js", // Match HTML reference
 });
 
 if (!build.success) {

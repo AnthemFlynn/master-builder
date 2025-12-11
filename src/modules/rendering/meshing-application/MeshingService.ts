@@ -6,7 +6,6 @@ import { ILightingQuery } from '../../environment/ports/ILightingQuery'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { ILightStorage } from '../../environment/ports/ILightStorage'
 import { WorkerMessage, MainMessage } from '../workers/types'
-import MeshingWorker from '../workers/MeshingWorker?worker'
 
 export class MeshingService {
   private dirtyQueue = new Map<string, 'block' | 'light' | 'global'>()
@@ -18,7 +17,7 @@ export class MeshingService {
     private lighting: ILightingQuery & ILightStorage, // Need storage access to get raw buffers
     private eventBus: EventBus
   ) {
-    this.worker = new MeshingWorker()
+    this.worker = new Worker("/assets/MeshingWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
     this.setupEventListeners()
   }
