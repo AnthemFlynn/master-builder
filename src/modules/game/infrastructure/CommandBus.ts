@@ -4,6 +4,7 @@ import { Command, CommandHandler } from '../domain/commands/Command'
 export class CommandBus {
   private handlers = new Map<string, CommandHandler<any>>()
   private log: Command[] = []
+  private readonly maxLogSize = 10000
 
   register<T extends Command>(
     commandType: string,
@@ -14,6 +15,11 @@ export class CommandBus {
 
   send<T extends Command>(command: T): void {
     this.log.push(command)
+
+    // Circular buffer: remove oldest command if log exceeds max size
+    if (this.log.length > this.maxLogSize) {
+      this.log.shift()
+    }
 
     const handler = this.handlers.get(command.type)
 
