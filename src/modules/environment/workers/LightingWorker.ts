@@ -15,9 +15,10 @@ const lightStorage = new WorkerLightStorage(voxelQuery)
 const pipeline = new LightingPipeline(voxelQuery)
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
-  const msg = e.data
+  try {
+    const msg = e.data
 
-  if (msg.type === 'CALC_LIGHT') {
+    if (msg.type === 'CALC_LIGHT') {
     const { x, z, neighborVoxels } = msg
     const coord = new ChunkCoordinate(x, z)
 
@@ -49,5 +50,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     }
 
     self.postMessage(response, [buffer])
+    }
+  } catch (error) {
+    console.error('[LightingWorker] Error processing message:', error)
+    self.postMessage({
+      type: 'LIGHT_ERROR',
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
 }
