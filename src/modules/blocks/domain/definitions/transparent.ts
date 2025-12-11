@@ -11,7 +11,7 @@ export const TRANSPARENT_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 0.0,  // Glass is fully transparent to light
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/glass.png',
+    icon: 'textures/block/glass.png',
     inventorySlot: 7,
     categorySlot: 2
   }

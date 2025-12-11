@@ -24,7 +24,7 @@ export const WOOD_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/tree.png',
+    icon: '/textures/block/oak_log.png',
     inventorySlot: 3,
     categorySlot: 1
   },
@@ -40,7 +40,7 @@ export const WOOD_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/wood.png',
+    icon: '/textures/block/oak_planks.png',
     inventorySlot: 4,
     categorySlot: 2
   },
@@ -62,7 +62,7 @@ export const WOOD_BLOCKS: BlockDefinition[] = [
     transparent: true,
     collidable: true,
     friction: 0.8,  // Slightly impedes movement
-    icon: 'block-icon/leaf.png',
+    icon: '/textures/block/oak_leaves.png',
     inventorySlot: null,
     categorySlot: 1
   }

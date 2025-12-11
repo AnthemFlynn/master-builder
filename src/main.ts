@@ -1,3 +1,4 @@
+import './style.css'
 import Core from './core'
 import { GameOrchestrator } from './modules/game'
 import { PlayerMode } from './modules/player/domain/PlayerMode'

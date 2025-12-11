@@ -12,7 +12,7 @@ export const STONE_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/stone.png',
+    icon: '/textures/block/stone.png',
     inventorySlot: 2,
     categorySlot: 1
   },
@@ -28,7 +28,7 @@ export const STONE_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/coal.png',
+    icon: '/textures/block/coal_ore.png',
     inventorySlot: null,
     categorySlot: 2
   },
@@ -44,7 +44,7 @@ export const STONE_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,  // Completely opaque
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/bedrock.png',
+    icon: '/textures/block/bedrock.png',
     inventorySlot: null,
     categorySlot: 3
   }

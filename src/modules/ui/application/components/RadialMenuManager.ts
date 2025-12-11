@@ -70,6 +70,24 @@ export class RadialMenuManager {
     if (this.isVisible) this.draw()
   }
 
+  private iconCache = new Map<number, HTMLImageElement>()
+
+  private getIcon(blockId: number): HTMLImageElement | null {
+      if (this.iconCache.has(blockId)) {
+          return this.iconCache.get(blockId)!
+      }
+      
+      const block = blockRegistry.get(blockId)
+      if (block && block.icon) {
+          const img = new Image()
+          img.src = block.icon
+          img.onload = () => this.draw() // Redraw when loaded
+          this.iconCache.set(blockId, img)
+          return img
+      }
+      return null
+  }
+
   private draw(): void {
     if (!this.ctx) return
     
@@ -78,13 +96,8 @@ export class RadialMenuManager {
     const banks = this.inventory.getAllBanks()
     const activeBank = this.inventory.getActiveBank()
     
-    console.log('RadialMenu: draw() called', { banks: banks.length, active: activeBank.id })
-    
     // DEBUG: Draw a big circle to ensure canvas is working
-    this.ctx.beginPath()
-    this.ctx.arc(this.centerX, this.centerY, 10, 0, Math.PI * 2)
-    this.ctx.fillStyle = 'red'
-    this.ctx.fill()
+    // this.ctx.beginPath() ... (removed debug circle)
     
     const mouseAngle = Math.atan2(this.mousePos.y - this.centerY, this.mousePos.x - this.centerX)
     const mouseDist = Math.sqrt(Math.pow(this.mousePos.x - this.centerX, 2) + Math.pow(this.mousePos.y - this.centerY, 2))
@@ -193,13 +206,17 @@ export class RadialMenuManager {
              const iconX = this.centerX + Math.cos(midAngle) * ((this.bankRadius + this.outerRadius) / 2)
              const iconY = this.centerY + Math.sin(midAngle) * ((this.bankRadius + this.outerRadius) / 2)
              
-             // Draw block name for now (rendering textures to 2D canvas requires pre-loading images)
-             // We can assume BlockRegistry has textures.
-             // For prototype, text is safer.
-             this.ctx.fillStyle = 'white'
-             this.ctx.font = '10px Arial'
-             this.ctx.textAlign = 'center'
-             this.ctx.fillText(`${blockId}`, iconX, iconY)
+             const icon = this.getIcon(blockId)
+             if (icon && icon.complete) {
+                 const size = 48
+                 this.ctx.drawImage(icon, iconX - size/2, iconY - size/2, size, size)
+             } else {
+                 // Fallback text
+                 this.ctx.fillStyle = 'white'
+                 this.ctx.font = '10px Arial'
+                 this.ctx.textAlign = 'center'
+                 this.ctx.fillText(`${blockId}`, iconX, iconY)
+             }
         }
       }
     }

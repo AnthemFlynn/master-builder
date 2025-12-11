@@ -6,6 +6,7 @@ import { MenuManager } from './MenuManager'
 import { RadialMenuManager } from './components/RadialMenuManager'
 import { CreativeModalManager } from './components/CreativeModalManager'
 import { InventoryService } from '../../inventory/application/InventoryService'
+import { InventoryBank } from '../../inventory/domain/InventoryState'
 
 export interface UIServiceOptions {
   requestPointerLock?: () => void
@@ -25,13 +26,14 @@ export class UIService implements IUIQuery {
     private inventory: InventoryService
   ) {
     this.hudManager = new HUDManager()
+    // Initialize hotbar with current inventory
+    this.hudManager.updateHotbar(this.inventory.getActiveBank())
+
     this.menuManager = new MenuManager(
       () => {
-        this.options.requestPointerLock?.()
         this.onPlay()
       },
       () => {
-        this.options.requestPointerLock?.()
         this.onPlay()
       },
       () => {
@@ -45,7 +47,10 @@ export class UIService implements IUIQuery {
     )
     
     this.radialMenuManager = new RadialMenuManager(inventory)
-    this.creativeModalManager = new CreativeModalManager(inventory)
+    this.creativeModalManager = new CreativeModalManager(inventory, () => {
+        // When modal closes itself, return to playing
+        this.onPlay()
+    })
     
     // Listen for mouse movements for the radial menu
     this.eventBus.on('input', 'InputMouseMoveEvent', (e: any) => {
@@ -124,6 +129,10 @@ export class UIService implements IUIQuery {
 
   setSelectedSlot(index: number): void {
     this.hudManager.setSelectedSlot(index)
+  }
+
+  updateHotbar(bank: InventoryBank): void {
+    this.hudManager.updateHotbar(bank)
   }
 
   updateFPS(): void {

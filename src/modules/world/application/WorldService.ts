@@ -6,6 +6,7 @@ import { blockRegistry } from '../../blocks'
 import { ChunkRequest, MainMessage } from '../workers/types'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
+import ChunkWorker from '../workers/ChunkWorker?worker'
 
 export class WorldService implements IVoxelQuery {
   private chunks = new Map<string, ChunkData>()
@@ -13,7 +14,7 @@ export class WorldService implements IVoxelQuery {
   private environmentService?: EnvironmentService
 
   constructor(private eventBus?: EventBus) {
-    this.worker = new Worker("/assets/ChunkWorker.js")
+    this.worker = new ChunkWorker()
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
     
     if (this.eventBus) {

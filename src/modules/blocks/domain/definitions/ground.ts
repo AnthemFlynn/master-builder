@@ -32,7 +32,7 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,  // Fully opaque
     collidable: true,
     friction: 1.0,  // Normal movement speed
-    icon: 'block-icon/grass.png',
+    icon: '/textures/block/grass_block_side.png',
     inventorySlot: 1,
     categorySlot: 1
   },
@@ -48,7 +48,7 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 0.9,  // Slightly slower (sandy)
-    icon: 'block-icon/sand.png',
+    icon: '/textures/block/sand.png',
     inventorySlot: null,  // Not in hotbar by default
     categorySlot: 2
   },
@@ -73,7 +73,7 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 1.0,
     collidable: true,
     friction: 1.0,
-    icon: 'block-icon/dirt.png',
+    icon: '/textures/block/dirt.png',
     inventorySlot: null,
     categorySlot: 3
   }

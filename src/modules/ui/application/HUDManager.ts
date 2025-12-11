@@ -1,11 +1,12 @@
 import { UIState } from '../domain/UIState'
+import { blockRegistry } from '../../blocks'
+import { InventoryBank } from '../../inventory/domain/InventoryState'
 
 export class HUDManager {
   private crosshair: HTMLDivElement
   private fpsDisplay: HTMLDivElement
   private bagDisplay: HTMLDivElement
-  private lastFrameTime = performance.now()
-  private fps = 60
+  private slots: HTMLDivElement[] = []
 
   constructor() {
     // Create crosshair
@@ -14,58 +15,32 @@ export class HUDManager {
     this.crosshair.innerHTML = '+'
     document.body.appendChild(this.crosshair)
 
-    // Create FPS display
-    this.fpsDisplay = document.createElement('div')
-    this.fpsDisplay.className = 'fps hidden'
-    this.fpsDisplay.style.cssText = 'position: fixed; top: 10px; left: 10px; color: white; font-family: monospace; font-size: 14px; z-index: 1000;'
-    document.body.appendChild(this.fpsDisplay)
+    // FPS display (created by FPS class in main.ts usually, but here we look for it)
+    this.fpsDisplay = document.querySelector('.fps') as HTMLDivElement
 
-    // Create bag/inventory display
-    this.bagDisplay = document.createElement('div')
-    this.bagDisplay.className = 'bag hidden'
-    this.bagDisplay.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; z-index: 1000;'
-    document.body.appendChild(this.bagDisplay)
-
-    // Create inventory slots
-    for (let i = 0; i < 9; i++) {
-      const slot = document.createElement('div')
-      slot.className = 'bag-slot'
-      slot.style.cssText = 'width: 50px; height: 50px; border: 2px solid #666; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white;'
-      slot.textContent = String(i + 1)
-      slot.dataset.index = String(i)
-      this.bagDisplay.appendChild(slot)
+    // Bag display
+    this.bagDisplay = document.querySelector('.bag') as HTMLDivElement
+    if (!this.bagDisplay) {
+        // Create bag if missing (it should be in index.html usually)
+        this.bagDisplay = document.createElement('div')
+        this.bagDisplay.className = 'bag'
+        document.body.appendChild(this.bagDisplay)
     }
-
-    // FPS will be updated by external call, not internal loop
-    this.fpsDisplay.textContent = 'FPS: --'
-  }
-
-  updateFPS(): void {
-    const now = performance.now()
-    const delta = now - this.lastFrameTime
-    this.lastFrameTime = now
-
-    // Smooth FPS calculation
-    this.fps = Math.round(1000 / delta)
-    this.fpsDisplay.textContent = `FPS: ${this.fps}`
-  }
-
-  setSelectedSlot(index: number): void {
-    // Highlight selected slot
-    const slots = this.bagDisplay.querySelectorAll('.bag-slot')
-    slots.forEach((slot, i) => {
-      if (i === index) {
-        (slot as HTMLElement).style.border = '2px solid yellow'
-      } else {
-        (slot as HTMLElement).style.border = '2px solid #666'
-      }
-    })
+    
+    // Initialize slots
+    this.bagDisplay.innerHTML = ''
+    for (let i = 0; i < 9; i++) {
+        const slot = document.createElement('div')
+        slot.className = 'item'
+        this.bagDisplay.appendChild(slot)
+        this.slots.push(slot)
+    }
   }
 
   show(): void {
     this.crosshair.classList.remove('hidden')
     this.fpsDisplay?.classList.remove('hidden')
-    this.bagDisplay?.classList.remove('hidden')
+    // this.bagDisplay?.classList.remove('hidden') // User requested to hide hotbar
   }
 
   hide(): void {
@@ -80,5 +55,40 @@ export class HUDManager {
     } else {
       this.hide()
     }
+  }
+
+  setSelectedSlot(index: number): void {
+    this.slots.forEach((slot, i) => {
+      if (i === index) {
+        slot.classList.add('selected')
+      } else {
+        slot.classList.remove('selected')
+      }
+    })
+  }
+
+  updateHotbar(bank: InventoryBank): void {
+    // Only show first 9 slots in hotbar (0-8)
+    for (let i = 0; i < 9; i++) {
+        const slot = this.slots[i]
+        const blockId = bank.slots[i]
+        
+        slot.innerHTML = '' // Clear existing
+        
+        if (blockId > 0) {
+            const block = blockRegistry.get(blockId)
+            if (block && block.icon) {
+                const img = document.createElement('img')
+                img.src = block.icon
+                img.className = 'icon'
+                img.style.imageRendering = 'pixelated'
+                slot.appendChild(img)
+            }
+        }
+    }
+  }
+
+  updateFPS(): void {
+      // FPS update logic handled by external Stats.js usually
   }
 }

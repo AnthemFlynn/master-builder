@@ -8,6 +8,8 @@ export class InventoryService {
   constructor(private eventBus: EventBus) {
     this.state = new InventoryState()
     this.initializeDefaultLoadout()
+    // Emit initial state so other services sync up
+    this.emitChange()
   }
 
   private initializeDefaultLoadout() {

@@ -106,6 +106,13 @@ export class GameOrchestrator {
       if (mapped) {
         this.inputService.setState(mapped)
       }
+      
+      // Manage Pointer Lock based on State (Single Source of Truth)
+      if (event.newState === UIState.PLAYING) {
+          this.cameraControls.lock()
+      } else {
+          this.cameraControls.unlock()
+      }
     })
 
     // Register command handlers
@@ -288,9 +295,13 @@ export class GameOrchestrator {
       // Block selection (1-9 keys)
       for (let i = 1; i <= 9; i++) {
         if (event.action === `select_block_${i}` && event.eventType === 'pressed') {
-          this.interactionService.setSelectedBlock(i - 1)
-          this.uiService.setSelectedSlot(i - 1)
+          this.inventoryService.selectSlot(i - 1)
         }
+      }
+      
+      // Block selection (0 key -> 10th slot)
+      if (event.action === 'select_block_0' && event.eventType === 'pressed') {
+          this.inventoryService.selectSlot(9)
       }
     })
     
@@ -298,6 +309,10 @@ export class GameOrchestrator {
     this.eventBus.on('inventory', 'InventoryChangedEvent', (event: any) => {
         this.interactionService.setSelectedBlock(event.selectedBlock)
         this.uiService.setSelectedSlot(event.selectedSlot)
+        
+        // Update Hotbar UI
+        const activeBank = this.inventoryService.getActiveBank()
+        this.uiService.updateHotbar(activeBank)
     })
   }
 
@@ -403,15 +418,18 @@ export class GameOrchestrator {
         defaultKey: `Digit${i}`
       })
     }
+    
+    // Block selection (0)
+    this.inputService.registerAction({
+        id: 'select_block_0',
+        category: 'inventory',
+        description: 'Select block 10',
+        defaultKey: 'Digit0'
+    })
   }
 
   private setupPointerLockListeners(): void {
-    this.cameraControls.addEventListener('lock', () => {
-      if (!this.uiService.isPlaying()) {
-        this.uiService.onPlay()
-      }
-    })
-
+    // Unlock event: If unlocked externally (ESC), pause game.
     this.cameraControls.addEventListener('unlock', () => {
       if (this.uiService.isPlaying()) {
         this.uiService.onPause()

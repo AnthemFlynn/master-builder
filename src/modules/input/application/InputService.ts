@@ -175,35 +175,49 @@ export class InputService implements IInputQuery {
   }
 
   private handleMouseDown(event: MouseEvent): void {
+    // Allow UI interactions
+    if (event.target instanceof HTMLElement) {
+        const tag = event.target.tagName
+        if (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'A'].includes(tag)) return
+        
+        // Also allow interactions inside UI containers
+        if (event.target.closest('.creative-modal') || event.target.closest('.menu')) return
+    }
+
     const buttonMap: Record<number, string> = {
       0: 'mouse:left',
       1: 'mouse:middle',
       2: 'mouse:right'
     }
 
-    event.preventDefault()
-
     const actionName = this.findActionByKey(buttonMap[event.button])
-    if (!actionName) return
-
-    this.actionStates.set(actionName, true)
-    this.triggerAction(actionName, ActionEventType.PRESSED, event)
+    if (actionName) {
+        event.preventDefault()
+        this.actionStates.set(actionName, true)
+        this.triggerAction(actionName, ActionEventType.PRESSED, event)
+    }
   }
 
   private handleMouseUp(event: MouseEvent): void {
+    // Allow UI interactions
+    if (event.target instanceof HTMLElement) {
+        const tag = event.target.tagName
+        if (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'A'].includes(tag)) return
+        if (event.target.closest('.creative-modal') || event.target.closest('.menu')) return
+    }
+
     const buttonMap: Record<number, string> = {
       0: 'mouse:left',
       1: 'mouse:middle',
       2: 'mouse:right'
     }
 
-    event.preventDefault()
-
     const actionName = this.findActionByKey(buttonMap[event.button])
-    if (!actionName) return
-
-    this.actionStates.set(actionName, false)
-    this.triggerAction(actionName, ActionEventType.RELEASED, event)
+    if (actionName) {
+        event.preventDefault()
+        this.actionStates.set(actionName, false)
+        this.triggerAction(actionName, ActionEventType.RELEASED, event)
+    }
   }
 
   private handleDoubleClick(event: MouseEvent): void {
