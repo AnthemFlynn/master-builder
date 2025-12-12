@@ -1,7 +1,7 @@
 // src/modules/terrain/application/EventBus.ts
 import { DomainEvent } from '../domain/events/DomainEvent'
 
-export type EventCategory = 'world' | 'lighting' | 'meshing' | 'rendering' | 'time' | 'player' | 'input' | 'ui' | 'interaction'
+export type EventCategory = 'world' | 'lighting' | 'meshing' | 'rendering' | 'time' | 'player' | 'input' | 'ui' | 'interaction' | 'persistence'
 
 type EventHandler = (event: DomainEvent) => void
 
@@ -18,7 +18,12 @@ export class EventBus {
     const handlers = this.listeners.get(key) || []
 
     for (const handler of handlers) {
-      handler(event)
+      try {
+        handler(event)
+      } catch (error) {
+        console.error(`[EventBus] Error in handler for ${key}:`, error)
+        // Continue to next handler instead of stopping
+      }
     }
   }
 

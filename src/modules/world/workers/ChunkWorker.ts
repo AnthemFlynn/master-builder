@@ -11,9 +11,10 @@ initializeBlockRegistry()
 const generator = new NoiseGenerator()
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
-  const msg = e.data
+  try {
+    const msg = e.data
 
-  if (msg.type === 'GENERATE_CHUNK') {
+    if (msg.type === 'GENERATE_CHUNK') {
     const { x, z, renderDistance } = msg
     const coord = new ChunkCoordinate(x, z)
     const chunk = new ChunkData(coord)
@@ -35,5 +36,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     }
 
     self.postMessage(response, [buffer])
+    }
+  } catch (error) {
+    console.error('[ChunkWorker] Error processing message:', error)
+    self.postMessage({
+      type: 'CHUNK_ERROR',
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
 }
