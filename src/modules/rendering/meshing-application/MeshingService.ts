@@ -113,19 +113,38 @@ export class MeshingService {
     this.dirtyQueue.set(key, reason)
   }
 
-  processDirtyQueue(): void {
-    if (this.dirtyQueue.size === 0) return
+  processDirtyQueue(): { budgetUsedMs: number; chunksProcessed: number } {
+    const startTime = performance.now()
+    let chunksProcessed = 0
 
-    // Throttle requests? 
-    // Worker is async, so we can flood it, but maybe limit active jobs?
-    // For now, just process all.
-    
+    if (this.dirtyQueue.size === 0) {
+      return { budgetUsedMs: 0, chunksProcessed: 0 }
+    }
+
     const entries = Array.from(this.dirtyQueue.entries())
 
     for (const [key, reason] of entries) {
+      const elapsed = performance.now() - startTime
+
+      // Enforce budget
+      if (elapsed >= this.rebuildBudgetMs) {
+        break
+      }
+
       const coord = ChunkCoordinate.fromKey(key)
       this.buildMesh(coord)
       this.dirtyQueue.delete(key)
+      chunksProcessed++
     }
+
+    // Return budget usage for monitoring
+    return {
+      budgetUsedMs: performance.now() - startTime,
+      chunksProcessed
+    }
+  }
+
+  getQueueDepth(): number {
+    return this.dirtyQueue.size
   }
 }
