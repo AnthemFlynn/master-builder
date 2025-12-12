@@ -98,9 +98,11 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const msg = e.data
 
         if (msg.type === 'GEN_MESH') {
+        const startTime = performance.now()
+
         const { x, z, neighborVoxels, neighborLight } = msg
         const coord = new ChunkCoordinate(x, z)
-        
+
         // Hydrate Voxels (ChunkData)
         // Note: neighborLight is technically redundant if neighborVoxels are ChunkData buffers
         // But MeshingService might still be sending them separately?
@@ -108,7 +110,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         // If we switched to ChunkData, getRawBuffer() returns the full uint32 array.
         // So neighborVoxels contains LIGHT too.
         // We can ignore neighborLight.
-        
+
         const voxelQuery = new WorkerVoxelQuery()
         for (const [key, buffer] of Object.entries(neighborVoxels)) {
             const [dx, dz] = key.split(',').map(Number)
@@ -116,20 +118,20 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             const chunk = new ChunkData(c, buffer)
             voxelQuery.addChunk(chunk)
         }
-        
+
         const lightStorage = new WorkerLightStorage(voxelQuery)
         const lightingQuery = new WorkerLightingQuery(lightStorage)
-        
+
         // Meshing
         const vertexBuilder = new VertexBuilder(voxelQuery, lightingQuery, x, z)
         const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
         mesher.buildMesh(vertexBuilder)
-        
+
         const buffersMap = vertexBuilder.getBuffers()
-        
+
         const transferList: ArrayBuffer[] = []
         const outputGeometry: Record<string, any> = {}
-        
+
         for (const [key, buffers] of buffersMap.entries()) {
             outputGeometry[key] = {
                 positions: buffers.positions.buffer,
@@ -138,20 +140,24 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 indices: buffers.indices.buffer
             }
             transferList.push(
-                buffers.positions.buffer, 
-                buffers.colors.buffer, 
-                buffers.uvs.buffer, 
+                buffers.positions.buffer,
+                buffers.colors.buffer,
+                buffers.uvs.buffer,
                 buffers.indices.buffer
             )
         }
-        
+
+        const endTime = performance.now()
+        const duration = endTime - startTime
+
         const response: MainMessage = {
             type: 'MESH_GENERATED',
             x,
             z,
-            geometry: outputGeometry
+            geometry: outputGeometry,
+            timingMs: duration
         }
-        
+
         self.postMessage(response, transferList)
         }
     } catch (error) {
