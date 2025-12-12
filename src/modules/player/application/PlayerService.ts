@@ -73,4 +73,33 @@ export class PlayerService implements IPlayerQuery {
   getState(): PlayerState {
     return this.state
   }
+
+  /**
+   * Restore player state from a snapshot (for save/load)
+   */
+  restoreState(snapshot: {
+    position: { x: number; y: number; z: number }
+    velocity: { x: number; y: number; z: number }
+    mode: string
+    speed: number
+    falling: boolean
+    jumpVelocity: number
+  }): void {
+    // Restore position
+    this.state.position.set(snapshot.position.x, snapshot.position.y, snapshot.position.z)
+
+    // Restore velocity
+    this.state.velocity.set(snapshot.velocity.x, snapshot.velocity.y, snapshot.velocity.z)
+
+    // Restore mode
+    const mode = snapshot.mode === 'Flying' ? PlayerMode.Flying : PlayerMode.Walking
+    this.state.setMode(mode)
+
+    // Restore other state
+    this.state.speed = snapshot.speed
+    this.state.falling = snapshot.falling
+    this.state.jumpVelocity = snapshot.jumpVelocity
+
+    console.log(`✅ Player state restored: ${mode} mode at (${snapshot.position.x.toFixed(1)}, ${snapshot.position.y.toFixed(1)}, ${snapshot.position.z.toFixed(1)})`)
+  }
 }
