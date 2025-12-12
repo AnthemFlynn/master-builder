@@ -7,7 +7,7 @@ export type MeshingRequest =
       neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
     }
 
-export type MeshingResponse = 
+export type MeshingResponse =
   | {
       type: 'MESH_GENERATED'
       x: number
@@ -18,6 +18,7 @@ export type MeshingResponse =
         uvs: ArrayBuffer
         indices: ArrayBuffer
       }>
+      timingMs: number
     }
 
 export type WorkerMessage = MeshingRequest
