@@ -12,6 +12,11 @@ import { AudioService } from '../../audio/application/AudioService'
 import { InteractionService } from '../../interaction/application/InteractionService'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
 import { InventoryService } from '../../inventory/application/InventoryService'
+import { PersistenceService } from '../../persistence/application/PersistenceService'
+import { AutoSaveManager } from '../../persistence/application/AutoSaveManager'
+import { IndexedDBAdapter } from '../../persistence/adapters/IndexedDBAdapter'
+import { SaveGameHandler } from '../../persistence/application/handlers/SaveGameHandler'
+import { LoadGameHandler } from '../../persistence/application/handlers/LoadGameHandler'
 import { CommandBus } from '../infrastructure/CommandBus'
 import { EventBus } from '../infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
@@ -31,7 +36,7 @@ export class GameOrchestrator {
   public commandBus: CommandBus
   public eventBus: EventBus
 
-  // Services (all 10 hexagonal modules)
+  // Services (all 11 hexagonal modules - persistence added)
   private worldService: WorldService
   private meshingService: MeshingService
   private renderingService: RenderingService
@@ -43,6 +48,8 @@ export class GameOrchestrator {
   private interactionService: InteractionService
   private environmentService: EnvironmentService
   private inventoryService: InventoryService
+  private persistenceService: PersistenceService
+  private autoSaveManager: AutoSaveManager
   private worldPreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
   private currentChunk = new ChunkCoordinate(0, 0)
@@ -130,6 +137,31 @@ export class GameOrchestrator {
       'RemoveBlockCommand',
       new RemoveBlockHandler(this.worldService, this.eventBus)
     )
+
+    // Initialize persistence module (11th module)
+    const indexedDBAdapter = new IndexedDBAdapter()
+    this.persistenceService = new PersistenceService(indexedDBAdapter)
+    this.autoSaveManager = new AutoSaveManager(this.commandBus)
+
+    // Initialize IndexedDB (async operation, but don't block initialization)
+    this.persistenceService.initialize().then(() => {
+      console.log('✅ Persistence module initialized')
+    }).catch((error) => {
+      console.error('❌ Failed to initialize persistence:', error)
+    })
+
+    // Register persistence command handlers
+    this.commandBus.register(
+      'SaveGameCommand',
+      new SaveGameHandler(this.persistenceService, this.playerService, this.eventBus)
+    )
+    this.commandBus.register(
+      'LoadGameCommand',
+      new LoadGameHandler(this.persistenceService, this.playerService, this.eventBus)
+    )
+
+    // Start auto-save
+    this.autoSaveManager.start()
 
     // Register default input actions
     this.registerDefaultActions()
@@ -457,6 +489,7 @@ export class GameOrchestrator {
   getAudioService() { return this.audioService }
   getEnvironmentService() { return this.environmentService }
   getInventoryService() { return this.inventoryService }
+  getPersistenceService() { return this.persistenceService }
 
   // Debug methods
   enableEventTracing(): void {
