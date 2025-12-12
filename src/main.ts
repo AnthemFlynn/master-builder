@@ -3,6 +3,8 @@ import { GameOrchestrator } from './modules/game'
 import { PlayerMode } from './modules/player/domain/PlayerMode'
 import { getWorldPreset } from './modules/world/domain/WorldPreset'
 import { DEFAULT_WORLD_PRESET_ID } from './modules/world/domain/WorldConfig'
+import { SaveGameCommand } from './modules/persistence/domain/commands/SaveGameCommand'
+import { LoadGameCommand } from './modules/persistence/domain/commands/LoadGameCommand'
 
 // Initialize BlockRegistry
 import { initializeBlockRegistry } from './modules/blocks'
@@ -38,14 +40,18 @@ if (typeof window !== 'undefined') {
     setPlayerMode: (mode: PlayerMode) => game.getPlayerService().setMode(mode),
     getPlayerPosition: () => game.getPlayerService().getPosition().clone(),
     setHour: (hour: number) => game.getEnvironmentService().setHour(hour),
-    getWorldPreset: () => activePreset
+    getWorldPreset: () => activePreset,
+    save: (slotName = 'manual-save') => game.commandBus.send(new SaveGameCommand(slotName, slotName, false)),
+    load: (slotName = 'manual-save') => game.commandBus.send(new LoadGameCommand(slotName)),
+    listSaves: async () => await game.getPersistenceService().listSaveSlots()
   }
 
   // Force time to Solar Noon for consistent development lighting
   game.getEnvironmentService().setHour(12)
 
-  console.log('✅ Hexagonal architecture active - 10 modules loaded')
+  console.log('✅ Hexagonal architecture active - 11 modules loaded (persistence added)')
   console.log('🐛 Debug: window.debug.enableTracing()')
+  console.log('💾 Debug: window.debug.save() / window.debug.load() / window.debug.listSaves()')
 }
 
 // Animation loop
