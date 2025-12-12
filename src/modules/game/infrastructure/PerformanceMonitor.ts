@@ -66,4 +66,36 @@ export class PerformanceMonitor {
     })
     return result
   }
+
+  mark(name: string): void {
+    performance.mark(name)
+  }
+
+  measure(name: string, startMark: string, endMark?: string): void {
+    if (endMark) {
+      performance.measure(name, startMark, endMark)
+    } else {
+      performance.measure(name, startMark)
+    }
+  }
+
+  getMeasures(name: string): PerformanceMeasure[] {
+    return performance.getEntriesByName(name, 'measure') as PerformanceMeasure[]
+  }
+
+  clearMarks(name?: string): void {
+    if (name) {
+      performance.clearMarks(name)
+    } else {
+      performance.clearMarks()
+    }
+  }
+
+  clearMeasures(name?: string): void {
+    if (name) {
+      performance.clearMeasures(name)
+    } else {
+      performance.clearMeasures()
+    }
+  }
 }
