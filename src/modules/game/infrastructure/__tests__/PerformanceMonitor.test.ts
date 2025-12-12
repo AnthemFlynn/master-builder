@@ -57,4 +57,25 @@ describe('PerformanceMonitor', () => {
     expect(util.lighting).toEqual({ busy: 4, total: 6 })
     expect(util.meshing).toEqual({ busy: 3, total: 6 })
   })
+
+  it('should create performance marks and measures', () => {
+    monitor.mark('chunk-start')
+    // Simulate work
+    monitor.mark('chunk-end')
+    monitor.measure('Chunk Processing', 'chunk-start', 'chunk-end')
+
+    const measures = monitor.getMeasures('Chunk Processing')
+    expect(measures.length).toBeGreaterThan(0)
+    expect(measures[0].duration).toBeGreaterThanOrEqual(0)
+  })
+
+  it('should clear old marks and measures', () => {
+    monitor.mark('test-mark')
+    monitor.measure('test-measure', 'test-mark')
+
+    monitor.clearMarks('test-mark')
+    monitor.clearMeasures('test-measure')
+
+    expect(monitor.getMeasures('test-measure')).toEqual([])
+  })
 })
