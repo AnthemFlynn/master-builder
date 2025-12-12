@@ -19,12 +19,14 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     const msg = e.data
 
     if (msg.type === 'CALC_LIGHT') {
+    const startTime = performance.now()
+
     const { x, z, neighborVoxels } = msg
     const coord = new ChunkCoordinate(x, z)
 
     // Clear previous chunks and hydrate for this message
     voxelQuery.clear()
-    
+
     // Hydrate center and neighbors
     for (const [key, buffer] of Object.entries(neighborVoxels)) {
       const [dx, dz] = key.split(',').map(Number)
@@ -41,12 +43,16 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     if (!centerChunk) return // Should not happen
 
     const buffer = centerChunk.getRawBuffer()
-    
-    const response: any = {
+
+    const endTime = performance.now()
+    const duration = endTime - startTime
+
+    const response: MainMessage = {
       type: 'LIGHT_CALCULATED',
       x,
       z,
-      chunkBuffer: buffer
+      chunkBuffer: buffer,
+      timingMs: duration
     }
 
     self.postMessage(response, [buffer])
