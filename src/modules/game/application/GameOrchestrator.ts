@@ -227,7 +227,7 @@ export class GameOrchestrator {
     }
 
     // Process meshing queue
-    this.meshingService.processDirtyQueue()
+    const meshingResult = this.meshingService.processDirtyQueue()
 
     // Record frame metrics
     const frameEnd = performance.now()
@@ -237,9 +237,11 @@ export class GameOrchestrator {
     this.performanceMonitor.recordFrameMetrics({
       fps,
       frameTimeMs: frameTime,
-      chunksProcessed: 0, // Will be updated in Phase 2
-      budgetUsedMs: 0 // Will be updated in Phase 2
+      chunksProcessed: meshingResult.chunksProcessed,
+      budgetUsedMs: meshingResult.budgetUsedMs
     })
+
+    this.performanceMonitor.setQueueDepth('meshing', this.meshingService.getQueueDepth())
 
     // Update UI (including debug overlay)
     this.uiService.update()
