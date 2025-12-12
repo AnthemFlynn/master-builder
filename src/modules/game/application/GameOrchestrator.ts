@@ -30,11 +30,13 @@ import { DEFAULT_WORLD_PRESET_ID } from '../../world/domain/WorldConfig'
 import { getWorldPreset } from '../../world/domain/WorldPreset'
 import { GameState } from '../../input/domain/InputState'
 import { UIState } from '../../ui/domain/UIState'
+import { PerformanceMonitor } from '../infrastructure/PerformanceMonitor'
 
 export class GameOrchestrator {
   // Infrastructure
   public commandBus: CommandBus
   public eventBus: EventBus
+  private performanceMonitor: PerformanceMonitor
 
   // Services (all 11 hexagonal modules - persistence added)
   private worldService: WorldService
@@ -70,6 +72,14 @@ export class GameOrchestrator {
     // Create infrastructure
     this.commandBus = new CommandBus()
     this.eventBus = new EventBus()
+    this.performanceMonitor = new PerformanceMonitor()
+
+    // Make it available on window.debug
+    ;(window as any).debug = {
+      ...(window as any).debug,
+      getMetrics: () => this.performanceMonitor.getFrameMetrics(),
+      getLastChunk: () => this.performanceMonitor.getLastChunkMetrics()
+    }
 
     // Create all services (in dependency order)
     this.worldService = new WorldService(this.eventBus)
@@ -184,6 +194,8 @@ export class GameOrchestrator {
   }
 
   update(): void {
+    const frameStart = performance.now()
+
     // Calculate delta time
     const now = performance.now()
     const deltaTime = Math.min((now - this.lastUpdateTime) / 1000, 0.1) // Cap at 100ms
@@ -216,6 +228,18 @@ export class GameOrchestrator {
 
     // Process meshing queue
     this.meshingService.processDirtyQueue()
+
+    // Record frame metrics
+    const frameEnd = performance.now()
+    const frameTime = frameEnd - frameStart
+    const fps = 1000 / frameTime
+
+    this.performanceMonitor.recordFrameMetrics({
+      fps,
+      frameTimeMs: frameTime,
+      chunksProcessed: 0, // Will be updated in Phase 2
+      budgetUsedMs: 0 // Will be updated in Phase 2
+    })
   }
 
   private updatePlayerMovement(deltaTime: number): void {
