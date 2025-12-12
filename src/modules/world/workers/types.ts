@@ -6,7 +6,7 @@ export type ChunkRequest =
       renderDistance: number
     }
 
-export type ChunkResponse = 
+export type ChunkResponse =
   | {
       type: 'CHUNK_GENERATED'
       x: number
@@ -14,6 +14,7 @@ export type ChunkResponse =
       renderDistance: number
       blockBuffer: ArrayBuffer
       metadata: Map<number, any>
+      timingMs: number
     }
 
 export type WorkerMessage = ChunkRequest
