@@ -7,6 +7,8 @@ import { RadialMenuManager } from './components/RadialMenuManager'
 import { CreativeModalManager } from './components/CreativeModalManager'
 import { InventoryService } from '../../inventory/application/InventoryService'
 import { InventoryBank } from '../../inventory/domain/InventoryState'
+import { DebugOverlay } from './DebugOverlay'
+import { PerformanceMonitor } from '../../game/infrastructure/PerformanceMonitor'
 
 export interface UIServiceOptions {
   requestPointerLock?: () => void
@@ -19,11 +21,13 @@ export class UIService implements IUIQuery {
   private menuManager: MenuManager
   private radialMenuManager: RadialMenuManager
   private creativeModalManager: CreativeModalManager
+  private debugOverlay: DebugOverlay
 
   constructor(
     private eventBus: EventBus,
     private options: UIServiceOptions = {},
-    private inventory: InventoryService
+    private inventory: InventoryService,
+    performanceMonitor: PerformanceMonitor
   ) {
     this.hudManager = new HUDManager()
     // Initialize hotbar with current inventory
@@ -51,7 +55,9 @@ export class UIService implements IUIQuery {
         // When modal closes itself, return to playing
         this.onPlay()
     })
-    
+
+    this.debugOverlay = new DebugOverlay(performanceMonitor)
+
     // Listen for mouse movements for the radial menu
     this.eventBus.on('input', 'InputMouseMoveEvent', (e: any) => {
         if (this.state === UIState.RADIAL_MENU) {
@@ -137,5 +143,9 @@ export class UIService implements IUIQuery {
 
   updateFPS(): void {
     this.hudManager.updateFPS()
+  }
+
+  update(): void {
+    this.debugOverlay.update()
   }
 }

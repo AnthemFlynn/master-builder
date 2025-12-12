@@ -1,0 +1,23 @@
+#debug-overlay {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  padding: 15px;
+  border-radius: 5px;
+  z-index: 10000;
+  pointer-events: none;
+  min-width: 300px;
+}
+
+.debug-section {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.debug-section:last-child {
+  margin-bottom: 0;
+}

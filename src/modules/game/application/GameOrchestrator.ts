@@ -91,7 +91,7 @@ export class GameOrchestrator {
     this.uiService = new UIService(this.eventBus, {
       requestPointerLock: () => this.cameraControls.lock(),
       exitPointerLock: () => this.cameraControls.unlock()
-    }, this.inventoryService)
+    }, this.inventoryService, this.performanceMonitor)
     this.audioService = new AudioService(camera, this.eventBus)
     this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)
     this.environmentService = new EnvironmentService(scene, camera, this.eventBus)
@@ -240,6 +240,9 @@ export class GameOrchestrator {
       chunksProcessed: 0, // Will be updated in Phase 2
       budgetUsedMs: 0 // Will be updated in Phase 2
     })
+
+    // Update UI (including debug overlay)
+    this.uiService.update()
   }
 
   private updatePlayerMovement(deltaTime: number): void {
