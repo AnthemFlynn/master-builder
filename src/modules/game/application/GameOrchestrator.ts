@@ -62,6 +62,15 @@ export class GameOrchestrator {
   private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
   private cameraControls: PointerLockControls
 
+  // Chunk prioritization weights
+  private readonly PRIORITY_DISTANCE_MULTIPLIER = 10
+  private readonly PRIORITY_VISIBLE_BONUS = -50
+  private readonly PRIORITY_FORWARD_BONUS = -20
+
+  // FPS smoothing
+  private frameTimeHistory: number[] = []
+  private readonly FPS_SAMPLE_SIZE = 60
+
   constructor(
     private scene: THREE.Scene,
     private camera: THREE.PerspectiveCamera
@@ -229,14 +238,23 @@ export class GameOrchestrator {
     // Process meshing queue
     const meshingResult = this.meshingService.processDirtyQueue()
 
-    // Record frame metrics
+    // Record frame metrics with rolling average for FPS
     const frameEnd = performance.now()
     const frameTime = frameEnd - frameStart
-    const fps = 1000 / frameTime
+
+    // Update rolling average
+    this.frameTimeHistory.push(frameTime)
+    if (this.frameTimeHistory.length > this.FPS_SAMPLE_SIZE) {
+      this.frameTimeHistory.shift()
+    }
+
+    // Calculate average FPS from recent frames
+    const avgFrameTime = this.frameTimeHistory.reduce((sum, ft) => sum + ft, 0) / this.frameTimeHistory.length
+    const fps = 1000 / avgFrameTime
 
     this.performanceMonitor.recordFrameMetrics({
       fps,
-      frameTimeMs: frameTime,
+      frameTimeMs: avgFrameTime,
       chunksProcessed: meshingResult.chunksProcessed,
       budgetUsedMs: meshingResult.budgetUsedMs
     })
@@ -349,14 +367,14 @@ export class GameOrchestrator {
     )
     const dx = coord.x - centerChunk.x
     const dz = coord.z - centerChunk.z
-    const distanceScore = Math.sqrt(dx * dx + dz * dz) * 10
+    const distanceScore = Math.sqrt(dx * dx + dz * dz) * this.PRIORITY_DISTANCE_MULTIPLIER
 
-    // Factor 2: Frustum visibility (-50 if visible, 0 if not)
+    // Factor 2: Frustum visibility (negative bonus if visible)
     const chunkBox = this.getChunkBoundingBox(coord)
-    const visibilityScore = frustum.intersectsBox(chunkBox) ? -50 : 0
+    const visibilityScore = frustum.intersectsBox(chunkBox) ? this.PRIORITY_VISIBLE_BONUS : 0
 
-    // Factor 3: Movement direction (-20 if ahead, 0 if not)
-    const forwardScore = this.isInMovementDirection(coord, camera) ? -20 : 0
+    // Factor 3: Movement direction (negative bonus if ahead)
+    const forwardScore = this.isInMovementDirection(coord, camera) ? this.PRIORITY_FORWARD_BONUS : 0
 
     return distanceScore + visibilityScore + forwardScore
   }

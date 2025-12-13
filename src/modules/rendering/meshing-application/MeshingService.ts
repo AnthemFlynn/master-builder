@@ -124,7 +124,11 @@ export class MeshingService {
       }
 
       const coord = ChunkCoordinate.fromKey(key)
-      this.buildMesh(coord)
+      this.buildMesh(coord).catch((error) => {
+        console.error(`[MeshingService] Failed to build mesh for chunk (${coord.x}, ${coord.z}):`, error)
+        // Re-queue chunk for retry
+        this.markDirty(coord, reason)
+      })
       this.dirtyQueue.delete(key)
       chunksProcessed++
     }
