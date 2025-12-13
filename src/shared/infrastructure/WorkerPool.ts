@@ -71,7 +71,9 @@ export class WorkerPool {
     // Process next queued task or return worker to pool
     if (this.taskQueue.length > 0) {
       const nextTask = this.taskQueue.shift()!
-      this.executeTask(nextTask)
+      // Reuse this worker for the next task
+      this.workerTasks.set(worker, nextTask)
+      worker.postMessage(nextTask.task)
     } else {
       this.availableWorkers.push(worker)
     }
