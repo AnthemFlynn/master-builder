@@ -303,22 +303,100 @@ export class GameOrchestrator {
     const distance = this.renderDistance
     const chunksToLoad: ChunkCoordinate[] = []
 
+    // Generate grid of chunks
     for (let x = -distance; x <= distance; x++) {
       for (let z = -distance; z <= distance; z++) {
         chunksToLoad.push(new ChunkCoordinate(centerChunk.x + x, centerChunk.z + z))
       }
     }
 
-    // Sort by distance from center (Radial Loading)
-    chunksToLoad.sort((a, b) => {
-        const distA = Math.pow(a.x - centerChunk.x, 2) + Math.pow(a.z - centerChunk.z, 2)
-        const distB = Math.pow(b.x - centerChunk.x, 2) + Math.pow(b.z - centerChunk.z, 2)
-        return distA - distB
-    })
+    // Prioritize by visibility and distance
+    const prioritized = this.prioritizeChunks(chunksToLoad, this.camera)
 
-    for (const coord of chunksToLoad) {
-        this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
+    // Send commands in priority order
+    for (const coord of prioritized) {
+      this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
     }
+  }
+
+  private prioritizeChunks(chunks: ChunkCoordinate[], camera: THREE.Camera): ChunkCoordinate[] {
+    // Create frustum from camera
+    const frustum = new THREE.Frustum()
+    const projScreenMatrix = new THREE.Matrix4()
+    projScreenMatrix.multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse
+    )
+    frustum.setFromProjectionMatrix(projScreenMatrix)
+
+    // Sort by priority score
+    return chunks.sort((a, b) => {
+      const scoreA = this.calculatePriority(a, camera, frustum)
+      const scoreB = this.calculatePriority(b, camera, frustum)
+      return scoreA - scoreB
+    })
+  }
+
+  private calculatePriority(
+    coord: ChunkCoordinate,
+    camera: THREE.Camera,
+    frustum: THREE.Frustum
+  ): number {
+    // Factor 1: Distance (0-100)
+    const centerChunk = this.worldService.worldToChunkCoord(
+      camera.position.x,
+      camera.position.z
+    )
+    const dx = coord.x - centerChunk.x
+    const dz = coord.z - centerChunk.z
+    const distanceScore = Math.sqrt(dx * dx + dz * dz) * 10
+
+    // Factor 2: Frustum visibility (-50 if visible, 0 if not)
+    const chunkBox = this.getChunkBoundingBox(coord)
+    const visibilityScore = frustum.intersectsBox(chunkBox) ? -50 : 0
+
+    // Factor 3: Movement direction (-20 if ahead, 0 if not)
+    const forwardScore = this.isInMovementDirection(coord, camera) ? -20 : 0
+
+    return distanceScore + visibilityScore + forwardScore
+  }
+
+  private getChunkBoundingBox(coord: ChunkCoordinate): THREE.Box3 {
+    const chunkSize = 24
+    const chunkHeight = 256
+    const worldX = coord.x * chunkSize
+    const worldZ = coord.z * chunkSize
+
+    return new THREE.Box3(
+      new THREE.Vector3(worldX, 0, worldZ),
+      new THREE.Vector3(worldX + chunkSize, chunkHeight, worldZ + chunkSize)
+    )
+  }
+
+  private isInMovementDirection(coord: ChunkCoordinate, camera: THREE.Camera): boolean {
+    const chunkSize = 24
+    const centerChunk = this.worldService.worldToChunkCoord(
+      camera.position.x,
+      camera.position.z
+    )
+
+    // Get camera forward direction (horizontal plane only)
+    const forward = new THREE.Vector3(0, 0, -1)
+    forward.applyQuaternion(camera.quaternion)
+    forward.y = 0
+    forward.normalize()
+
+    // Get direction to chunk center
+    const chunkCenter = new THREE.Vector3(
+      coord.x * chunkSize + chunkSize / 2,
+      0,
+      coord.z * chunkSize + chunkSize / 2
+    )
+    const cameraPos = new THREE.Vector3(camera.position.x, 0, camera.position.z)
+    const toChunk = chunkCenter.sub(cameraPos).normalize()
+
+    // Check if chunk is in forward direction (dot product > 0.5 = ~60 degrees)
+    return forward.dot(toChunk) > 0.5
   }
 
   private setupInteractionListeners(): void {
