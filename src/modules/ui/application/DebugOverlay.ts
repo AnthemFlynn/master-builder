@@ -1,4 +1,4 @@
-import { PerformanceMonitor } from '@/modules/game/infrastructure/PerformanceMonitor'
+import { PerformanceMonitor } from '../../game/infrastructure/PerformanceMonitor'
 
 export class DebugOverlay {
   private container: HTMLDivElement

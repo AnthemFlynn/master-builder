@@ -1,4 +1,4 @@
-import { ChunkCoordinate } from '@/shared/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 
 export interface ChunkMetrics {
   terrainGenMs: number
