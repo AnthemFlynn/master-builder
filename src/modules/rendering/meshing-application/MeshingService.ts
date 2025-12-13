@@ -6,47 +6,20 @@ import { ILightingQuery } from '../../environment/ports/ILightingQuery'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { ILightStorage } from '../../environment/ports/ILightStorage'
 import { WorkerMessage, MainMessage } from '../workers/types'
+import { MeshingWorkerPool } from '../infrastructure/MeshingWorkerPool'
 
 export class MeshingService {
   private dirtyQueue = new Map<string, 'block' | 'light' | 'global'>()
   private rebuildBudgetMs = 3
-  private worker: Worker
+  private meshingWorkerPool: MeshingWorkerPool
 
   constructor(
     private voxels: IVoxelQuery & { getChunk: any }, // Need getChunk for buffers
     private lighting: ILightingQuery & ILightStorage, // Need storage access to get raw buffers
     private eventBus: EventBus
   ) {
-    this.worker = new Worker("/assets/MeshingWorker.js")
-    this.worker.onmessage = this.handleWorkerMessage.bind(this)
+    this.meshingWorkerPool = new MeshingWorkerPool(6)
     this.setupEventListeners()
-  }
-
-  private handleWorkerMessage(e: MessageEvent<MainMessage>) {
-      const msg = e.data
-      if (msg.type === 'MESH_GENERATED') {
-        const { x, z, geometry } = msg
-        const coord = new ChunkCoordinate(x, z)
-        
-        const geometryMap = new Map<string, THREE.BufferGeometry>()
-        
-        for (const [key, buffers] of Object.entries(geometry as Record<string, any>)) {
-            const geo = new THREE.BufferGeometry()
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
-            geo.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
-            geo.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
-            geo.setIndex(new THREE.Uint16BufferAttribute(buffers.indices, 1))
-            geo.computeVertexNormals()
-            geometryMap.set(key, geo)
-        }
-        
-        this.eventBus.emit('meshing', {
-            type: 'ChunkMeshBuiltEvent',
-            timestamp: Date.now(),
-            chunkCoord: coord,
-            geometryMap
-        })
-      }
   }
 
   private setupEventListeners(): void {
@@ -70,7 +43,7 @@ export class MeshingService {
     })
   }
 
-  buildMesh(coord: ChunkCoordinate): void {
+  async buildMesh(coord: ChunkCoordinate): Promise<void> {
     // Collect Neighbor Light Data (Light is now inside ChunkData)
     // We only need to check if the center chunk data is available to proceed
     const centerChunk = this.voxels.getChunk(coord)
@@ -82,7 +55,7 @@ export class MeshingService {
     // Collect Neighbor Voxel Data (which now includes Light Data)
     const neighborVoxels: Record<string, ArrayBuffer> = {}
     const offsets = ['0,0', '1,0', '-1,0', '0,1', '0,-1']
-    
+
     for (const key of offsets) {
         const [dx, dz] = key.split(',').map(Number)
         const c = new ChunkCoordinate(coord.x + dx, coord.z + dz)
@@ -92,15 +65,34 @@ export class MeshingService {
         }
     }
 
-    // Send to worker
-    const request: WorkerMessage = {
-        type: 'GEN_MESH',
-        x: coord.x,
-        z: coord.z,
-        neighborVoxels,
-        neighborLight: {} // Empty as it's now in neighborVoxels
+    // Send to worker pool
+    const result = await this.meshingWorkerPool.generateMesh(
+      coord,
+      neighborVoxels,
+      {} // neighborLight is empty as it's now in neighborVoxels
+    )
+
+    const { x, z, geometry } = result
+    const resultCoord = new ChunkCoordinate(x, z)
+
+    const geometryMap = new Map<string, THREE.BufferGeometry>()
+
+    for (const [key, buffers] of Object.entries(geometry as Record<string, any>)) {
+        const geo = new THREE.BufferGeometry()
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
+        geo.setIndex(new THREE.Uint16BufferAttribute(buffers.indices, 1))
+        geo.computeVertexNormals()
+        geometryMap.set(key, geo)
     }
-    this.worker.postMessage(request) // Browser will copy buffers, preventing DataCloneError
+
+    this.eventBus.emit('meshing', {
+        type: 'ChunkMeshBuiltEvent',
+        timestamp: Date.now(),
+        chunkCoord: resultCoord,
+        geometryMap
+    })
   }
 
   markDirty(coord: ChunkCoordinate, reason: 'block' | 'light' | 'global'): void {
@@ -146,5 +138,9 @@ export class MeshingService {
 
   getQueueDepth(): number {
     return this.dirtyQueue.size
+  }
+
+  getWorkerUtilization(): { busy: number; total: number } {
+    return this.meshingWorkerPool.getUtilization()
   }
 }

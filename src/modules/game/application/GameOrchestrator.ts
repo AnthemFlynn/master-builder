@@ -247,6 +247,11 @@ export class GameOrchestrator {
       this.environmentService.getWorkerUtilization().busy,
       this.environmentService.getWorkerUtilization().total
     )
+    this.performanceMonitor.setWorkerUtilization(
+      'meshing',
+      this.meshingService.getWorkerUtilization().busy,
+      this.meshingService.getWorkerUtilization().total
+    )
 
     // Update UI (including debug overlay)
     this.uiService.update()
