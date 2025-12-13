@@ -242,6 +242,11 @@ export class GameOrchestrator {
     })
 
     this.performanceMonitor.setQueueDepth('meshing', this.meshingService.getQueueDepth())
+    this.performanceMonitor.setWorkerUtilization(
+      'lighting',
+      this.environmentService.getWorkerUtilization().busy,
+      this.environmentService.getWorkerUtilization().total
+    )
 
     // Update UI (including debug overlay)
     this.uiService.update()
