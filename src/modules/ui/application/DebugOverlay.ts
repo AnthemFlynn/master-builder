@@ -4,6 +4,7 @@ export class DebugOverlay {
   private container: HTMLDivElement
   private enabled: boolean = false
   private monitor: PerformanceMonitor
+  private handleKeyDown: (e: KeyboardEvent) => void
 
   constructor(monitor: PerformanceMonitor) {
     this.monitor = monitor
@@ -13,12 +14,13 @@ export class DebugOverlay {
     document.body.appendChild(this.container)
 
     // F3 key toggle
-    window.addEventListener('keydown', (e) => {
+    this.handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F3') {
         e.preventDefault()
         this.toggle()
       }
-    })
+    }
+    window.addEventListener('keydown', this.handleKeyDown)
   }
 
   toggle(): void {
@@ -52,5 +54,10 @@ export class DebugOverlay {
         </div>
       ` : ''}
     `
+  }
+
+  dispose(): void {
+    window.removeEventListener('keydown', this.handleKeyDown)
+    this.container.remove()
   }
 }

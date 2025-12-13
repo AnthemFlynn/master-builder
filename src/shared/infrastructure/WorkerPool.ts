@@ -28,19 +28,25 @@ export class WorkerPool {
 
   private initializeWorkers(): void {
     for (let i = 0; i < this.workerCount; i++) {
-      const worker = new Worker(this.workerScript, { type: 'module' })
-
-      worker.onmessage = (event: MessageEvent) => {
-        this.onWorkerComplete(worker, event.data)
-      }
-
-      worker.onerror = (error: ErrorEvent) => {
-        this.onWorkerError(worker, error)
-      }
-
-      this.workers.push(worker)
-      this.availableWorkers.push(worker)
+      this.createWorker()
     }
+  }
+
+  private createWorker(): Worker {
+    const worker = new Worker(this.workerScript, { type: 'module' })
+
+    worker.onmessage = (event: MessageEvent) => {
+      this.onWorkerComplete(worker, event.data)
+    }
+
+    worker.onerror = (error: ErrorEvent) => {
+      this.onWorkerError(worker, error)
+    }
+
+    this.workers.push(worker)
+    this.availableWorkers.push(worker)
+
+    return worker
   }
 
   execute(task: WorkerTask): Promise<WorkerResult> {
@@ -86,7 +92,15 @@ export class WorkerPool {
       this.workerTasks.delete(worker)
     }
 
-    this.availableWorkers.push(worker)
+    // Remove failed worker from pools
+    this.workers = this.workers.filter(w => w !== worker)
+    this.availableWorkers = this.availableWorkers.filter(w => w !== worker)
+
+    // Terminate failed worker
+    worker.terminate()
+
+    // Create replacement worker
+    this.createWorker()
   }
 
   getWorkerCount(): number {
