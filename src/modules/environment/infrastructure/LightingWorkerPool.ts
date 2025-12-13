@@ -1,5 +1,5 @@
-import { WorkerPool } from '@/shared/infrastructure/WorkerPool'
-import { ChunkCoordinate } from '@/shared/domain/ChunkCoordinate'
+import { WorkerPool } from '../../../shared/infrastructure/WorkerPool'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 
 interface LightingTask {
   type: 'CALC_LIGHT'
