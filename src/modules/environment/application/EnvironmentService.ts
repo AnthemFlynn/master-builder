@@ -9,11 +9,12 @@ import { ILightingQuery } from '../ports/ILightingQuery'
 import { ILightStorage } from '../ports/ILightStorage'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { LightValue } from '../domain/voxel-lighting/LightValue'
+import { LightingWorkerPool } from '../infrastructure/LightingWorkerPool'
 
 export class EnvironmentService implements ILightingQuery, ILightStorage {
   private timeCycle: TimeCycle
   private skyAdapter: ThreeSkyAdapter
-  private worker: Worker
+  private lightingWorkerPool: LightingWorkerPool
   // Use ChunkData instead of LightData
   private chunkDataMap = new Map<string, ChunkData>()
 
@@ -29,9 +30,8 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
     const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x444422, 0.6)
     scene.add(hemiLight)
 
-    // Initialize Lighting Worker
-    this.worker = new Worker("/assets/LightingWorker.js")
-    this.worker.onmessage = this.handleWorkerMessage.bind(this)
+    // Initialize Lighting Worker Pool (6 workers)
+    this.lightingWorkerPool = new LightingWorkerPool(6)
 
     this.setupEventListeners()
 
@@ -94,36 +94,29 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
   }
   
   // Called by WorldService
-  calculateLight(
-      coord: ChunkCoordinate, 
+  async calculateLight(
+      coord: ChunkCoordinate,
       neighborVoxels: Record<string, ArrayBuffer>
-  ): void {
-      const request: ChunkRequest = {
-          type: 'CALC_LIGHT',
-          x: coord.x,
-          z: coord.z,
-          neighborVoxels
-      }
-      this.worker.postMessage(request)
+  ): Promise<void> {
+      const result = await this.lightingWorkerPool.calculateLight(coord, neighborVoxels)
+
+      const { x, z, chunkBuffer } = result
+      const resultCoord = new ChunkCoordinate(x, z)
+
+      // Create ChunkData from buffer (Bit Packed)
+      const chunkData = new ChunkData(resultCoord, chunkBuffer)
+
+      this.chunkDataMap.set(resultCoord.toKey(), chunkData)
+
+      this.eventBus.emit('lighting', {
+          type: 'LightingCalculatedEvent',
+          chunkCoord: resultCoord,
+          lightBuffer: chunkBuffer // Pass the unified buffer back to subscribers (WorldService)
+      })
   }
 
-  private handleWorkerMessage(e: MessageEvent<MainMessage>) {
-      const msg = e.data
-      if (msg.type === 'LIGHT_CALCULATED') {
-          const { x, z, chunkBuffer } = msg
-          const coord = new ChunkCoordinate(x, z)
-          
-          // Create ChunkData from buffer (Bit Packed)
-          const chunkData = new ChunkData(coord, chunkBuffer)
-          
-          this.chunkDataMap.set(coord.toKey(), chunkData)
-
-          this.eventBus.emit('lighting', {
-                  type: 'LightingCalculatedEvent',
-                  chunkCoord: coord,
-                  lightBuffer: chunkBuffer // Pass the unified buffer back to subscribers (WorldService)
-              })
-      }
+  getWorkerUtilization(): { busy: number; total: number } {
+    return this.lightingWorkerPool.getUtilization()
   }
 
   update(): void {
