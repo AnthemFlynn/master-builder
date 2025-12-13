@@ -30,6 +30,8 @@ export class PerformanceMonitor {
   }
   private queueDepths: Map<string, number> = new Map()
   private workerUtilization: Map<string, WorkerUtilization> = new Map()
+  private measureCleanupCounter: number = 0
+  private readonly CLEANUP_INTERVAL = 300 // Clean up every 300 frames (~5 seconds at 60fps)
 
   recordChunkTiming(coord: ChunkCoordinate, metrics: ChunkMetrics): void {
     this.lastChunkMetrics = metrics
@@ -41,6 +43,14 @@ export class PerformanceMonitor {
 
   recordFrameMetrics(metrics: FrameMetrics): void {
     this.frameMetrics = metrics
+
+    // Periodically clean up old measures to prevent memory growth
+    this.measureCleanupCounter++
+    if (this.measureCleanupCounter >= this.CLEANUP_INTERVAL) {
+      this.clearMarks()
+      this.clearMeasures()
+      this.measureCleanupCounter = 0
+    }
   }
 
   getFrameMetrics(): FrameMetrics {
