@@ -31,11 +31,45 @@ export class PerformanceConfig {
     this.load()
   }
 
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value))
+  }
+
   private load(): void {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
+    if (!stored) return
+
+    try {
       const data: ConfigData = JSON.parse(stored)
-      Object.assign(this, data)
+
+      // Validate and clamp each property
+      if (data.workerPoolSize !== undefined) {
+        this.workerPoolSize = this.clamp(data.workerPoolSize, 2, 12)
+      }
+      if (data.frameBudgetMs !== undefined) {
+        this.frameBudgetMs = this.clamp(data.frameBudgetMs, 2, 5)
+      }
+      if (data.lodLevel0Max !== undefined) {
+        this.lodLevel0Max = this.clamp(data.lodLevel0Max, 1.0, 10.0)
+      }
+      if (data.lodLevel1Max !== undefined) {
+        this.lodLevel1Max = this.clamp(data.lodLevel1Max, 2.0, 10.0)
+      }
+      if (data.lodLevel2Max !== undefined) {
+        this.lodLevel2Max = this.clamp(data.lodLevel2Max, 3.0, 10.0)
+      }
+      if (data.lodTransitionMs !== undefined) {
+        this.lodTransitionMs = this.clamp(data.lodTransitionMs, 150, 500)
+      }
+      if (data.lodCacheSize !== undefined) {
+        this.lodCacheSize = this.clamp(data.lodCacheSize, 10, 50)
+      }
+      if (data.lodHysteresis !== undefined) {
+        this.lodHysteresis = this.clamp(data.lodHysteresis, 0.3, 0.8)
+      }
+    } catch (error) {
+      // If JSON.parse fails or data is corrupt, keep defaults
+      console.warn('Failed to load performance config from localStorage:', error)
     }
   }
 
