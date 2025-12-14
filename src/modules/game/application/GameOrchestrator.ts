@@ -63,7 +63,9 @@ export class GameOrchestrator {
   private renderDistance = 7
   private lastUpdateTime = performance.now()
   private lastChunkUnloadTime = performance.now()
+  private lastLODCheckTime = performance.now()
   private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
+  private lodCheckInterval = 500 // Check LOD levels every 0.5 seconds
   private cameraControls: PointerLockControls
 
   // LOD level tracking for chunks
@@ -255,6 +257,12 @@ export class GameOrchestrator {
       this.lastChunkUnloadTime = now
     }
 
+    // Periodically check for LOD level changes
+    if (now - this.lastLODCheckTime > this.lodCheckInterval) {
+      this.checkLODLevels()
+      this.lastLODCheckTime = now
+    }
+
     // Process meshing queue
     const meshingResult = this.meshingService.processDirtyQueue()
 
@@ -346,6 +354,32 @@ export class GameOrchestrator {
     // PlayerService is updated by PhysicsService directly (via worker message)
     // Sync camera to player position (after physics update)
     this.camera.position.copy(this.playerService.getPosition())
+  }
+
+  private checkLODLevels(): void {
+    const loadedChunks = this.renderingService.getLoadedChunks()
+
+    for (const [key, group] of loadedChunks) {
+      const coord = ChunkCoordinate.fromKey(key)
+      const currentLevel = this.chunkLODLevels.get(key)
+
+      if (currentLevel !== undefined) {
+        const targetLevel = this.lodManager.calculateLODLevel(coord, this.camera)
+
+        // Start transition if level changed
+        if (currentLevel !== targetLevel) {
+          // Get first mesh from group for transition
+          const firstMesh = group.children[0] as THREE.Mesh
+          if (firstMesh) {
+            this.lodManager.checkForLODChange(coord, this.camera, firstMesh)
+            // Request new mesh at target level (will go through meshing pipeline)
+            this.meshingService.setChunkLODLevel(coord, targetLevel)
+            this.chunkLODLevels.set(key, targetLevel)
+            this.meshingService.markDirty(coord, 'global')
+          }
+        }
+      }
+    }
   }
 
   private generateChunksInRenderDistance(centerChunk: ChunkCoordinate): void {

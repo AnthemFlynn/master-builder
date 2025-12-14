@@ -77,4 +77,8 @@ export class ChunkRenderer {
     }
     this.meshes.clear()
   }
+
+  getLoadedChunks(): Map<string, THREE.Group> {
+    return this.meshes
+  }
 }

@@ -35,4 +35,8 @@ export class RenderingService {
 
     return distribution
   }
+
+  getLoadedChunks(): Map<string, THREE.Group> {
+    return this.chunkRenderer.getLoadedChunks()
+  }
 }
