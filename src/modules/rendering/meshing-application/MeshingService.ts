@@ -43,7 +43,7 @@ export class MeshingService {
     })
   }
 
-  async buildMesh(coord: ChunkCoordinate): Promise<void> {
+  async buildMesh(coord: ChunkCoordinate, lodLevel: 0 | 1 | 2 | 3 = 0): Promise<void> {
     // Collect Neighbor Light Data (Light is now inside ChunkData)
     // We only need to check if the center chunk data is available to proceed
     const centerChunk = this.voxels.getChunk(coord)
@@ -65,11 +65,13 @@ export class MeshingService {
         }
     }
 
-    // Send to worker pool
+    // Send to worker pool with LOD level and priority
     const result = await this.meshingWorkerPool.generateMesh(
       coord,
       neighborVoxels,
-      {} // neighborLight is empty as it's now in neighborVoxels
+      {}, // neighborLight is empty as it's now in neighborVoxels
+      lodLevel,
+      lodLevel // priority = lodLevel (0 is highest priority)
     )
 
     const { x, z, geometry } = result
@@ -91,7 +93,8 @@ export class MeshingService {
         type: 'ChunkMeshBuiltEvent',
         timestamp: Date.now(),
         chunkCoord: resultCoord,
-        geometryMap
+        geometryMap,
+        lodLevel
     })
   }
 
