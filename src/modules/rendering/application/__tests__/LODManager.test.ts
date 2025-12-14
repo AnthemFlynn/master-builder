@@ -72,4 +72,62 @@ describe('LODManager', () => {
     const level3 = manager.calculateLODLevel(coord, camera)
     expect(level3).toBe(0)  // Now Level 0 (crossed hysteresis threshold)
   })
+
+  it('should start transition when LOD level changes', () => {
+    // Use a chunk far enough to be at Level 1
+    const coord = new ChunkCoordinate(3, 0)
+    const oldMesh = new THREE.Mesh(new THREE.BufferGeometry())
+    const oldMaterial = new THREE.MeshStandardMaterial()
+    oldMesh.material = oldMaterial
+
+    // Start at Level 0
+    manager.setCurrentLevel(coord, 0)
+
+    // Camera at origin, chunk at (3,0) is distance 3.5 -> should be Level 1
+    const needsTransition = manager.checkForLODChange(coord, camera, oldMesh)
+    expect(needsTransition).toBe(true)
+
+    const transition = manager.getActiveTransition(coord)
+    expect(transition).toBeDefined()
+    expect(transition!.fromLevel).toBe(0)
+    expect(transition!.toLevel).toBe(1)
+  })
+
+  it('should update transition progress over time', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const oldMesh = new THREE.Mesh(new THREE.BufferGeometry())
+    oldMesh.material = new THREE.MeshStandardMaterial()
+
+    manager.startTransition(coord, 0, 1, oldMesh, null, oldMesh.material as THREE.Material, null)
+
+    // Initially progress should be 0
+    let transition = manager.getActiveTransition(coord)
+    expect(transition!.progress).toBe(0)
+
+    // After 150ms (half of 300ms), progress should be ~0.5
+    manager.updateTransitions(150)
+    transition = manager.getActiveTransition(coord)
+    expect(transition!.progress).toBeGreaterThan(0.4)
+    expect(transition!.progress).toBeLessThan(0.6)
+  })
+
+  it('should complete transition and cleanup after duration', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const oldMesh = new THREE.Mesh(new THREE.BufferGeometry())
+    const newMesh = new THREE.Mesh(new THREE.BufferGeometry())
+    oldMesh.material = new THREE.MeshStandardMaterial()
+    newMesh.material = new THREE.MeshStandardMaterial()
+
+    manager.startTransition(
+      coord, 0, 1, oldMesh, newMesh,
+      oldMesh.material as THREE.Material,
+      newMesh.material as THREE.Material
+    )
+
+    // Update past completion time
+    manager.updateTransitions(350)
+
+    // Transition should be removed
+    expect(manager.getActiveTransition(coord)).toBeNull()
+  })
 })
