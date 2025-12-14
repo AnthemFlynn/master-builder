@@ -144,68 +144,72 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             indices: Uint16Array
         }
 
+        const endTime = performance.now()
+        const duration = endTime - startTime
+
+        let outputGeometry: Record<string, any>
+        let transferList: ArrayBuffer[]
+
         if (lodLevel === 0) {
-            // Level 0: Full detail with greedy meshing + AO
+            // Level 0: Full detail - keep multi-material format for proper textures
             const vertexBuilder = new VertexBuilder(voxelQuery, lightingQuery, x, z)
             const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
             mesher.buildMesh(vertexBuilder)
 
             const buffersMap = vertexBuilder.getBuffers()
+            outputGeometry = {}
+            transferList = []
 
-            // Combine all buffers into one
-            const positions: number[] = []
-            const colors: number[] = []
-            const uvs: number[] = []
-            const indices: number[] = []
-            let vertexOffset = 0
-
-            for (const buffer of buffersMap.values()) {
-                positions.push(...buffer.positions)
-                colors.push(...buffer.colors)
-                uvs.push(...buffer.uvs)
-
-                for (let i = 0; i < buffer.indices.length; i++) {
-                    indices.push(buffer.indices[i] + vertexOffset)
+            for (const [key, buffers] of buffersMap.entries()) {
+                outputGeometry[key] = {
+                    positions: buffers.positions.buffer,
+                    colors: buffers.colors.buffer,
+                    uvs: buffers.uvs.buffer,
+                    indices: buffers.indices.buffer
                 }
-
-                vertexOffset += buffer.positions.length / 3
+                transferList.push(
+                    buffers.positions.buffer,
+                    buffers.colors.buffer,
+                    buffers.uvs.buffer,
+                    buffers.indices.buffer
+                )
             }
-
-            geometry = {
-                positions: new Float32Array(positions),
-                colors: new Float32Array(colors),
-                uvs: new Float32Array(uvs),
-                indices: new Uint16Array(indices)
-            }
-        } else if (lodLevel === 1) {
-            // Level 1: No AO (20-30% faster)
-            geometry = noAOMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
-        } else if (lodLevel === 2) {
-            // Level 2: Aggressive 2×2 merging (70% fewer polygons)
-            geometry = aggressiveMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
         } else {
-            // Level 3: Outer shell only (95% fewer polygons)
-            geometry = outerShellMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
-        }
-
-        const endTime = performance.now()
-        const duration = endTime - startTime
-
-        const outputGeometry: Record<string, any> = {
-            default: {
-                positions: geometry.positions.buffer,
-                colors: geometry.colors.buffer,
-                uvs: geometry.uvs.buffer,
-                indices: geometry.indices.buffer
+            // Level 1-3: Simplified LOD - use single 'default' material
+            let geometry: {
+                positions: Float32Array
+                colors: Float32Array
+                uvs: Float32Array
+                indices: Uint16Array
             }
-        }
 
-        const transferList: ArrayBuffer[] = [
-            geometry.positions.buffer,
-            geometry.colors.buffer,
-            geometry.uvs.buffer,
-            geometry.indices.buffer
-        ]
+            if (lodLevel === 1) {
+                // Level 1: No AO (20-30% faster)
+                geometry = noAOMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
+            } else if (lodLevel === 2) {
+                // Level 2: Aggressive 2×2 merging (70% fewer polygons)
+                geometry = aggressiveMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
+            } else {
+                // Level 3: Outer shell only (95% fewer polygons)
+                geometry = outerShellMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
+            }
+
+            outputGeometry = {
+                default: {
+                    positions: geometry.positions.buffer,
+                    colors: geometry.colors.buffer,
+                    uvs: geometry.uvs.buffer,
+                    indices: geometry.indices.buffer
+                }
+            }
+
+            transferList = [
+                geometry.positions.buffer,
+                geometry.colors.buffer,
+                geometry.uvs.buffer,
+                geometry.indices.buffer
+            ]
+        }
 
         const response: MainMessage = {
             type: 'MESH_GENERATED',
