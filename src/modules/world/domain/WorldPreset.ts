@@ -30,6 +30,83 @@ export interface WorldPreset {
 }
 
 export const WORLD_PRESETS: Record<string, WorldPreset> = {
+  test_complex: {
+    id: 'test_complex',
+    name: 'Complex Test World',
+    seedOffset: 777,
+    baseHeight: 35,
+    heightVariation: 28,  // Rolling hills and valleys
+    detailVariation: 6,   // Detailed terrain features
+    biomeNoiseScale: 50,  // Medium-sized biomes
+    waterLevel: 28,       // Some water bodies
+    defaultLightingHour: 12,
+    biomes: [
+      {
+        id: 'grassland',
+        name: 'Grassland',
+        surfaceBlock: BlockType.grass,
+        subsurfaceBlock: BlockType.dirt,
+        fillerBlock: BlockType.stone,
+        minHeightOffset: -8,
+        maxHeightOffset: 12,
+        decoration: {
+          treeDensity: 0.04,
+          treeTypes: [
+            { trunk: BlockType.tree, leaves: BlockType.leaf, minHeight: 5, maxHeight: 9 }
+          ],
+          rockDensity: 0.05
+        }
+      },
+      {
+        id: 'desert',
+        name: 'Desert',
+        surfaceBlock: BlockType.sand,
+        subsurfaceBlock: BlockType.sand,
+        fillerBlock: BlockType.dirt,
+        minHeightOffset: -12,
+        maxHeightOffset: 8,
+        decoration: {
+          treeDensity: 0.01,
+          treeTypes: [
+            { trunk: BlockType.tree, leaves: BlockType.leaf, minHeight: 3, maxHeight: 5 }
+          ],
+          rockDensity: 0.15
+        }
+      },
+      {
+        id: 'rocky_hills',
+        name: 'Rocky Hills',
+        surfaceBlock: BlockType.stone,
+        subsurfaceBlock: BlockType.stone,
+        fillerBlock: BlockType.stone,
+        minHeightOffset: 4,
+        maxHeightOffset: 18,
+        decoration: {
+          treeDensity: 0.02,
+          treeTypes: [
+            { trunk: BlockType.tree, leaves: BlockType.leaf, minHeight: 4, maxHeight: 6 }
+          ],
+          rockDensity: 0.25
+        }
+      },
+      {
+        id: 'plains',
+        name: 'Plains',
+        surfaceBlock: BlockType.grass,
+        subsurfaceBlock: BlockType.dirt,
+        fillerBlock: BlockType.dirt,
+        minHeightOffset: -6,
+        maxHeightOffset: 4,
+        decoration: {
+          treeDensity: 0.02,
+          treeTypes: [
+            { trunk: BlockType.tree, leaves: BlockType.leaf, minHeight: 6, maxHeight: 8 }
+          ],
+          rockDensity: 0.03
+        }
+      }
+    ]
+  },
   canyon: {
     id: 'canyon',
     name: 'Grand Canyon',
