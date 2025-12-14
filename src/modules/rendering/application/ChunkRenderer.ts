@@ -39,7 +39,11 @@ export class ChunkRenderer {
 
     const group = new THREE.Group()
     geometryMap.forEach((geometry, materialKey) => {
-      const material = this.materialSystem.getMaterial(materialKey)
+      // Handle unified 'default' geometry from LOD meshers
+      const material = materialKey === 'default'
+        ? this.materialSystem.getChunkMaterial()
+        : this.materialSystem.getMaterial(materialKey)
+
       const mesh = new THREE.Mesh(geometry, material)
       mesh.castShadow = true
       mesh.receiveShadow = true
