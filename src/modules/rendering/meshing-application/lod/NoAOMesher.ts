@@ -5,55 +5,8 @@ import { ChunkData } from '../../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../../environment/ports/ILightingQuery'
 import { VertexBuilder } from '../VertexBuilder'
-
-/**
- * Simple VoxelQuery wrapper for single chunk
- */
-class ChunkVoxelQuery implements IVoxelQuery {
-  constructor(private chunk: ChunkData) {}
-
-  getBlockType(worldX: number, worldY: number, worldZ: number): number {
-    const chunkX = this.chunk.coord.x * 24
-    const chunkZ = this.chunk.coord.z * 24
-    const localX = worldX - chunkX
-    const localZ = worldZ - chunkZ
-
-    if (localX < 0 || localX >= 24 || localZ < 0 || localZ >= 24 || worldY < 0 || worldY >= 256) {
-      return -1 // Air
-    }
-
-    return this.chunk.getBlockId(localX, worldY, localZ)
-  }
-}
-
-/**
- * Simple LightingQuery wrapper for single chunk
- */
-class ChunkLightingQuery implements ILightingQuery {
-  constructor(private chunk: ChunkData) {}
-
-  getLight(worldX: number, worldY: number, worldZ: number): any {
-    const chunkX = this.chunk.coord.x * 24
-    const chunkZ = this.chunk.coord.z * 24
-    const localX = worldX - chunkX
-    const localZ = worldZ - chunkZ
-
-    if (localX < 0 || localX >= 24 || localZ < 0 || localZ >= 24 || worldY < 0 || worldY >= 256) {
-      return {
-        sky: { r: 15, g: 15, b: 15 },
-        block: { r: 0, g: 0, b: 0 }
-      }
-    }
-
-    const sky = this.chunk.getSkyLight(localX, worldY, localZ)
-    const block = this.chunk.getBlockLight(localX, worldY, localZ)
-
-    return {
-      sky: { r: sky, g: sky, b: sky },
-      block
-    }
-  }
-}
+import { ChunkVoxelQuery } from './adapters/ChunkVoxelQuery'
+import { ChunkLightingQuery } from './adapters/ChunkLightingQuery'
 
 /**
  * Level 1 LOD Mesher: Same as full detail but skips AO calculation
