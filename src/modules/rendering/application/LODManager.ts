@@ -20,6 +20,7 @@ export class LODManager {
   private currentLODLevels = new Map<string, 0 | 1 | 2 | 3>()
   private transitions = new Map<string, LODTransition>()
   private cache: LODMeshCache
+  private clonedMaterials = new Set<THREE.Material>()
 
   constructor(private config: PerformanceConfig) {
     this.cache = new LODMeshCache(config.lodCacheSize)
@@ -115,13 +116,23 @@ export class LODManager {
     oldMaterial: THREE.Material,
     newMaterial: THREE.Material | null
   ): void {
+    // Clone old material to avoid modifying shared material during transition
+    const clonedOldMaterial = oldMaterial.clone()
+    this.clonedMaterials.add(clonedOldMaterial)
+    oldMesh.material = clonedOldMaterial
+
+    // Track cloned new material if provided
+    if (newMaterial) {
+      this.clonedMaterials.add(newMaterial)
+    }
+
     this.transitions.set(coord.toKey(), {
       coord,
       fromLevel,
       toLevel,
       oldMesh,
       newMesh,
-      oldMaterial,
+      oldMaterial: clonedOldMaterial,
       newMaterial,
       startTime: performance.now(),
       duration: this.config.lodTransitionMs,
@@ -169,7 +180,17 @@ export class LODManager {
     // Update current level
     this.currentLODLevels.set(key, transition.toLevel)
 
-    // Cache old mesh for potential reuse
+    // Dispose cloned materials
+    if (this.clonedMaterials.has(transition.oldMaterial)) {
+      transition.oldMaterial.dispose()
+      this.clonedMaterials.delete(transition.oldMaterial)
+    }
+    if (transition.newMaterial && this.clonedMaterials.has(transition.newMaterial)) {
+      this.clonedMaterials.delete(transition.newMaterial)
+      // Don't dispose new material - it's still in use by the mesh
+    }
+
+    // Cache old mesh for potential reuse (before disposing it)
     this.cache.store(
       transition.coord,
       transition.fromLevel,
@@ -198,5 +219,20 @@ export class LODManager {
     const dz = camera.position.z - chunkCenterZ
 
     return Math.sqrt(dx * dx + dz * dz) / chunkSize
+  }
+
+  dispose(): void {
+    // Dispose all cloned materials to prevent GPU memory leaks
+    for (const material of this.clonedMaterials) {
+      material.dispose()
+    }
+    this.clonedMaterials.clear()
+
+    // Clear cache (disposes cached geometries and materials)
+    this.cache.clear()
+
+    // Clear state
+    this.transitions.clear()
+    this.currentLODLevels.clear()
   }
 }
