@@ -31,12 +31,16 @@ import { getWorldPreset } from '../../world/domain/WorldPreset'
 import { GameState } from '../../input/domain/InputState'
 import { UIState } from '../../ui/domain/UIState'
 import { PerformanceMonitor } from '../infrastructure/PerformanceMonitor'
+import { PerformanceConfig } from '../infrastructure/PerformanceConfig'
+import { LODManager } from '../../rendering/application/LODManager'
 
 export class GameOrchestrator {
   // Infrastructure
   public commandBus: CommandBus
   public eventBus: EventBus
   private performanceMonitor: PerformanceMonitor
+  private performanceConfig: PerformanceConfig
+  private lodManager: LODManager
 
   // Services (all 11 hexagonal modules - persistence added)
   private worldService: WorldService
@@ -81,13 +85,23 @@ export class GameOrchestrator {
     // Create infrastructure
     this.commandBus = new CommandBus()
     this.eventBus = new EventBus()
+    this.performanceConfig = new PerformanceConfig()
     this.performanceMonitor = new PerformanceMonitor()
+    this.lodManager = new LODManager(this.performanceConfig)
 
     // Make it available on window.debug
     ;(window as any).debug = {
       ...(window as any).debug,
       getMetrics: () => this.performanceMonitor.getFrameMetrics(),
-      getLastChunk: () => this.performanceMonitor.getLastChunkMetrics()
+      getLastChunk: () => this.performanceMonitor.getLastChunkMetrics(),
+      getLODMetrics: () => ({
+        activeTransitions: this.lodManager.getActiveTransitionCount(),
+        cacheStats: this.lodManager.getCache().getStats()
+      }),
+      setLODThresholds: (thresholds: any) => {
+        Object.assign(this.performanceConfig, thresholds)
+        this.performanceConfig.save()
+      }
     }
 
     // Create all services (in dependency order)
@@ -214,6 +228,9 @@ export class GameOrchestrator {
     this.updatePlayerMovement(deltaTime)
     this.interactionService.updateHighlight(this.camera)
     this.environmentService.update()
+
+    // Update LOD transitions (opacity fades)
+    this.lodManager.updateTransitions()
 
     // Update chunks based on camera position
     const newChunk = new ChunkCoordinate(
@@ -637,5 +654,25 @@ export class GameOrchestrator {
 
   getCommandLog(): readonly any[] {
     return this.commandBus.getLog()
+  }
+
+  getLODMetrics() {
+    return {
+      activeTransitions: this.lodManager.getActiveTransitionCount(),
+      cacheStats: this.lodManager.getCache().getStats()
+    }
+  }
+
+  setLODThresholds(thresholds: any) {
+    Object.assign(this.performanceConfig, thresholds)
+    this.performanceConfig.save()
+  }
+
+  getMetrics() {
+    return this.performanceMonitor.getFrameMetrics()
+  }
+
+  getLastChunk() {
+    return this.performanceMonitor.getLastChunkMetrics()
   }
 }
