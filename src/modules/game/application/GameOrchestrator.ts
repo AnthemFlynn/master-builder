@@ -279,6 +279,17 @@ export class GameOrchestrator {
       budgetUsedMs: meshingResult.budgetUsedMs
     })
 
+    // Calculate LOD distribution
+    const lodDistribution = this.renderingService.getLODDistribution(this.chunkLODLevels)
+    this.performanceMonitor.recordLODMetrics({
+      level0Count: lodDistribution.level0 ?? 0,
+      level1Count: lodDistribution.level1 ?? 0,
+      level2Count: lodDistribution.level2 ?? 0,
+      level3Count: lodDistribution.level3 ?? 0,
+      activeTransitions: this.lodManager.getActiveTransitionCount(),
+      cacheHitRate: this.lodManager.getCache().getStats().hitRate
+    })
+
     this.performanceMonitor.setQueueDepth('meshing', this.meshingService.getQueueDepth())
     this.performanceMonitor.setWorkerUtilization(
       'lighting',

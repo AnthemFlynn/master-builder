@@ -15,6 +15,15 @@ export interface FrameMetrics {
   budgetUsedMs: number
 }
 
+export interface LODMetrics {
+  level0Count: number
+  level1Count: number
+  level2Count: number
+  level3Count: number
+  activeTransitions: number
+  cacheHitRate: number
+}
+
 interface WorkerUtilization {
   busy: number
   total: number
@@ -27,6 +36,14 @@ export class PerformanceMonitor {
     frameTimeMs: 0,
     chunksProcessed: 0,
     budgetUsedMs: 0
+  }
+  private lodMetrics: LODMetrics = {
+    level0Count: 0,
+    level1Count: 0,
+    level2Count: 0,
+    level3Count: 0,
+    activeTransitions: 0,
+    cacheHitRate: 0
   }
   private queueDepths: Map<string, number> = new Map()
   private workerUtilization: Map<string, WorkerUtilization> = new Map()
@@ -55,6 +72,14 @@ export class PerformanceMonitor {
 
   getFrameMetrics(): FrameMetrics {
     return this.frameMetrics
+  }
+
+  recordLODMetrics(metrics: LODMetrics): void {
+    this.lodMetrics = metrics
+  }
+
+  getLODMetrics(): LODMetrics {
+    return this.lodMetrics
   }
 
   setQueueDepth(queue: string, depth: number): void {
