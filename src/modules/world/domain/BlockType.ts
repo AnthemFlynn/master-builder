@@ -13,5 +13,6 @@ export enum BlockType {
   bedrock = 11,
   glass = 12,
   redstone_lamp = 13,
-  grass = 14
+  grass = 14,
+  obsidian = 15
 }
