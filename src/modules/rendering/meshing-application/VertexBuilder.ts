@@ -33,6 +33,7 @@ export class VertexBuilder {
   private buffers = new Map<string, BufferData>()
   private worldOffsetX: number
   private worldOffsetZ: number
+  private skipAO: boolean = false
 
   constructor(
     private voxels: IVoxelQuery,
@@ -42,6 +43,10 @@ export class VertexBuilder {
   ) {
     this.worldOffsetX = chunkX * 24
     this.worldOffsetZ = chunkZ * 24
+  }
+
+  setSkipAO(skip: boolean): void {
+    this.skipAO = skip
   }
 
   addQuad(
@@ -91,9 +96,12 @@ export class VertexBuilder {
       const combined = combineLightChannels(lightValue)
       const light = normalizeLightToColor(combined)
 
-      // Calculate AO using world coordinates
-      const aoRaw = this.getVertexAO(worldX, worldY, worldZ, normal)
-      const ao = 0.7 + (aoRaw / 6)
+      // Calculate AO using world coordinates (skip if disabled)
+      let ao = 1.0
+      if (!this.skipAO) {
+        const aoRaw = this.getVertexAO(worldX, worldY, worldZ, normal)
+        ao = 0.7 + (aoRaw / 6)
+      }
 
       // Apply lighting * AO
       const faceTint = this.getFaceTint(normal, worldX, worldY, worldZ)
