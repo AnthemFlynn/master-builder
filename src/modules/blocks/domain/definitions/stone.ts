@@ -47,5 +47,21 @@ export const STONE_BLOCKS: BlockDefinition[] = [
     icon: '/textures/block/bedrock.png',
     inventorySlot: null,
     categorySlot: 3
+  },
+
+  {
+    id: 15,  // BlockType.obsidian
+    name: 'Obsidian',
+    category: BlockCategory.STONE,
+    textures: 'obsidian.png',
+    transparent: false,
+    baseColor: { r: 0.15, g: 0.08, b: 0.2 },  // Dark purple-black
+    emissive: { r: 1, g: 0, b: 2 },  // Subtle purple glow
+    lightAbsorption: 1.0,
+    collidable: true,
+    friction: 0.9,  // Slightly slippery (glassy)
+    icon: '/textures/block/obsidian.png',
+    inventorySlot: 3,  // Add to hotbar
+    categorySlot: 4
   }
 ]
