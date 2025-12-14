@@ -8,9 +8,17 @@ import { ILightingQuery } from '../../../modules/environment/ports/ILightingQuer
 import { LightValue } from '../../../modules/environment/domain/voxel-lighting/LightValue'
 import { ILightStorage } from '../../../modules/environment/ports/ILightStorage'
 import { initializeBlockRegistry, blockRegistry } from '../../../modules/blocks'
+import { NoAOMesher } from '../meshing-application/lod/NoAOMesher'
+import { AggressiveMesher } from '../meshing-application/lod/AggressiveMesher'
+import { OuterShellMesher } from '../meshing-application/lod/OuterShellMesher'
 
 // Initialize block registry
 initializeBlockRegistry()
+
+// Initialize LOD meshers
+const noAOMesher = new NoAOMesher()
+const aggressiveMesher = new AggressiveMesher()
+const outerShellMesher = new OuterShellMesher()
 
 // Mock implementation for worker
 class WorkerVoxelQuery implements IVoxelQuery {
@@ -100,7 +108,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         if (msg.type === 'GEN_MESH') {
         const startTime = performance.now()
 
-        const { x, z, neighborVoxels, neighborLight } = msg
+        const { x, z, lodLevel, neighborVoxels, neighborLight } = msg
         const coord = new ChunkCoordinate(x, z)
 
         // Hydrate Voxels (ChunkData)
@@ -122,38 +130,88 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const lightStorage = new WorkerLightStorage(voxelQuery)
         const lightingQuery = new WorkerLightingQuery(lightStorage)
 
-        // Meshing
-        const vertexBuilder = new VertexBuilder(voxelQuery, lightingQuery, x, z)
-        const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
-        mesher.buildMesh(vertexBuilder)
+        // Get the target chunk for LOD meshers
+        const targetChunk = voxelQuery.getChunk(coord)
+        if (!targetChunk) {
+            throw new Error(`Target chunk ${coord.toKey()} not found in neighborVoxels`)
+        }
 
-        const buffersMap = vertexBuilder.getBuffers()
+        // Select mesher based on LOD level
+        let geometry: {
+            positions: Float32Array
+            colors: Float32Array
+            uvs: Float32Array
+            indices: Uint16Array
+        }
 
-        const transferList: ArrayBuffer[] = []
-        const outputGeometry: Record<string, any> = {}
+        if (lodLevel === 0) {
+            // Level 0: Full detail with greedy meshing + AO
+            const vertexBuilder = new VertexBuilder(voxelQuery, lightingQuery, x, z)
+            const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
+            mesher.buildMesh(vertexBuilder)
 
-        for (const [key, buffers] of buffersMap.entries()) {
-            outputGeometry[key] = {
-                positions: buffers.positions.buffer,
-                colors: buffers.colors.buffer,
-                uvs: buffers.uvs.buffer,
-                indices: buffers.indices.buffer
+            const buffersMap = vertexBuilder.getBuffers()
+
+            // Combine all buffers into one
+            const positions: number[] = []
+            const colors: number[] = []
+            const uvs: number[] = []
+            const indices: number[] = []
+            let vertexOffset = 0
+
+            for (const buffer of buffersMap.values()) {
+                positions.push(...buffer.positions)
+                colors.push(...buffer.colors)
+                uvs.push(...buffer.uvs)
+
+                for (let i = 0; i < buffer.indices.length; i++) {
+                    indices.push(buffer.indices[i] + vertexOffset)
+                }
+
+                vertexOffset += buffer.positions.length / 3
             }
-            transferList.push(
-                buffers.positions.buffer,
-                buffers.colors.buffer,
-                buffers.uvs.buffer,
-                buffers.indices.buffer
-            )
+
+            geometry = {
+                positions: new Float32Array(positions),
+                colors: new Float32Array(colors),
+                uvs: new Float32Array(uvs),
+                indices: new Uint16Array(indices)
+            }
+        } else if (lodLevel === 1) {
+            // Level 1: No AO (20-30% faster)
+            geometry = noAOMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
+        } else if (lodLevel === 2) {
+            // Level 2: Aggressive 2×2 merging (70% fewer polygons)
+            geometry = aggressiveMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
+        } else {
+            // Level 3: Outer shell only (95% fewer polygons)
+            geometry = outerShellMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
         }
 
         const endTime = performance.now()
         const duration = endTime - startTime
 
+        const outputGeometry: Record<string, any> = {
+            default: {
+                positions: geometry.positions.buffer,
+                colors: geometry.colors.buffer,
+                uvs: geometry.uvs.buffer,
+                indices: geometry.indices.buffer
+            }
+        }
+
+        const transferList: ArrayBuffer[] = [
+            geometry.positions.buffer,
+            geometry.colors.buffer,
+            geometry.uvs.buffer,
+            geometry.indices.buffer
+        ]
+
         const response: MainMessage = {
             type: 'MESH_GENERATED',
             x,
             z,
+            lodLevel,
             geometry: outputGeometry,
             timingMs: duration
         }
