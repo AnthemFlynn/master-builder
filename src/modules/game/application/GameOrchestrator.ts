@@ -60,7 +60,7 @@ export class GameOrchestrator {
 
   private currentChunk = new ChunkCoordinate(0, 0)
   private previousChunk = new ChunkCoordinate(0, 0)
-  private renderDistance = 5
+  private renderDistance = 7
   private lastUpdateTime = performance.now()
   private lastChunkUnloadTime = performance.now()
   private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
