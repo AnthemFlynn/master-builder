@@ -130,4 +130,46 @@ describe('LODManager', () => {
     // Transition should be removed
     expect(manager.getActiveTransition(coord)).toBeNull()
   })
+
+  it('should check cache before requesting new mesh', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const cachedMesh = new THREE.Mesh(new THREE.BufferGeometry())
+
+    // Store mesh in cache
+    manager.getCache().store(coord, 1, cachedMesh, cachedMesh.geometry)
+
+    // Request Level 1 mesh (should hit cache)
+    const result = manager.requestMeshForLevel(coord, 1)
+
+    expect(result.fromCache).toBe(true)
+    expect(result.mesh).toBe(cachedMesh)
+  })
+
+  it('should request from MeshingService on cache miss', () => {
+    const coord = new ChunkCoordinate(0, 0)
+
+    // Cache is empty
+    const result = manager.requestMeshForLevel(coord, 1)
+
+    expect(result.fromCache).toBe(false)
+    expect(result.mesh).toBeNull()
+    // In full implementation, would trigger MeshingService request
+  })
+
+  it('should cache old mesh when completing transition', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const oldMesh = new THREE.Mesh(new THREE.BufferGeometry())
+    const newMesh = new THREE.Mesh(new THREE.BufferGeometry())
+    oldMesh.material = new THREE.MeshStandardMaterial()
+    newMesh.material = new THREE.MeshStandardMaterial()
+
+    manager.startTransition(coord, 0, 1, oldMesh, newMesh, oldMesh.material as THREE.Material, newMesh.material as THREE.Material)
+
+    // Complete transition (should cache Level 0 mesh)
+    manager.updateTransitions(350)
+
+    // Level 0 mesh should be in cache
+    const cached = manager.getCache().retrieve(coord, 0)
+    expect(cached).toBe(oldMesh)
+  })
 })

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { PerformanceConfig } from '../../game/infrastructure/PerformanceConfig'
+import { LODMeshCache } from '../infrastructure/LODMeshCache'
 
 interface LODTransition {
   coord: ChunkCoordinate
@@ -18,8 +19,11 @@ interface LODTransition {
 export class LODManager {
   private currentLODLevels = new Map<string, 0 | 1 | 2 | 3>()
   private transitions = new Map<string, LODTransition>()
+  private cache: LODMeshCache
 
-  constructor(private config: PerformanceConfig) {}
+  constructor(private config: PerformanceConfig) {
+    this.cache = new LODMeshCache(config.lodCacheSize)
+  }
 
   calculateLODLevel(coord: ChunkCoordinate, camera: THREE.Camera): 0 | 1 | 2 | 3 {
     const distance = this.getChunkDistance(coord, camera)
@@ -57,6 +61,24 @@ export class LODManager {
 
   setCurrentLevel(coord: ChunkCoordinate, level: 0 | 1 | 2 | 3): void {
     this.currentLODLevels.set(coord.toKey(), level)
+  }
+
+  requestMeshForLevel(
+    coord: ChunkCoordinate,
+    level: 0 | 1 | 2 | 3
+  ): { fromCache: boolean; mesh: THREE.Mesh | null } {
+    // Check cache first
+    const cached = this.cache.retrieve(coord, level)
+    if (cached) {
+      return { fromCache: true, mesh: cached }
+    }
+
+    // Cache miss - caller will request from MeshingService
+    return { fromCache: false, mesh: null }
+  }
+
+  getCache(): LODMeshCache {
+    return this.cache
   }
 
   checkForLODChange(
@@ -147,8 +169,13 @@ export class LODManager {
     // Update current level
     this.currentLODLevels.set(key, transition.toLevel)
 
-    // Cleanup old mesh (will be cached by caller)
-    // Don't dispose here - caller handles caching
+    // Cache old mesh for potential reuse
+    this.cache.store(
+      transition.coord,
+      transition.fromLevel,
+      transition.oldMesh,
+      transition.oldMesh.geometry as THREE.BufferGeometry
+    )
 
     // Remove from active transitions
     this.transitions.delete(key)
