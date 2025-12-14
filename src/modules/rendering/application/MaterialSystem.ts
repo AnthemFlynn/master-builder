@@ -26,6 +26,30 @@ export class MaterialSystem {
     return this.materials.get('chunk')!
   }
 
+  getChunkMaterialWithOpacity(opacity: number = 1.0): THREE.Material {
+    const baseMaterial = this.materials.get('chunk')!
+    const material = baseMaterial.clone()
+
+    if (opacity < 1.0) {
+      material.transparent = true
+      material.opacity = opacity
+      material.depthWrite = false  // Don't write depth for transparent objects
+    }
+
+    return material
+  }
+
+  setMaterialOpacity(material: THREE.Material, opacity: number): void {
+    material.opacity = opacity
+    material.transparent = opacity < 1.0
+    material.depthWrite = opacity === 1.0
+    material.needsUpdate = true
+  }
+
+  disposeMaterial(material: THREE.Material): void {
+    material.dispose()
+  }
+
   getMaterial(materialKey: string): THREE.Material {
     let mat = this.faceMaterials.get(materialKey)
 
