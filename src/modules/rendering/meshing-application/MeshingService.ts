@@ -12,6 +12,7 @@ export class MeshingService {
   private dirtyQueue = new Map<string, 'block' | 'light' | 'global'>()
   private rebuildBudgetMs = 3
   private meshingWorkerPool: MeshingWorkerPool
+  private chunkLODLevels = new Map<string, 0 | 1 | 2 | 3>()
 
   constructor(
     private voxels: IVoxelQuery & { getChunk: any }, // Need getChunk for buffers
@@ -20,6 +21,14 @@ export class MeshingService {
   ) {
     this.meshingWorkerPool = new MeshingWorkerPool(6)
     this.setupEventListeners()
+  }
+
+  setChunkLODLevel(coord: ChunkCoordinate, level: 0 | 1 | 2 | 3): void {
+    this.chunkLODLevels.set(coord.toKey(), level)
+  }
+
+  getChunkLODLevel(coord: ChunkCoordinate): 0 | 1 | 2 | 3 {
+    return this.chunkLODLevels.get(coord.toKey()) ?? 0
   }
 
   private setupEventListeners(): void {
@@ -127,7 +136,8 @@ export class MeshingService {
       }
 
       const coord = ChunkCoordinate.fromKey(key)
-      this.buildMesh(coord).catch((error) => {
+      const lodLevel = this.getChunkLODLevel(coord)
+      this.buildMesh(coord, lodLevel).catch((error) => {
         console.error(`[MeshingService] Failed to build mesh for chunk (${coord.x}, ${coord.z}):`, error)
         // Re-queue chunk for retry
         this.markDirty(coord, reason)

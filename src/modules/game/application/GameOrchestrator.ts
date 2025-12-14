@@ -66,6 +66,9 @@ export class GameOrchestrator {
   private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
   private cameraControls: PointerLockControls
 
+  // LOD level tracking for chunks
+  private chunkLODLevels = new Map<string, 0 | 1 | 2 | 3>()
+
   // Chunk prioritization weights
   private readonly PRIORITY_DISTANCE_MULTIPLIER = 10
   private readonly PRIORITY_VISIBLE_BONUS = -50
@@ -348,9 +351,26 @@ export class GameOrchestrator {
     // Prioritize by visibility and distance
     const prioritized = this.prioritizeChunks(chunksToLoad, this.camera)
 
-    // Send commands in priority order
+    // Send commands in priority order with appropriate LOD level
     for (const coord of prioritized) {
-      this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
+      // Calculate LOD level based on distance from camera
+      const lodLevel = this.lodManager.calculateLODLevel(coord, this.camera)
+
+      // Store LOD level for this chunk so MeshingService can access it
+      this.chunkLODLevels.set(coord.toKey(), lodLevel)
+      this.meshingService.setChunkLODLevel(coord, lodLevel)
+
+      // Check LOD cache first before generating
+      const cached = this.lodManager.requestMeshForLevel(coord, lodLevel)
+
+      if (cached.fromCache && cached.mesh) {
+        // TODO: Use cached mesh directly (requires refactoring to emit mesh event)
+        // For now, proceed with generation but note the cache hit
+        console.log(`[LOD] Cache hit for chunk (${coord.x}, ${coord.z}) at level ${lodLevel}`)
+      }
+
+      // Generate chunk with LOD level
+      this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance, lodLevel))
     }
   }
 
