@@ -28,18 +28,18 @@ describe('DramaticFeaturesPass', () => {
     pass.execute(context)
 
     // Should have island blocks around Y=100
-    let hasIslandBlocks = false
+    let islandBlockCount = 0
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         for (let y = 95; y < 105; y++) {
-          if (context.blockTypes[x][y][z] !== BlockType.air) {
-            hasIslandBlocks = true
+          if (context.getBlock(x, y, z) !== BlockType.air) {
+            islandBlockCount++
           }
         }
       }
     }
 
-    expect(hasIslandBlocks).toBe(true)
+    expect(islandBlockCount).toBeGreaterThan(0)
   })
 
   it('should apply multiple feature types', () => {
@@ -72,7 +72,7 @@ describe('DramaticFeaturesPass', () => {
     for (let x = 0; x < 24; x++) {
       for (let y = 0; y < 60; y++) {
         for (let z = 0; z < 24; z++) {
-          context.blockTypes[x][y][z] = BlockType.stone
+          context.setBlock(x, y, z, BlockType.stone)
         }
       }
     }

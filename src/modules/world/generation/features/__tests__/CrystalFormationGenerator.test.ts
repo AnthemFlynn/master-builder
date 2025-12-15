@@ -28,7 +28,7 @@ describe('CrystalFormationGenerator', () => {
     for (let x = 0; x < 24; x++) {
       for (let y = 0; y < 60; y++) {
         for (let z = 0; z < 24; z++) {
-          context.blockTypes[x][y][z] = BlockType.stone
+          context.setBlock(x, y, z, BlockType.stone)
         }
       }
     }
@@ -36,7 +36,7 @@ describe('CrystalFormationGenerator', () => {
     // Carve air pocket at Y=40
     for (let x = 10; x < 14; x++) {
       for (let z = 10; z < 14; z++) {
-        context.blockTypes[x][40][z] = BlockType.air
+        context.setBlock(x, 40, z, BlockType.air)
       }
     }
 
@@ -44,18 +44,18 @@ describe('CrystalFormationGenerator', () => {
     generator.generate(context, config)
 
     // Should have placed crystals near cave ceiling/walls
-    let hasCrystals = false
+    let crystalCount = 0
     for (let x = 0; x < 24; x++) {
       for (let y = 30; y < 50; y++) {
         for (let z = 0; z < 24; z++) {
-          if (context.blockTypes[x][y][z] === BlockType.glowstone) {
-            hasCrystals = true
+          if (context.getBlock(x, y, z) === BlockType.glowstone) {
+            crystalCount++
           }
         }
       }
     }
 
-    expect(hasCrystals).toBe(true)
+    expect(crystalCount).toBeGreaterThan(0)
   })
 
   it('should use specified material', () => {
@@ -77,14 +77,14 @@ describe('CrystalFormationGenerator', () => {
     for (let x = 0; x < 24; x++) {
       for (let y = 0; y < 60; y++) {
         for (let z = 0; z < 24; z++) {
-          context.blockTypes[x][y][z] = BlockType.stone
+          context.setBlock(x, y, z, BlockType.stone)
         }
       }
     }
 
     for (let x = 10; x < 14; x++) {
       for (let z = 10; z < 14; z++) {
-        context.blockTypes[x][40][z] = BlockType.air
+        context.setBlock(x, 40, z, BlockType.air)
       }
     }
 
@@ -92,17 +92,17 @@ describe('CrystalFormationGenerator', () => {
     generator.generate(context, obsidianConfig)
 
     // Should have obsidian crystals
-    let hasObsidian = false
+    let obsidianCount = 0
     for (let x = 0; x < 24; x++) {
       for (let y = 30; y < 50; y++) {
         for (let z = 0; z < 24; z++) {
-          if (context.blockTypes[x][y][z] === BlockType.obsidian) {
-            hasObsidian = true
+          if (context.getBlock(x, y, z) === BlockType.obsidian) {
+            obsidianCount++
           }
         }
       }
     }
 
-    expect(hasObsidian).toBe(true)
+    expect(obsidianCount).toBeGreaterThan(0)
   })
 })
