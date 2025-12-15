@@ -19,9 +19,9 @@ export class GenerationContext {
     this.heightMap = Array(24).fill(null).map(() => Array(24).fill(0))
 
     // Initialize 24x256x24 blockTypes array (all air)
-    this.blockTypes = Array(24).fill(null).map(() =>
-      Array(256).fill(null).map(() =>
-        Array(24).fill(BlockType.air)
+    this.blockTypes = Array.from({ length: 24 }, () =>
+      Array.from({ length: 256 }, () =>
+        Array.from({ length: 24 }, () => BlockType.air)
       )
     )
   }
