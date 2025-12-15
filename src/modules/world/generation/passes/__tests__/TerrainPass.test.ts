@@ -58,4 +58,41 @@ describe('TerrainPass', () => {
     // Same seed + coord = same heightmap
     expect(context1.heightMap).toEqual(context2.heightMap)
   })
+
+  it('should populate climate data (temperature and humidity)', () => {
+    const context = new GenerationContext(new ChunkCoordinate(0, 0), testWorldDef)
+    const pass = new TerrainPass()
+
+    pass.execute(context)
+
+    // Climate should be populated
+    let hasTempData = false
+    let hasHumidityData = false
+
+    for (let x = 0; x < 24; x++) {
+      for (let z = 0; z < 24; z++) {
+        if (context.temperature[x][z] !== 0) hasTempData = true
+        if (context.humidity[x][z] !== 0) hasHumidityData = true
+      }
+    }
+
+    expect(hasTempData).toBe(true)
+    expect(hasHumidityData).toBe(true)
+  })
+
+  it('should initialize surface map', () => {
+    const context = new GenerationContext(new ChunkCoordinate(0, 0), testWorldDef)
+    const pass = new TerrainPass()
+
+    pass.execute(context)
+
+    // Surface map should be populated for all columns
+    expect(context.surfaceMap.size).toBe(24 * 24)
+
+    // Check a surface entry
+    const surface = context.surfaceMap.get('0,0')
+    expect(surface).toBeDefined()
+    expect(surface?.y).toBeGreaterThan(0)
+    expect(surface?.isCave).toBe(false)  // No caves yet
+  })
 })
