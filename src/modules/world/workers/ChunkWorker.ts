@@ -1,47 +1,70 @@
 import { initializeBlockRegistry } from '../../../modules/blocks'
-import { NoiseGenerator } from '../adapters/NoiseGenerator'
-import { ChunkData } from '../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { WorkerMessage, MainMessage } from './types'
+import { WorldLoader } from '../application/WorldLoader'
+import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
+import { TerrainPass } from '../generation/passes/TerrainPass'
+import { DramaticFeaturesPass } from '../generation/passes/DramaticFeaturesPass'
+import { BiomePass } from '../generation/passes/BiomePass'
 
 // Initialize blocks definitions
 initializeBlockRegistry()
 
-// Create generator instance
-const generator = new NoiseGenerator()
+// Initialize world loader and orchestrator
+let orchestrator: GenerationOrchestrator | null = null
 
-self.onmessage = (e: MessageEvent<WorkerMessage>) => {
+async function initializeOrchestrator() {
+  const loader = new WorldLoader()
+  const worldDef = await loader.load('/worlds/default.json')
+
+  orchestrator = new GenerationOrchestrator(worldDef, [
+    new TerrainPass(),
+    new DramaticFeaturesPass(),
+    new BiomePass()
+  ])
+
+  console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
+}
+
+// Initialize on worker start
+initializeOrchestrator()
+
+self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   try {
     const msg = e.data
 
     if (msg.type === 'GENERATE_CHUNK') {
-    const startTime = performance.now()
+      const startTime = performance.now()
 
-    const { x, z, renderDistance } = msg
-    const coord = new ChunkCoordinate(x, z)
-    const chunk = new ChunkData(coord)
+      // Wait for orchestrator if still initializing
+      while (!orchestrator) {
+        await new Promise(resolve => setTimeout(resolve, 10))
+      }
 
-    // Generate terrain
-    generator.populate(chunk, coord)
+      const { x, z, renderDistance } = msg
+      const coord = new ChunkCoordinate(x, z)
 
-    // Get buffer and transfer ownership
-    const buffer = chunk.getRawBuffer()
-    const metadata = chunk.getMetadata()
+      // Use new generation system
+      const chunk = await orchestrator.generateChunk(coord)
 
-    const endTime = performance.now()
-    const duration = endTime - startTime
+      // Get buffer and transfer ownership
+      const buffer = chunk.getRawBuffer()
+      const metadata = chunk.getMetadata()
 
-    const response: MainMessage = {
-      type: 'CHUNK_GENERATED',
-      x,
-      z,
-      renderDistance,
-      blockBuffer: buffer,
-      metadata: metadata, // TODO: Handle Map serialization if needed (Worker postMessage supports Map!)
-      timingMs: duration
-    }
+      const endTime = performance.now()
+      const duration = endTime - startTime
 
-    self.postMessage(response, [buffer])
+      const response: MainMessage = {
+        type: 'CHUNK_GENERATED',
+        x,
+        z,
+        renderDistance,
+        blockBuffer: buffer,
+        metadata: metadata,
+        timingMs: duration
+      }
+
+      self.postMessage(response, [buffer])
     }
   } catch (error) {
     console.error('[ChunkWorker] Error processing message:', error)
