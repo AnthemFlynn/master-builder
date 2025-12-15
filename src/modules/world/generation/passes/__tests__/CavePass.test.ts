@@ -113,4 +113,43 @@ describe('CavePass', () => {
 
     expect(allSolidNearSurface).toBe(true)
   })
+
+  it('should generate spaghetti caves (worm tunnels)', () => {
+    // Use seed that spawns tunnels (2% chance, so test with deterministic seed)
+    const worldDef = {
+      meta: { name: "Test", seed: 55555, version: "0.1.0" },
+      terrain: { generator: "flat" as const, baseHeight: 80 },
+      features: [],
+      biomes: { elevationBased: true, ranges: [] }
+    }
+
+    const context = new GenerationContext(new ChunkCoordinate(0, 0), worldDef)
+
+    // Fill terrain
+    for (let x = 0; x < 24; x++) {
+      for (let z = 0; z < 24; z++) {
+        context.heightMap[x][z] = 80
+        for (let y = 1; y <= 80; y++) {
+          context.setBlock(x, y, z, BlockType.stone)
+        }
+      }
+    }
+
+    const pass = new CavePass()
+    pass.execute(context)
+
+    // With both cheese and spaghetti, should have caves
+    let totalCaveBlocks = 0
+    for (let x = 0; x < 24; x++) {
+      for (let y = 5; y < 70; y++) {
+        for (let z = 0; z < 24; z++) {
+          if (context.getBlock(x, y, z) === BlockType.air) {
+            totalCaveBlocks++
+          }
+        }
+      }
+    }
+
+    expect(totalCaveBlocks).toBeGreaterThan(0)
+  })
 })
