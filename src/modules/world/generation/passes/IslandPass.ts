@@ -17,9 +17,9 @@ export class IslandPass implements GenerationPass {
 
   execute(context: GenerationContext): void {
     const islands = this.getIslandCenters(context.chunkCoord, context.seed, {
-      spacing: 150,          // DENSE spacing for sky islands aesthetic (1 per ~5-6 chunks)
-      noiseOffset: 80,
-      minDistanceFromSpawn: 60  // Allow islands visible from spawn
+      spacing: 350,          // Original dramatic spacing
+      noiseOffset: 80,       // Original
+      minDistanceFromSpawn: 200  // Keep spawn clear
     })
 
     const rng = new SeededRandom(context.seed + context.chunkCoord.x * 9973 + context.chunkCoord.z * 7919)
@@ -51,10 +51,11 @@ export class IslandPass implements GenerationPass {
 
         const rng = new SeededRandom(seed + gridX * 7919 + gridZ * 6547)
 
-        // Gaussian: mean=30, stdDev=6, range=18-42 (dramatic sky islands)
-        const radius = Math.floor(rng.clampedGaussian(30, 6, 18, 42))
-        const height = Math.floor(rng.clampedGaussian(90, 10, 70, 110))
-        const thickness = Math.floor(rng.clampedGaussian(14, 3, 10, 18))
+        // ORIGINAL DRAMATIC SCALE (what user liked):
+        // Gaussian: mean=75, stdDev=12, range=50-100 (BIG dramatic islands)
+        const radius = Math.floor(rng.clampedGaussian(75, 12, 50, 100))
+        const height = Math.floor(rng.clampedGaussian(110, 10, 90, 130))  // Original Y=90-130
+        const thickness = Math.floor(rng.clampedGaussian(18, 2, 15, 22))  // Original 18
 
         islands.push({ x: islandX, z: islandZ, y: height, radius, thickness })
       }

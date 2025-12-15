@@ -8,8 +8,8 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     subsurfaceBlock: BlockType.dirt,
     subsurfaceDepth: 3,
     allowTrees: true,
-    treeDensity: 0.02,  // 2% of grid positions
-    minTreeSpacing: 6
+    treeDensity: 0.001,  // RARE (original 0.0015) - dramatic when found
+    minTreeSpacing: 20
   },
 
   [SurfaceBiomeType.FOREST]: {
@@ -18,8 +18,8 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     subsurfaceBlock: BlockType.dirt,
     subsurfaceDepth: 3,
     allowTrees: true,
-    treeDensity: 0.08,  // 8% - dense
-    minTreeSpacing: 5
+    treeDensity: 0.003,  // Still rare but forests have more
+    minTreeSpacing: 15
   },
 
   [SurfaceBiomeType.DESERT]: {
