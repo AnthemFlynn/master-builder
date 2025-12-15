@@ -18,4 +18,18 @@ export class SeededRandom {
   int(min: number, max: number): number {
     return Math.floor(this.range(min, max + 1))
   }
+
+  // NEW: Box-Muller transform for Gaussian distribution
+  gaussian(mean: number, stdDev: number): number {
+    const u1 = this.next()
+    const u2 = this.next()
+    const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2)
+    return mean + stdDev * z0
+  }
+
+  // NEW: Clamped Gaussian to prevent extreme outliers
+  clampedGaussian(mean: number, stdDev: number, min: number, max: number): number {
+    let value = this.gaussian(mean, stdDev)
+    return Math.max(min, Math.min(max, value))
+  }
 }
