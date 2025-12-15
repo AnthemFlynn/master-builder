@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "name": "Massive Cave Network",
+    "seed": 88888,
+    "version": "0.1.0"
+  },
+  "terrain": {
+    "generator": "noise",
+    "baseHeight": 45,
+    "noise": {
+      "type": "simplex",
+      "octaves": 6,
+      "frequency": 0.006,
+      "amplitude": 30,
+      "lacunarity": 2.0,
+      "persistence": 0.5
+    }
+  },
+  "features": [
+    {
+      "type": "cave_system",
+      "density": 0.04,
+      "radiusRange": [8, 20],
+      "depthRange": [10, 100],
+      "windingFactor": 0.85
+    },
+    {
+      "type": "crystal_formation",
+      "density": 0.015,
+      "heightRange": [15, 35],
+      "material": "glowstone",
+      "depthRange": [20, 100],
+      "onlyInCaves": true
+    },
+    {
+      "type": "crystal_formation",
+      "density": 0.01,
+      "heightRange": [10, 25],
+      "material": "obsidian",
+      "depthRange": [50, 100],
+      "onlyInCaves": true
+    }
+  ],
+  "biomes": {
+    "elevationBased": true,
+    "ranges": [
+      {
+        "elevationRange": [0, 100],
+        "surface": "stone",
+        "subsurface": "stone"
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "name": "Titan Tree Forest",
+    "seed": 77777,
+    "version": "0.1.0"
+  },
+  "terrain": {
+    "generator": "noise",
+    "baseHeight": 38,
+    "noise": {
+      "type": "simplex",
+      "octaves": 4,
+      "frequency": 0.012,
+      "amplitude": 18,
+      "lacunarity": 2.0,
+      "persistence": 0.5
+    }
+  },
+  "features": [
+    {
+      "type": "giant_tree",
+      "density": 0.003,
+      "trunkRadiusRange": [5, 9],
+      "heightRange": [55, 85],
+      "canopyRadius": 32,
+      "material": {
+        "trunk": "tree",
+        "leaves": "leaf"
+      }
+    }
+  ],
+  "biomes": {
+    "elevationBased": true,
+    "ranges": [
+      {
+        "elevationRange": [0, 80],
+        "surface": "grass",
+        "subsurface": "dirt"
+      }
+    ]
+  }
+}
