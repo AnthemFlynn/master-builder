@@ -72,4 +72,18 @@ describe('GenerationContext', () => {
     expect(context.getBlock(24, 0, 0)).toBe(0)
     expect(context.getBlock(0, 256, 0)).toBe(0)
   })
+
+  it('should initialize temperature and humidity maps', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    expect(context.temperature.length).toBe(24)
+    expect(context.temperature[0].length).toBe(24)
+    expect(context.humidity.length).toBe(24)
+    expect(context.humidity[0].length).toBe(24)
+
+    // Should initialize to 0
+    expect(context.temperature[0][0]).toBe(0)
+    expect(context.humidity[0][0]).toBe(0)
+  })
 })
