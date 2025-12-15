@@ -2,6 +2,12 @@ import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { WorldDefinition } from '../domain/WorldDefinition'
 import { BlockType } from '../domain/BlockType'
 
+interface SurfaceInfo {
+  y: number
+  blockType: number
+  isCave: boolean
+}
+
 /**
  * GenerationContext - State container for chunk generation pipeline
  *
@@ -11,8 +17,9 @@ import { BlockType } from '../domain/BlockType'
 export class GenerationContext {
   public seed: number
   public heightMap: number[][]
-  public temperature: number[][]  // NEW
-  public humidity: number[][]     // NEW
+  public temperature: number[][]
+  public humidity: number[][]
+  public surfaceMap: Map<string, SurfaceInfo> = new Map()  // NEW
   public minY: number = 256
   public maxY: number = 0
 
@@ -116,5 +123,38 @@ export class GenerationContext {
 
     const index = this.getIndex(x, y, z)
     return this.data[index]
+  }
+
+  // NEW: Update surface information at X,Z
+  updateSurfaceAt(x: number, z: number): void {
+    const originalHeight = this.heightMap[x]?.[z] ?? 0
+
+    // Scan from top to find first solid block
+    for (let y = 255; y >= 0; y--) {
+      const block = this.getBlock(x, y, z)
+      if (block !== BlockType.air) {
+        this.surfaceMap.set(`${x},${z}`, {
+          y: y,
+          blockType: block,
+          isCave: y < originalHeight - 5  // More than 5 blocks below = cave
+        })
+        return
+      }
+    }
+
+    // No solid blocks found (entire column is air)
+    this.surfaceMap.delete(`${x},${z}`)
+  }
+
+  // NEW: Find surface Y at X,Z
+  findSurface(x: number, z: number): number | null {
+    const surface = this.surfaceMap.get(`${x},${z}`)
+    return surface ? surface.y : null
+  }
+
+  // NEW: Get surface block type at X,Z
+  getSurfaceBlock(x: number, z: number): number {
+    const surface = this.surfaceMap.get(`${x},${z}`)
+    return surface ? surface.blockType : BlockType.air
   }
 }

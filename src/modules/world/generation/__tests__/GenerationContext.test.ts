@@ -86,4 +86,48 @@ describe('GenerationContext', () => {
     expect(context.temperature[0][0]).toBe(0)
     expect(context.humidity[0][0]).toBe(0)
   })
+
+  it('should track surface information', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    // Set some blocks to create surface
+    context.setBlock(5, 40, 10, 14)  // BlockType.grass
+    context.setBlock(5, 39, 10, 4)   // BlockType.dirt
+
+    // Surface map should be empty initially
+    expect(context.surfaceMap.size).toBe(0)
+
+    // Update surface map
+    context.updateSurfaceAt(5, 10)
+
+    const surface = context.surfaceMap.get('5,10')
+    expect(surface).toBeDefined()
+    expect(surface?.y).toBe(40)
+    expect(surface?.blockType).toBe(14)  // grass
+    expect(surface?.isCave).toBe(false)
+  })
+
+  it('should detect cave surfaces', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    // Create terrain up to Y=50
+    for (let y = 0; y <= 50; y++) {
+      context.setBlock(5, y, 10, 5)  // BlockType.stone
+    }
+    context.heightMap[5][10] = 50
+
+    // Carve cave (remove blocks from Y=31 to top, leaving Y=30 as ceiling)
+    for (let y = 31; y <= 50; y++) {
+      context.setBlock(5, y, 10, 0)  // Air
+    }
+
+    // Update surface (should find Y=30 as cave ceiling)
+    context.updateSurfaceAt(5, 10)
+
+    const surface = context.surfaceMap.get('5,10')
+    expect(surface?.y).toBe(30)
+    expect(surface?.isCave).toBe(true)  // 20 blocks below original height (50-30=20)
+  })
 })
