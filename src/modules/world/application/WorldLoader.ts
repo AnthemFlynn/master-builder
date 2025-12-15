@@ -1,6 +1,7 @@
 import { WorldDefinition, WorldDefinitionSchema } from '../domain/WorldDefinition'
 
 export class WorldLoader {
+  private static readonly MAX_FILE_SIZE = 1_000_000  // 1MB limit
   private cache = new Map<string, WorldDefinition>()
 
   async load(path: string): Promise<WorldDefinition> {
@@ -18,12 +19,25 @@ export class WorldLoader {
       if (!response.ok) {
         throw new Error(`Failed to load world: ${path}`)
       }
-      json = await response.json()
+
+      // Check size limit to prevent DoS
+      const text = await response.text()
+      if (text.length > WorldLoader.MAX_FILE_SIZE) {
+        throw new Error(`World definition too large (${text.length} bytes, max ${WorldLoader.MAX_FILE_SIZE})`)
+      }
+
+      json = JSON.parse(text)
     } else {
       // Node/Bun test environment - use file system
       const fs = await import('fs/promises')
       const filePath = path.startsWith('/') ? `public${path}` : path
       const fileContent = await fs.readFile(filePath, 'utf-8')
+
+      // Check size limit
+      if (fileContent.length > WorldLoader.MAX_FILE_SIZE) {
+        throw new Error(`World definition too large (${fileContent.length} bytes, max ${WorldLoader.MAX_FILE_SIZE})`)
+      }
+
       json = JSON.parse(fileContent)
     }
 

@@ -6,15 +6,7 @@
   },
   "terrain": {
     "generator": "flat",
-    "baseHeight": 32,
-    "noise": {
-      "type": "simplex",
-      "octaves": 1,
-      "frequency": 0.01,
-      "amplitude": 0,
-      "lacunarity": 2.0,
-      "persistence": 0.5
-    }
+    "baseHeight": 32
   },
   "features": [],
   "biomes": {

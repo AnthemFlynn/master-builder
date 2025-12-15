@@ -36,8 +36,13 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
     if (msg.type === 'GENERATE_CHUNK') {
       const startTime = performance.now()
 
-      // Wait for orchestrator if still initializing
+      // Wait for orchestrator if still initializing (with timeout)
+      const MAX_WAIT_MS = 5000
+      const waitStart = Date.now()
       while (!orchestrator) {
+        if (Date.now() - waitStart > MAX_WAIT_MS) {
+          throw new Error('Orchestrator initialization timeout (5s)')
+        }
         await new Promise(resolve => setTimeout(resolve, 10))
       }
 

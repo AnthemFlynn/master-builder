@@ -22,17 +22,13 @@ export class BiomePass implements GenerationPass {
         if (!biomeRange) continue
 
         // Apply surface block
-        if (height >= 0 && height < 256) {
-          context.blockTypes[x][height][z] = resolveBlockType(biomeRange.surface)
-        }
+        context.setBlock(x, height, z, resolveBlockType(biomeRange.surface))
 
         // Apply subsurface blocks (3 blocks deep)
         const subsurfaceBlockType = resolveBlockType(biomeRange.subsurface)
         for (let depth = 1; depth <= 3; depth++) {
           const y = height - depth
-          if (y >= 0 && y < 256) {
-            context.blockTypes[x][y][z] = subsurfaceBlockType
-          }
+          context.setBlock(x, y, z, subsurfaceBlockType)
         }
       }
     }
