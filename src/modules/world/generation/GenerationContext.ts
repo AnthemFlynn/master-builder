@@ -11,6 +11,8 @@ import { BlockType } from '../domain/BlockType'
 export class GenerationContext {
   public seed: number
   public heightMap: number[][]
+  public temperature: number[][]  // NEW
+  public humidity: number[][]     // NEW
   public minY: number = 256
   public maxY: number = 0
 
@@ -50,6 +52,18 @@ export class GenerationContext {
       this.heightMap[x] = []
       for (let z = 0; z < this.size; z++) {
         this.heightMap[x][z] = 0
+      }
+    }
+
+    // NEW: Initialize climate maps
+    this.temperature = []
+    this.humidity = []
+    for (let x = 0; x < this.size; x++) {
+      this.temperature[x] = []
+      this.humidity[x] = []
+      for (let z = 0; z < this.size; z++) {
+        this.temperature[x][z] = 0
+        this.humidity[x][z] = 0
       }
     }
 
