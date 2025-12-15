@@ -28,6 +28,10 @@ export class TerrainPass implements GenerationPass {
   }
 
   private generateNoise(context: GenerationContext, terrain: any): void {
+    if (!terrain.noise) {
+      throw new Error('Noise generator requires noise configuration')
+    }
+
     const noise2D = createNoise2D(() => context.seed)
 
     for (let x = 0; x < 24; x++) {
@@ -58,7 +62,7 @@ export class TerrainPass implements GenerationPass {
 
         // Fill from Y=0 to height with stone
         for (let y = 0; y <= height && y < 256; y++) {
-          context.blockTypes[x][y][z] = BlockType.stone
+          context.setBlock(x, y, z, BlockType.stone)
         }
       }
     }

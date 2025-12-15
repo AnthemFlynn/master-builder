@@ -18,7 +18,7 @@ const NoiseSchema = z.object({
 const TerrainSchema = z.object({
   generator: z.enum(['noise', 'flat']),
   baseHeight: z.number(),
-  noise: NoiseSchema
+  noise: NoiseSchema.optional()
 })
 
 const BiomeRangeSchema = z.object({
@@ -45,7 +45,7 @@ const FloatingIslandFeatureSchema = z.object({
 
 const CaveSystemFeatureSchema = z.object({
   type: z.literal('cave_system'),
-  density: z.number(),
+  density: z.number().min(0).max(1),
   radiusRange: z.tuple([z.number(), z.number()]),
   depthRange: z.tuple([z.number(), z.number()]),
   windingFactor: z.number().default(0.7)
@@ -53,7 +53,7 @@ const CaveSystemFeatureSchema = z.object({
 
 const GiantTreeFeatureSchema = z.object({
   type: z.literal('giant_tree'),
-  density: z.number(),
+  density: z.number().min(0).max(1),
   trunkRadiusRange: z.tuple([z.number(), z.number()]),
   heightRange: z.tuple([z.number(), z.number()]),
   canopyRadius: z.number(),
@@ -65,7 +65,7 @@ const GiantTreeFeatureSchema = z.object({
 
 const CrystalFormationFeatureSchema = z.object({
   type: z.literal('crystal_formation'),
-  density: z.number(),
+  density: z.number().min(0).max(1),
   heightRange: z.tuple([z.number(), z.number()]),
   material: z.string(),
   depthRange: z.tuple([z.number(), z.number()]),

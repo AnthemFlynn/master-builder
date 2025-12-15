@@ -25,9 +25,13 @@ export class GenerationOrchestrator {
   private compileToChunk(context: GenerationContext): ChunkData {
     const chunk = new ChunkData(context.chunkCoord)
 
-    // Copy blockTypes array to chunk
+    // Use minY/maxY optimization to skip empty vertical space
+    const minY = Math.max(0, context.minY)
+    const maxY = Math.min(255, context.maxY)
+
+    // Copy blockTypes array to chunk (only non-empty Y range)
     for (let x = 0; x < 24; x++) {
-      for (let y = 0; y < 256; y++) {
+      for (let y = minY; y <= maxY; y++) {
         for (let z = 0; z < 24; z++) {
           const blockType = context.blockTypes[x][y][z]
           if (blockType !== 0) {  // Skip air for efficiency

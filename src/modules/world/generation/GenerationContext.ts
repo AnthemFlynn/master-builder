@@ -6,6 +6,8 @@ export class GenerationContext {
   public seed: number
   public heightMap: number[][]
   public blockTypes: number[][][]
+  public minY: number = 256
+  public maxY: number = 0
 
   constructor(
     public chunkCoord: ChunkCoordinate,
@@ -22,5 +24,27 @@ export class GenerationContext {
         Array(24).fill(BlockType.air)
       )
     )
+  }
+
+  // Safe block access with bounds checking
+  setBlock(x: number, y: number, z: number, type: number): void {
+    if (x < 0 || x >= 24 || y < 0 || y >= 256 || z < 0 || z >= 24) {
+      console.warn(`[GenerationContext] Block out of bounds: (${x}, ${y}, ${z}) - skipping`)
+      return
+    }
+    this.blockTypes[x][y][z] = type
+
+    // Track min/max Y for optimization
+    if (type !== BlockType.air) {
+      this.minY = Math.min(this.minY, y)
+      this.maxY = Math.max(this.maxY, y)
+    }
+  }
+
+  getBlock(x: number, y: number, z: number): number {
+    if (x < 0 || x >= 24 || y < 0 || y >= 256 || z < 0 || z >= 24) {
+      return BlockType.air
+    }
+    return this.blockTypes[x][y][z]
   }
 }
