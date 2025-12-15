@@ -130,4 +130,28 @@ describe('GenerationContext', () => {
     expect(surface?.y).toBe(30)
     expect(surface?.isCave).toBe(true)  // 20 blocks below original height (50-30=20)
   })
+
+  it('should track cave blocks', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    expect(context.isCave(10, 20, 10)).toBe(false)
+
+    context.markCave(10, 20, 10)
+
+    expect(context.isCave(10, 20, 10)).toBe(true)
+  })
+
+  it('should track placed features', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    expect(context.hasNearbyFeature(10, 10, 5, 'tree')).toBe(false)
+
+    context.markFeature(10, 10, 'tree')
+
+    expect(context.hasNearbyFeature(10, 10, 3, 'tree')).toBe(true)
+    expect(context.hasNearbyFeature(16, 10, 3, 'tree')).toBe(false)  // Too far
+    expect(context.hasNearbyFeature(10, 10, 3, 'island')).toBe(false)  // Wrong type
+  })
 })
