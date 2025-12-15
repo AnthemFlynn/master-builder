@@ -87,7 +87,26 @@ export class GameOrchestrator {
     ;(window as any).debug = {
       ...(window as any).debug,
       getMetrics: () => this.performanceMonitor.getFrameMetrics(),
-      getLastChunk: () => this.performanceMonitor.getLastChunkMetrics()
+      getLastChunk: () => this.performanceMonitor.getLastChunkMetrics(),
+
+      // World switching
+      loadWorld: async (worldPath: string) => {
+        // This will require reloading all chunks
+        // For now, just log - full implementation in follow-up
+        console.log(`🌍 Switching to world: ${worldPath}`)
+        console.log('Note: Reload page after changing world file')
+        return worldPath
+      },
+
+      listWorlds: () => {
+        return [
+          '/worlds/default.json - Sky Islands',
+          '/worlds/caves.json - Massive Caves',
+          '/worlds/forest.json - Giant Trees',
+          '/worlds/crystals.json - Glowing Crystals',
+          '/worlds/flat.json - Superflat Testing'
+        ]
+      }
     }
 
     // Create all services (in dependency order)
