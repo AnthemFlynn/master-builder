@@ -26,11 +26,10 @@ export class GenerationContext {
     )
   }
 
-  // Safe block access with bounds checking
+  // Safe block access with bounds checking (silently skips out-of-bounds)
   setBlock(x: number, y: number, z: number, type: number): void {
     if (x < 0 || x >= 24 || y < 0 || y >= 256 || z < 0 || z >= 24) {
-      console.warn(`[GenerationContext] Block out of bounds: (${x}, ${y}, ${z}) - skipping`)
-      return
+      return  // Silently skip out-of-bounds blocks
     }
     this.blockTypes[x][y][z] = type
 
@@ -43,7 +42,7 @@ export class GenerationContext {
 
   getBlock(x: number, y: number, z: number): number {
     if (x < 0 || x >= 24 || y < 0 || y >= 256 || z < 0 || z >= 24) {
-      return BlockType.air
+      return BlockType.air  // Out-of-bounds reads return air
     }
     return this.blockTypes[x][y][z]
   }

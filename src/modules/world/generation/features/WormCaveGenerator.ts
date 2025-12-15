@@ -57,7 +57,7 @@ export class WormCaveGenerator implements FeatureGenerator {
 
     for (let step = 0; step < pathLength; step++) {
       // Carve sphere at current position
-      this.carveSphere(context.blockTypes, x, y, z, radius)
+      this.carveSphere(context, x, y, z, radius)
 
       // Update direction with winding
       const noiseVal = noise3D(x * 0.1, y * 0.1, z * 0.1)
@@ -86,7 +86,7 @@ export class WormCaveGenerator implements FeatureGenerator {
     }
   }
 
-  private carveSphere(blockTypes: number[][][], cx: number, cy: number, cz: number, radius: number): void {
+  private carveSphere(context: GenerationContext, cx: number, cy: number, cz: number, radius: number): void {
     const minX = Math.max(0, Math.floor(cx - radius))
     const maxX = Math.min(23, Math.ceil(cx + radius))
     const minY = Math.max(0, Math.floor(cy - radius))
@@ -103,7 +103,7 @@ export class WormCaveGenerator implements FeatureGenerator {
           const distance = Math.sqrt(dx*dx + dy*dy + dz*dz)
 
           if (distance <= radius) {
-            blockTypes[x][y][z] = BlockType.air
+            context.setBlock(x, y, z, BlockType.air)
           }
         }
       }
