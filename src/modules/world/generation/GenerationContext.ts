@@ -16,14 +16,25 @@ export class GenerationContext {
     this.seed = worldDef.meta.seed
 
     // Initialize 24x24 heightmap
-    this.heightMap = Array(24).fill(null).map(() => Array(24).fill(0))
+    this.heightMap = []
+    for (let x = 0; x < 24; x++) {
+      this.heightMap[x] = []
+      for (let z = 0; z < 24; z++) {
+        this.heightMap[x][z] = 0
+      }
+    }
 
-    // Initialize 24x256x24 blockTypes array (all air)
-    this.blockTypes = Array.from({ length: 24 }, () =>
-      Array.from({ length: 256 }, () =>
-        Array.from({ length: 24 }, () => BlockType.air)
-      )
-    )
+    // Initialize 24x256x24 blockTypes array (all air) - explicit loop to ensure all indices exist
+    this.blockTypes = []
+    for (let x = 0; x < 24; x++) {
+      this.blockTypes[x] = []
+      for (let y = 0; y < 256; y++) {
+        this.blockTypes[x][y] = []
+        for (let z = 0; z < 24; z++) {
+          this.blockTypes[x][y][z] = BlockType.air
+        }
+      }
+    }
   }
 
   // Safe block access with bounds checking (silently skips out-of-bounds)
