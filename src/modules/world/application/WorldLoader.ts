@@ -10,11 +10,26 @@ export class WorldLoader {
       return this.cache.get(path)!
     }
 
-    // Fetch JSON file (handle both browser and Node/Bun environments)
+    // Fetch JSON file (handle both browser/Worker and Node/Bun test environments)
     let json: any
 
-    // Check if we're in a browser environment
-    if (typeof window !== 'undefined') {
+    // Check if we're in Node/Bun test environment (has process global)
+    const isNodeEnvironment = typeof process !== 'undefined' && process.versions != null
+
+    if (isNodeEnvironment) {
+      // Node/Bun test environment - use file system
+      const fs = await import('fs/promises')
+      const filePath = path.startsWith('/') ? `public${path}` : path
+      const fileContent = await fs.readFile(filePath, 'utf-8')
+
+      // Check size limit
+      if (fileContent.length > WorldLoader.MAX_FILE_SIZE) {
+        throw new Error(`World definition too large (${fileContent.length} bytes, max ${WorldLoader.MAX_FILE_SIZE})`)
+      }
+
+      json = JSON.parse(fileContent)
+    } else {
+      // Browser/Web Worker environment - use fetch
       const response = await fetch(path)
       if (!response.ok) {
         throw new Error(`Failed to load world: ${path}`)
@@ -27,18 +42,6 @@ export class WorldLoader {
       }
 
       json = JSON.parse(text)
-    } else {
-      // Node/Bun test environment - use file system
-      const fs = await import('fs/promises')
-      const filePath = path.startsWith('/') ? `public${path}` : path
-      const fileContent = await fs.readFile(filePath, 'utf-8')
-
-      // Check size limit
-      if (fileContent.length > WorldLoader.MAX_FILE_SIZE) {
-        throw new Error(`World definition too large (${fileContent.length} bytes, max ${WorldLoader.MAX_FILE_SIZE})`)
-      }
-
-      json = JSON.parse(fileContent)
     }
 
     // Validate with Zod
