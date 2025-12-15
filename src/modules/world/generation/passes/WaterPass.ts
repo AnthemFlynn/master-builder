@@ -10,6 +10,9 @@ export class WaterPass implements GenerationPass {
     // Fill water (sea level)
     this.fillSeaLevel(context)
 
+    // Create beaches (sand transition near water)
+    this.createBeaches(context)
+
     // Update surface map for water surfaces
     this.updateWaterSurfaces(context)
   }
@@ -23,6 +26,37 @@ export class WaterPass implements GenerationPass {
         for (let y = terrainHeight + 1; y <= this.seaLevel; y++) {
           if (context.getBlock(x, y, z) === BlockType.air) {
             context.setBlock(x, y, z, BlockType.glass)  // Water = glass for now
+          }
+        }
+      }
+    }
+  }
+
+  private createBeaches(context: GenerationContext): void {
+    // Convert terrain near sea level to sand (beaches)
+    for (let x = 0; x < 24; x++) {
+      for (let z = 0; z < 24; z++) {
+        const terrainHeight = context.heightMap[x][z]
+
+        // Beach zone: Y=58 to Y=66 (±4 blocks from sea level)
+        const isBeachZone = terrainHeight >= this.seaLevel - 4 &&
+                           terrainHeight <= this.seaLevel + 4
+
+        if (isBeachZone) {
+          // Convert surface and subsurface to sand
+          const surfaceY = Math.min(terrainHeight, this.seaLevel)
+
+          // Surface layer
+          if (context.getBlock(x, surfaceY, z) === BlockType.stone) {
+            context.setBlock(x, surfaceY, z, BlockType.sand)
+          }
+
+          // Subsurface layers (3 blocks)
+          for (let depth = 1; depth <= 3; depth++) {
+            const y = surfaceY - depth
+            if (y > 0 && context.getBlock(x, y, z) === BlockType.stone) {
+              context.setBlock(x, y, z, BlockType.sand)
+            }
           }
         }
       }
