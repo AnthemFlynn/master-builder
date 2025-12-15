@@ -5,6 +5,7 @@ import { WorldLoader } from '../application/WorldLoader'
 import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
 import { WaterPass } from '../generation/passes/WaterPass'
+import { IslandPass } from '../generation/passes/IslandPass'
 import { CavePass } from '../generation/passes/CavePass'
 import { BiomePass } from '../generation/passes/BiomePass'
 import { TreePass } from '../generation/passes/TreePass'
@@ -21,20 +22,22 @@ async function initializeOrchestrator() {
 
   // CRITICAL: Pass ordering matters!
   // 1. TerrainPass - Generate heightmap, fill terrain, climate data
-  // 2. WaterPass - Fill sea level (Y=62), mark water surfaces
-  // 3. CavePass - Carve caves (can create underwater caves), rebuild surface map
-  // 4. BiomePass - Apply surface materials (uses post-cave surface map)
-  // 5. TreePass - Place validated trees (uses biome data)
+  // 2. WaterPass - Fill sea level (Y=62), beaches, mark water surfaces
+  // 3. IslandPass - Add floating islands (dramatic sky islands aesthetic)
+  // 4. CavePass - Carve caves (through terrain AND islands), rebuild surface map
+  // 5. BiomePass - Apply surface materials (grass on islands, beaches, etc.)
+  // 6. TreePass - Place validated trees (on ground AND on island surfaces)
   orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
     new WaterPass(),
+    new IslandPass(),
     new CavePass(),
     new BiomePass(),
     new TreePass()
   ])
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Pass ordering: Terrain → Water → Caves → Biomes → Trees`)
+  console.log(`🌍 Sky Islands World - Pass ordering: Terrain → Water → Islands → Caves → Biomes → Trees`)
 }
 
 // Initialize on worker start
