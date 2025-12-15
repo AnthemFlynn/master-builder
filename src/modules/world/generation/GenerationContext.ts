@@ -68,6 +68,11 @@ export class GenerationContext {
 
   // Safe block access with bounds checking
   setBlock(x: number, y: number, z: number, type: number): void {
+    // Floor coordinates to integers (generators may pass floats)
+    x = Math.floor(x)
+    y = Math.floor(y)
+    z = Math.floor(z)
+
     if (x < 0 || x >= this.size || y < 0 || y >= this.height || z < 0 || z >= this.size) {
       return  // Silently skip out-of-bounds blocks
     }
@@ -86,6 +91,11 @@ export class GenerationContext {
   }
 
   getBlock(x: number, y: number, z: number): number {
+    // Floor coordinates to integers
+    x = Math.floor(x)
+    y = Math.floor(y)
+    z = Math.floor(z)
+
     if (x < 0 || x >= this.size || y < 0 || y >= this.height || z < 0 || z >= this.size) {
       return BlockType.air  // Out-of-bounds reads return air
     }

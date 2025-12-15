@@ -29,16 +29,28 @@ export class GenerationOrchestrator {
     const minY = Math.max(0, context.minY)
     const maxY = Math.min(255, context.maxY)
 
-    // Copy blockTypes array to chunk (only non-empty Y range)
+    // DIAGNOSTIC: Count block types
+    const blockCounts = new Map<number, number>()
+
+    // Copy blocks to chunk using accessor methods (only non-empty Y range)
     for (let x = 0; x < 24; x++) {
       for (let y = minY; y <= maxY; y++) {
         for (let z = 0; z < 24; z++) {
-          const blockType = context.blockTypes[x][y][z]
+          const blockType = context.getBlock(x, y, z)
           if (blockType !== 0) {  // Skip air for efficiency
             chunk.setBlockId(x, y, z, blockType)
+            blockCounts.set(blockType, (blockCounts.get(blockType) || 0) + 1)
           }
         }
       }
+    }
+
+    // Log first few chunks to see what's being generated
+    if (context.chunkCoord.x >= -1 && context.chunkCoord.x <= 1 &&
+        context.chunkCoord.z >= -1 && context.chunkCoord.z <= 1) {
+      console.log(`[Chunk ${context.chunkCoord.x}, ${context.chunkCoord.z}] Block counts:`,
+        Array.from(blockCounts.entries()).map(([type, count]) => `Type${type}:${count}`).join(', '),
+        `minY=${minY}, maxY=${maxY}`)
     }
 
     return chunk
