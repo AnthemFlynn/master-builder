@@ -6,6 +6,7 @@ import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
 import { CavePass } from '../generation/passes/CavePass'
 import { BiomePass } from '../generation/passes/BiomePass'
+import { TreePass } from '../generation/passes/TreePass'
 
 // Initialize blocks definitions
 initializeBlockRegistry()
@@ -21,14 +22,16 @@ async function initializeOrchestrator() {
   // 1. TerrainPass - Generate heightmap, fill terrain, climate data
   // 2. CavePass - Carve caves (cheese + spaghetti), rebuild surface map
   // 3. BiomePass - Apply surface materials (uses post-cave surface map)
+  // 4. TreePass - Place validated trees (uses biome data)
   orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
     new CavePass(),
-    new BiomePass()
+    new BiomePass(),
+    new TreePass()
   ])
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Pass ordering: Terrain → Caves → Biomes`)
+  console.log(`🌍 Pass ordering: Terrain → Caves → Biomes → Trees`)
 }
 
 // Initialize on worker start
