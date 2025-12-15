@@ -9,6 +9,7 @@ interface Island {
   z: number
   y: number
   radius: number
+  thickness: number
 }
 
 export class IslandPass implements GenerationPass {
@@ -16,9 +17,9 @@ export class IslandPass implements GenerationPass {
 
   execute(context: GenerationContext): void {
     const islands = this.getIslandCenters(context.chunkCoord, context.seed, {
-      spacing: 400,          // Moderate spacing (not too rare)
-      noiseOffset: 120,
-      minDistanceFromSpawn: 150  // Allow some islands visible from spawn
+      spacing: 150,          // DENSE spacing for sky islands aesthetic (1 per ~5-6 chunks)
+      noiseOffset: 80,
+      minDistanceFromSpawn: 60  // Allow islands visible from spawn
     })
 
     const rng = new SeededRandom(context.seed + context.chunkCoord.x * 9973 + context.chunkCoord.z * 7919)
@@ -50,12 +51,12 @@ export class IslandPass implements GenerationPass {
 
         const rng = new SeededRandom(seed + gridX * 7919 + gridZ * 6547)
 
-        // Gaussian: mean=35, stdDev=8, range=20-50 (dramatic but not absurd)
-        const radius = Math.floor(rng.clampedGaussian(35, 8, 20, 50))
-        const height = Math.floor(rng.clampedGaussian(95, 12, 75, 115))
-        const thickness = Math.floor(rng.clampedGaussian(15, 3, 10, 20))
+        // Gaussian: mean=30, stdDev=6, range=18-42 (dramatic sky islands)
+        const radius = Math.floor(rng.clampedGaussian(30, 6, 18, 42))
+        const height = Math.floor(rng.clampedGaussian(90, 10, 70, 110))
+        const thickness = Math.floor(rng.clampedGaussian(14, 3, 10, 18))
 
-        islands.push({ x: islandX, z: islandZ, y: height, radius })
+        islands.push({ x: islandX, z: islandZ, y: height, radius, thickness })
       }
     }
 
@@ -65,7 +66,6 @@ export class IslandPass implements GenerationPass {
   private generateIsland(context: GenerationContext, island: Island, rng: SeededRandom): void {
     const chunkX = context.chunkCoord.x * 24
     const chunkZ = context.chunkCoord.z * 24
-    const thickness = Math.floor(rng.clampedGaussian(15, 3, 10, 20))
 
     // Create flattened dome (ellipsoid - wider than tall)
     for (let x = 0; x < 24; x++) {
@@ -81,8 +81,8 @@ export class IslandPass implements GenerationPass {
 
         // Dome shape using cosine curve (smooth dome, not cylinder)
         const heightFactor = Math.cos((horizontalDist / island.radius) * Math.PI / 2)
-        const topY = Math.floor(island.y + thickness * heightFactor)
-        const bottomY = Math.floor(island.y - thickness * 0.5)  // Thinner bottom
+        const topY = Math.floor(island.y + island.thickness * heightFactor)
+        const bottomY = Math.floor(island.y - island.thickness * 0.5)  // Thinner bottom
 
         for (let y = bottomY; y <= topY; y++) {
           if (y < 0 || y >= 256) continue
