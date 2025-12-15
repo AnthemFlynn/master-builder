@@ -193,6 +193,105 @@ Available in console:
 
 ---
 
+## Phase 4A: Declarative World Generation
+
+### JSON World Definitions
+
+Worlds are defined in JSON files (validated with Zod) instead of hardcoded presets:
+
+**Example:** `public/worlds/default.json`
+```json
+{
+  "meta": { "name": "Sky Islands", "seed": 42069 },
+  "terrain": { "generator": "noise", ... },
+  "features": [
+    { "type": "floating_island", "spacing": 350, ... },
+    { "type": "cave_system", "density": 0.02, ... }
+  ]
+}
+```
+
+**Available Worlds:**
+- `/worlds/default.json` - Sky Islands with caves and giant trees
+- `/worlds/caves.json` - Massive cave networks with crystals
+- `/worlds/forest.json` - Giant tree forest
+- `/worlds/crystals.json` - Glowing crystal caves
+- `/worlds/flat.json` - Superflat testing world
+
+### Generation Pipeline
+
+**4-Pass System:**
+1. **TerrainPass** - Base heightfield from noise/flat
+2. **DramaticFeaturesPass** - Floating islands, caves, giant trees, crystals
+3. **BiomePass** - Elevation-based material assignment
+4. **DecorationPass** - (Reserved for Phase 4B)
+
+### Dramatic Features
+
+**Floating Islands:**
+- Grid-based placement with noise offset
+- Configurable size (30-100 block radius)
+- Height variation (80-140 blocks)
+- Grass surface on top hemisphere
+
+**Worm Caves:**
+- 3D tunneling algorithm with winding paths
+- Variable radius (5-20 blocks)
+- Natural cave networks
+- Connects organically
+
+**Giant Trees:**
+- Massive trunks (4-9 block radius)
+- Towering height (40-85 blocks)
+- Huge spherical canopy (25-35 block radius)
+- Rare placement (density 0.001-0.003)
+
+**Crystal Formations:**
+- Grow from cave surfaces
+- Glowstone (yellow) and obsidian (purple) crystals
+- Natural cave lighting
+- Height variation (10-40 blocks)
+
+### Material Registry
+
+Maps JSON material names to BlockType:
+```typescript
+"material": "grass" → BlockType.grass
+"material": "obsidian" → BlockType.obsidian
+```
+
+**Aliases supported:**
+- `grass_green` → grass
+- `granite` → stone
+- `sand_yellow` → sand
+
+### Debug Commands
+
+```javascript
+window.debug.listWorlds()  // Show available world files
+// Returns: Array of world descriptions
+
+// Note: World switching requires page reload (ChunkWorker initialization)
+// Edit /worlds/*.json files to modify world features
+```
+
+### Determinism
+
+**Seed-based generation:**
+- Same seed + coordinates = identical terrain
+- Unmodified chunks regenerate from seed (not stored)
+- Player modifications saved separately (IndexedDB)
+- View from built structures remains stable
+
+### New Block: Obsidian
+
+- **ID:** 15
+- **Color:** Dark purple-black
+- **Properties:** Emissive glow, slightly slippery
+- **Use:** Crystal formations, lava pools, dramatic accents
+
+---
+
 ## World Generation & Chunks
 
 ### Chunk System
@@ -200,17 +299,7 @@ Available in console:
 - **Chunk size**: 24×48×24 blocks (X×Y×Z)
 - **Coordinate system**: `ChunkCoordinate(x, z)` - no Y coordinate (chunks are vertical columns)
 - **Storage**: `Uint8Array` (1 byte per block = block type ID)
-- **Generation**: Simplex noise in `ChunkWorker.ts`
-
-### World Presets
-
-Located in `src/modules/world/domain/WorldPreset.ts`:
-- **DEFAULT**: Rolling hills, trees, water
-- **FLAT**: Flat terrain for testing
-- **MOUNTAINS**: High peaks
-- **ISLANDS**: Floating islands
-
-Change preset via `DEFAULT_WORLD_PRESET_ID` in `WorldConfig.ts`.
+- **Generation**: JSON-based pipeline in `ChunkWorker.ts` (see Phase 4A above)
 
 ---
 
@@ -529,7 +618,7 @@ src/modules/<module>/
 
 ## Current Development State
 
-**Last Updated**: 2025-12-12
+**Last Updated**: 2025-12-14
 
 **Working**:
 - ✅ Hexagonal architecture (10 modules)
@@ -544,8 +633,12 @@ src/modules/<module>/
 - ✅ Frustum culling prioritization
 - ✅ Performance monitoring (F3 debug overlay)
 - ✅ Chunk unloading system
+- ✅ **Phase 4A: Declarative world generation** (JSON-based, 4 feature types)
+- ✅ **Feature generators**: Floating islands, worm caves, giant trees, crystal formations
+- ✅ **5 example worlds**: Sky islands, massive caves, titan forests, glowing crystals, superflat
 
 **Next Steps**:
+- Phase 4B: Decoration pass (small trees, flowers, grass, rocks)
 - Add texture atlas support
 - Optimize lighting propagation for sunrise/sunset
 - Add gamepad support to input system
