@@ -28,8 +28,9 @@ const BiomeRangeSchema = z.object({
 })
 
 const BiomesSchema = z.object({
-  elevationBased: z.boolean(),
-  ranges: z.array(BiomeRangeSchema)
+  elevationBased: z.boolean().optional(),
+  ranges: z.array(BiomeRangeSchema).optional(),
+  climateBasedSystem: z.boolean().optional()  // NEW: Flag for climate-based biomes
 })
 
 const FloatingIslandFeatureSchema = z.object({

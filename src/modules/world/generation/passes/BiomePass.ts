@@ -53,6 +53,12 @@ export class BiomePass implements GenerationPass {
     // Apply surface block
     context.setBlock(x, surfaceY, z, biome.surfaceBlock)
 
+    // Update surface map with new block type
+    const surface = context.surfaceMap.get(`${x},${z}`)
+    if (surface) {
+      surface.blockType = biome.surfaceBlock
+    }
+
     // Apply subsurface layers
     for (let depth = 1; depth <= biome.subsurfaceDepth; depth++) {
       const y = surfaceY - depth

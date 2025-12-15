@@ -55,23 +55,6 @@
     }
   ],
   "biomes": {
-    "elevationBased": true,
-    "ranges": [
-      {
-        "elevationRange": [0, 30],
-        "surface": "sand",
-        "subsurface": "sand"
-      },
-      {
-        "elevationRange": [30, 65],
-        "surface": "grass",
-        "subsurface": "dirt"
-      },
-      {
-        "elevationRange": [65, 150],
-        "surface": "stone",
-        "subsurface": "stone"
-      }
-    ]
+    "climateBasedSystem": true
   }
 }
