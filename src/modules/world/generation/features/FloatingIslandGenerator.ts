@@ -56,6 +56,9 @@ export class FloatingIslandGenerator implements FeatureGenerator {
         const gridX = Math.floor((coord.x * 24) / spacing) + gx
         const gridZ = Math.floor((coord.z * 24) / spacing) + gz
 
+        // Skip central grid cell (0,0) to avoid island at spawn point
+        if (gridX === 0 && gridZ === 0) continue
+
         // Deterministic noise offset
         const noise = createNoise2D(() => seed + gridX * 1000 + gridZ)
         const offsetX = noise(gridX, gridZ) * (config.noiseOffset ?? 100)
@@ -80,27 +83,38 @@ export class FloatingIslandGenerator implements FeatureGenerator {
     const chunkX = context.chunkCoord.x * 24
     const chunkZ = context.chunkCoord.z * 24
     const material = resolveBlockType(config.material)
+    const thickness = config.thickness ?? 15
 
+    // Create flattened sphere (ellipsoid) - thicker horizontally, limited vertically
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         const worldX = chunkX + x
         const worldZ = chunkZ + z
 
-        for (let y = 0; y < 256; y++) {
-          const dx = worldX - island.x
-          const dy = y - island.y
-          const dz = worldZ - island.z
-          const distance = Math.sqrt(dx*dx + dy*dy + dz*dz)
+        const dx = worldX - island.x
+        const dz = worldZ - island.z
 
-          // Inside sphere and within thickness of top
-          if (distance <= island.radius && dy >= -(config.thickness ?? 15)) {
-            if (dy > 0 && distance >= island.radius - 1) {
-              // Top surface layer
-              context.setBlock(x, y, z, material)
-            } else {
-              // Interior
-              context.setBlock(x, y, z, resolveBlockType('stone'))
-            }
+        // Check if horizontally within island radius
+        const horizontalDist = Math.sqrt(dx*dx + dz*dz)
+        if (horizontalDist > island.radius) continue
+
+        // For points within horizontal radius, fill vertically based on distance from center
+        // Create dome shape: closer to center = taller, farther from center = shorter
+        const heightFactor = 1.0 - (horizontalDist / island.radius)  // 1.0 at center, 0.0 at edge
+        const maxHeight = thickness * heightFactor
+
+        for (let y = Math.floor(island.y - thickness); y <= Math.floor(island.y + maxHeight); y++) {
+          if (y < 0 || y >= 256) continue
+
+          const dy = y - island.y
+
+          // Top surface (grass)
+          if (dy > 0 && dy >= maxHeight - 1) {
+            context.setBlock(x, y, z, material)
+          }
+          // Interior (stone)
+          else if (dy >= -thickness) {
+            context.setBlock(x, y, z, resolveBlockType('stone'))
           }
         }
       }

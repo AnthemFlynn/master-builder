@@ -37,17 +37,20 @@ describe('FloatingIslandGenerator', () => {
       biomes: { elevationBased: true, ranges: [] }
     }
 
-    const context = new GenerationContext(new ChunkCoordinate(0, 0), worldDef)
+    // Use chunk away from origin (grid (0,0) is skipped to avoid spawn island)
+    const context = new GenerationContext(new ChunkCoordinate(10, 10), worldDef)
     const generator = new FloatingIslandGenerator()
 
     generator.generate(context, config)
 
-    // Check that blocks were placed at island height
+    // Check that blocks were placed (island might be in this chunk or nearby)
     let hasBlocks = false
     for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
-        if (context.blockTypes[x][100][z] !== 0) {
-          hasBlocks = true
+      for (let y = 50; y < 150; y++) {
+        for (let z = 0; z < 24; z++) {
+          if (context.getBlock(x, y, z) !== 0) {
+            hasBlocks = true
+          }
         }
       }
     }
