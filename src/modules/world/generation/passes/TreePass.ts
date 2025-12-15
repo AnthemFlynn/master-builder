@@ -100,24 +100,35 @@ export class TreePass implements GenerationPass {
   }
 
   private placeTree(context: GenerationContext, x: number, baseY: number, z: number, rng: SeededRandom): void {
-    // Gaussian distribution: mean=6, stdDev=1, range=2-9 blocks
-    const height = Math.floor(rng.clampedGaussian(6, 1, 2, 9))
+    // ORIGINAL DRAMATIC SCALE (what user liked):
+    // Gaussian: mean=60, stdDev=8, range=45-75 blocks (MASSIVE trees)
+    const height = Math.floor(rng.clampedGaussian(60, 8, 45, 75))
 
-    // Trunk: single block column
+    // Trunk: original had 4-7 block radius
+    const trunkRadius = Math.floor(rng.clampedGaussian(5.5, 1, 4, 7))
+
+    // Trunk cylinder
     for (let y = baseY + 1; y <= baseY + height; y++) {
-      context.setBlock(x, y, z, BlockType.tree)
+      for (let dx = -trunkRadius; dx <= trunkRadius; dx++) {
+        for (let dz = -trunkRadius; dz <= trunkRadius; dz++) {
+          const dist = Math.sqrt(dx*dx + dz*dz)
+          if (dist <= trunkRadius) {
+            context.setBlock(x + dx, y, z + dz, BlockType.tree)
+          }
+        }
+      }
     }
 
-    // Canopy: Gaussian radius mean=4, stdDev=1, range=2-6
+    // Canopy: Original had 28 block radius (HUGE)
     const canopyY = baseY + height
-    const canopyRadius = Math.floor(rng.clampedGaussian(4, 1, 2, 6))
+    const canopyRadius = Math.floor(rng.clampedGaussian(28, 4, 24, 32))
 
     // Spherical canopy
     for (let dx = -canopyRadius; dx <= canopyRadius; dx++) {
-      for (let dy = -2; dy <= canopyRadius; dy++) {  // Slightly flattened
+      for (let dy = -canopyRadius/2; dy <= canopyRadius; dy++) {  // Flattened sphere
         for (let dz = -canopyRadius; dz <= canopyRadius; dz++) {
-          const dist = Math.sqrt(dx*dx + dy*dy*1.5 + dz*dz)  // Ellipsoid
-          if (dist <= canopyRadius && !(dx === 0 && dy === 0 && dz === 0)) {
+          const dist = Math.sqrt(dx*dx + (dy*1.5)*(dy*1.5) + dz*dz)  // Ellipsoid
+          if (dist <= canopyRadius) {
             // Don't replace trunk with leaves
             if (context.getBlock(x + dx, canopyY + dy, z + dz) !== BlockType.tree) {
               context.setBlock(x + dx, canopyY + dy, z + dz, BlockType.leaf)

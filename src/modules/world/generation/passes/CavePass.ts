@@ -47,7 +47,7 @@ export class CavePass implements GenerationPass {
   private generateSpaghettiCaves(context: GenerationContext): void {
     const rng = new SeededRandom(context.seed + context.chunkCoord.x * 31 + context.chunkCoord.z * 17 + 2000)
 
-    // Only 2% of chunks spawn tunnels (very sparse)
+    // Original density: 0.02 (2% of chunks)
     if (rng.next() > 0.02) return
 
     const startX = rng.int(0, 23)
@@ -55,13 +55,13 @@ export class CavePass implements GenerationPass {
     const surfaceHeight = context.heightMap[startX][startZ]
     const startY = rng.int(15, Math.max(16, surfaceHeight - 15))  // Deep underground
 
-    // Gaussian radius: mean=5, stdDev=1, range=3-8
-    const radius = rng.clampedGaussian(5, 1, 3, 8)
+    // ORIGINAL DRAMATIC SCALE: radius 6-14 (bigger caves)
+    const radius = rng.clampedGaussian(10, 2, 6, 14)
 
     this.carveWormTunnel(context, startX, startY, startZ, {
       length: rng.int(40, 80),
       radius: radius,
-      windingFactor: 0.6
+      windingFactor: 0.75  // Original windingFactor
     })
   }
 
