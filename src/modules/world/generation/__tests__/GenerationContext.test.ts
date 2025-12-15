@@ -40,4 +40,36 @@ describe('GenerationContext', () => {
     expect(context.blockTypes[0][0].length).toBe(24)
     expect(context.blockTypes[0][0][0]).toBe(0)  // Air
   })
+
+  it('should allow safe setBlock/getBlock at all valid coordinates', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    // Test edges and random positions
+    const testPositions = [
+      [0, 0, 0], [23, 255, 23], [10, 50, 10],
+      [0, 100, 23], [23, 200, 0], [12, 128, 18]
+    ]
+
+    for (const [x, y, z] of testPositions) {
+      context.setBlock(x, y, z, 5)  // Set to some block type
+      expect(context.getBlock(x, y, z)).toBe(5)
+    }
+  })
+
+  it('should handle out-of-bounds gracefully', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    // Should not throw
+    context.setBlock(-1, 0, 0, 5)
+    context.setBlock(24, 0, 0, 5)
+    context.setBlock(0, 256, 0, 5)
+    context.setBlock(0, -1, 0, 5)
+
+    // Out-of-bounds reads return air
+    expect(context.getBlock(-1, 0, 0)).toBe(0)
+    expect(context.getBlock(24, 0, 0)).toBe(0)
+    expect(context.getBlock(0, 256, 0)).toBe(0)
+  })
 })

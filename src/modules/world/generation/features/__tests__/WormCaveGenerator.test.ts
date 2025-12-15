@@ -27,7 +27,7 @@ describe('WormCaveGenerator', () => {
     for (let x = 0; x < 24; x++) {
       for (let y = 0; y < 60; y++) {
         for (let z = 0; z < 24; z++) {
-          context.blockTypes[x][y][z] = BlockType.stone
+          context.setBlock(x, y, z, BlockType.stone)
         }
       }
     }
@@ -36,18 +36,18 @@ describe('WormCaveGenerator', () => {
     generator.generate(context, config)
 
     // Should have carved some air pockets
-    let hasAir = false
+    let airCount = 0
     for (let x = 0; x < 24; x++) {
       for (let y = 10; y < 60; y++) {
         for (let z = 0; z < 24; z++) {
-          if (context.blockTypes[x][y][z] === BlockType.air) {
-            hasAir = true
+          if (context.getBlock(x, y, z) === BlockType.air) {
+            airCount++
           }
         }
       }
     }
 
-    expect(hasAir).toBe(true)
+    expect(airCount).toBeGreaterThan(0)
   })
 
   it('should generate deterministic caves', () => {
@@ -65,8 +65,8 @@ describe('WormCaveGenerator', () => {
     for (let x = 0; x < 24; x++) {
       for (let y = 0; y < 60; y++) {
         for (let z = 0; z < 24; z++) {
-          context1.blockTypes[x][y][z] = BlockType.stone
-          context2.blockTypes[x][y][z] = BlockType.stone
+          context1.setBlock(x, y, z, BlockType.stone)
+          context2.setBlock(x, y, z, BlockType.stone)
         }
       }
     }
@@ -75,7 +75,18 @@ describe('WormCaveGenerator', () => {
     generator.generate(context1, config)
     generator.generate(context2, config)
 
-    // Same seed + coord = same caves
-    expect(context1.blockTypes).toEqual(context2.blockTypes)
+    // Same seed + coord = same caves (compare via getBlock)
+    let matches = true
+    for (let x = 0; x < 24; x++) {
+      for (let y = 0; y < 60; y++) {
+        for (let z = 0; z < 24; z++) {
+          if (context1.getBlock(x, y, z) !== context2.getBlock(x, y, z)) {
+            matches = false
+          }
+        }
+      }
+    }
+
+    expect(matches).toBe(true)
   })
 })

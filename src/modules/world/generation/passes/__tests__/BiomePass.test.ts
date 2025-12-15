@@ -26,7 +26,7 @@ describe('BiomePass', () => {
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         context.heightMap[x][z] = 40
-        context.blockTypes[x][40][z] = BlockType.stone
+        context.setBlock(x, 40, z, BlockType.stone)
       }
     }
 
@@ -34,12 +34,12 @@ describe('BiomePass', () => {
     pass.execute(context)
 
     // Surface at Y=40 should be grass (30-60 range)
-    expect(context.blockTypes[0][40][0]).toBe(BlockType.grass)
+    expect(context.getBlock(0, 40, 0)).toBe(BlockType.grass)
 
     // Subsurface (Y=39, 38, 37) should be dirt
-    expect(context.blockTypes[0][39][0]).toBe(BlockType.dirt)
-    expect(context.blockTypes[0][38][0]).toBe(BlockType.dirt)
-    expect(context.blockTypes[0][37][0]).toBe(BlockType.dirt)
+    expect(context.getBlock(0, 39, 0)).toBe(BlockType.dirt)
+    expect(context.getBlock(0, 38, 0)).toBe(BlockType.dirt)
+    expect(context.getBlock(0, 37, 0)).toBe(BlockType.dirt)
   })
 
   it('should skip if elevationBased is false', () => {
@@ -51,12 +51,12 @@ describe('BiomePass', () => {
     }
 
     const context = new GenerationContext(new ChunkCoordinate(0, 0), worldDef)
-    context.blockTypes[0][40][0] = BlockType.stone
+    context.setBlock(0, 40, 0, BlockType.stone)
 
     const pass = new BiomePass()
     pass.execute(context)
 
     // Should remain stone (not modified)
-    expect(context.blockTypes[0][40][0]).toBe(BlockType.stone)
+    expect(context.getBlock(0, 40, 0)).toBe(BlockType.stone)
   })
 })
