@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "name": "Sky Islands Test World",
+    "seed": 42069,
+    "version": "0.1.0"
+  },
+  "terrain": {
+    "generator": "noise",
+    "baseHeight": 35,
+    "noise": {
+      "type": "simplex",
+      "octaves": 5,
+      "frequency": 0.008,
+      "amplitude": 25,
+      "lacunarity": 2.0,
+      "persistence": 0.5
+    }
+  },
+  "features": [
+    {
+      "type": "floating_island",
+      "spacing": 350,
+      "noiseOffset": 80,
+      "radiusRange": [50, 100],
+      "heightRange": [90, 130],
+      "thickness": 18,
+      "material": "grass",
+      "supportPillars": false
+    },
+    {
+      "type": "cave_system",
+      "density": 0.02,
+      "radiusRange": [6, 14],
+      "depthRange": [15, 70],
+      "windingFactor": 0.75
+    },
+    {
+      "type": "giant_tree",
+      "density": 0.0015,
+      "trunkRadiusRange": [4, 7],
+      "heightRange": [45, 75],
+      "canopyRadius": 28,
+      "material": {
+        "trunk": "tree",
+        "leaves": "leaf"
+      }
+    },
+    {
+      "type": "crystal_formation",
+      "density": 0.008,
+      "heightRange": [12, 28],
+      "material": "glowstone",
+      "depthRange": [20, 80],
+      "onlyInCaves": true
+    }
+  ],
+  "biomes": {
+    "elevationBased": true,
+    "ranges": [
+      {
+        "elevationRange": [0, 30],
+        "surface": "sand",
+        "subsurface": "sand"
+      },
+      {
+        "elevationRange": [30, 65],
+        "surface": "grass",
+        "subsurface": "dirt"
+      },
+      {
+        "elevationRange": [65, 150],
+        "surface": "stone",
+        "subsurface": "stone"
+      }
+    ]
+  }
+}
