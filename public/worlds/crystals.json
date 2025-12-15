@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "name": "Glowing Crystal Caves",
+    "seed": 99999,
+    "version": "0.1.0"
+  },
+  "terrain": {
+    "generator": "noise",
+    "baseHeight": 42,
+    "noise": {
+      "type": "simplex",
+      "octaves": 5,
+      "frequency": 0.009,
+      "amplitude": 28,
+      "lacunarity": 2.0,
+      "persistence": 0.5
+    }
+  },
+  "features": [
+    {
+      "type": "cave_system",
+      "density": 0.035,
+      "radiusRange": [10, 18],
+      "depthRange": [15, 90],
+      "windingFactor": 0.8
+    },
+    {
+      "type": "crystal_formation",
+      "density": 0.02,
+      "heightRange": [18, 40],
+      "material": "glowstone",
+      "depthRange": [20, 90],
+      "onlyInCaves": true
+    },
+    {
+      "type": "crystal_formation",
+      "density": 0.012,
+      "heightRange": [12, 30],
+      "material": "obsidian",
+      "depthRange": [40, 90],
+      "onlyInCaves": true
+    }
+  ],
+  "biomes": {
+    "elevationBased": true,
+    "ranges": [
+      {
+        "elevationRange": [0, 100],
+        "surface": "stone",
+        "subsurface": "stone"
+      }
+    ]
+  }
+}

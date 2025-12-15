@@ -26,4 +26,21 @@ describe('WorldLoader', () => {
 
     expect(world1).toBe(world2)  // Same object reference (cached)
   })
+
+  it('should load all example worlds without errors', async () => {
+    const loader = new WorldLoader()
+    const worlds = [
+      '/worlds/default.json',
+      '/worlds/caves.json',
+      '/worlds/forest.json',
+      '/worlds/crystals.json',
+      '/worlds/flat.json'
+    ]
+
+    for (const path of worlds) {
+      const world = await loader.load(path)
+      expect(world).toBeDefined()
+      expect(world.meta.seed).toBeGreaterThan(0)
+    }
+  })
 })
