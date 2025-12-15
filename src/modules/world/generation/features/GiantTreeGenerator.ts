@@ -21,9 +21,9 @@ export class GiantTreeGenerator implements FeatureGenerator {
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         if (rng.next() < config.density) {
-          const surfaceY = this.findSurface(context.blockTypes, x, z)
+          const surfaceY = this.findSurface(context, x, z)
           if (surfaceY > 0) {
-            this.generateTree(context.blockTypes, x, surfaceY + 1, z, config, rng, trunkMaterial, leavesMaterial)
+            this.generateTree(context, x, surfaceY + 1, z, config, rng, trunkMaterial, leavesMaterial)
           }
         }
       }
@@ -31,7 +31,7 @@ export class GiantTreeGenerator implements FeatureGenerator {
   }
 
   private generateTree(
-    blockTypes: number[][][],
+    context: GenerationContext,
     baseX: number,
     baseY: number,
     baseZ: number,
@@ -50,11 +50,9 @@ export class GiantTreeGenerator implements FeatureGenerator {
           const x = baseX + dx
           const z = baseZ + dz
 
-          if (x >= 0 && x < 24 && z >= 0 && z < 24) {
-            const dist = Math.sqrt(dx*dx + dz*dz)
-            if (dist <= trunkRadius) {
-              blockTypes[x][y][z] = trunkMaterial
-            }
+          const dist = Math.sqrt(dx*dx + dz*dz)
+          if (dist <= trunkRadius) {
+            context.setBlock(x, y, z, trunkMaterial)
           }
         }
       }
@@ -71,13 +69,11 @@ export class GiantTreeGenerator implements FeatureGenerator {
           const y = canopyY + dy
           const z = baseZ + dz
 
-          if (x >= 0 && x < 24 && y >= 0 && y < 256 && z >= 0 && z < 24) {
-            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
-            if (dist <= canopyRadius) {
-              // Don't overwrite trunk
-              if (blockTypes[x][y][z] !== trunkMaterial) {
-                blockTypes[x][y][z] = leavesMaterial
-              }
+          const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
+          if (dist <= canopyRadius) {
+            // Don't overwrite trunk
+            if (context.getBlock(x, y, z) !== trunkMaterial) {
+              context.setBlock(x, y, z, leavesMaterial)
             }
           }
         }
@@ -85,9 +81,9 @@ export class GiantTreeGenerator implements FeatureGenerator {
     }
   }
 
-  private findSurface(blockTypes: number[][][], x: number, z: number): number {
+  private findSurface(context: GenerationContext, x: number, z: number): number {
     for (let y = 255; y >= 0; y--) {
-      if (blockTypes[x][y][z] !== 0) {
+      if (context.getBlock(x, y, z) !== 0) {
         return y
       }
     }

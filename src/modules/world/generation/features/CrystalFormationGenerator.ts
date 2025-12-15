@@ -23,9 +23,9 @@ export class CrystalFormationGenerator implements FeatureGenerator {
         for (let z = 0; z < 24; z++) {
           if (rng.next() < config.density) {
             // Check if this is a cave surface
-            if (this.isCaveSurface(context.blockTypes, x, y, z, config.onlyInCaves)) {
+            if (this.isCaveSurface(context, x, y, z, config.onlyInCaves)) {
               const height = rng.range(config.heightRange[0], config.heightRange[1])
-              this.growCrystal(context.blockTypes, x, y, z, height, material)
+              this.growCrystal(context, x, y, z, height, material)
             }
           }
         }
@@ -33,9 +33,9 @@ export class CrystalFormationGenerator implements FeatureGenerator {
     }
   }
 
-  private isCaveSurface(blockTypes: number[][][], x: number, y: number, z: number, requireCave: boolean): boolean {
+  private isCaveSurface(context: GenerationContext, x: number, y: number, z: number, requireCave: boolean): boolean {
     // Must be stone block
-    if (blockTypes[x][y][z] !== BlockType.stone) return false
+    if (context.getBlock(x, y, z) !== BlockType.stone) return false
 
     if (!requireCave) return true
 
@@ -47,19 +47,17 @@ export class CrystalFormationGenerator implements FeatureGenerator {
     ]
 
     for (const [nx, ny, nz] of neighbors) {
-      if (nx >= 0 && nx < 24 && ny >= 0 && ny < 256 && nz >= 0 && nz < 24) {
-        if (blockTypes[nx][ny][nz] === BlockType.air) {
-          return true  // Has air neighbor = cave surface
-        }
+      if (context.getBlock(nx, ny, nz) === BlockType.air) {
+        return true  // Has air neighbor = cave surface
       }
     }
 
     return false
   }
 
-  private growCrystal(blockTypes: number[][][], x: number, y: number, z: number, height: number, material: number): void {
+  private growCrystal(context: GenerationContext, x: number, y: number, z: number, height: number, material: number): void {
     // Determine growth direction (find air neighbor)
-    const growthDir = this.findGrowthDirection(blockTypes, x, y, z)
+    const growthDir = this.findGrowthDirection(context, x, y, z)
     if (!growthDir) return
 
     // Grow crystal in that direction
@@ -68,16 +66,14 @@ export class CrystalFormationGenerator implements FeatureGenerator {
       const cy = y + growthDir.y * h
       const cz = z + growthDir.z * h
 
-      if (cx >= 0 && cx < 24 && cy >= 0 && cy < 256 && cz >= 0 && cz < 24) {
-        // Place crystal if space is air
-        if (blockTypes[cx][cy][cz] === BlockType.air) {
-          blockTypes[cx][cy][cz] = material
-        }
+      // Place crystal if space is air
+      if (context.getBlock(cx, cy, cz) === BlockType.air) {
+        context.setBlock(cx, cy, cz, material)
       }
     }
   }
 
-  private findGrowthDirection(blockTypes: number[][][], x: number, y: number, z: number): { x: number, y: number, z: number } | null {
+  private findGrowthDirection(context: GenerationContext, x: number, y: number, z: number): { x: number, y: number, z: number } | null {
     const directions = [
       { x: 0, y: 1, z: 0 },   // Up
       { x: 0, y: -1, z: 0 },  // Down
@@ -92,10 +88,8 @@ export class CrystalFormationGenerator implements FeatureGenerator {
       const ny = y + dir.y
       const nz = z + dir.z
 
-      if (nx >= 0 && nx < 24 && ny >= 0 && ny < 256 && nz >= 0 && nz < 24) {
-        if (blockTypes[nx][ny][nz] === BlockType.air) {
-          return dir
-        }
+      if (context.getBlock(nx, ny, nz) === BlockType.air) {
+        return dir
       }
     }
 

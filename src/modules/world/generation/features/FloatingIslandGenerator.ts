@@ -96,10 +96,10 @@ export class FloatingIslandGenerator implements FeatureGenerator {
           if (distance <= island.radius && dy >= -(config.thickness ?? 15)) {
             if (dy > 0 && distance >= island.radius - 1) {
               // Top surface layer
-              context.blockTypes[x][y][z] = material
+              context.setBlock(x, y, z, material)
             } else {
               // Interior
-              context.blockTypes[x][y][z] = resolveBlockType('stone')
+              context.setBlock(x, y, z, resolveBlockType('stone'))
             }
           }
         }
