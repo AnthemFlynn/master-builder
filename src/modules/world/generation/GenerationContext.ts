@@ -19,7 +19,9 @@ export class GenerationContext {
   public heightMap: number[][]
   public temperature: number[][]
   public humidity: number[][]
-  public surfaceMap: Map<string, SurfaceInfo> = new Map()  // NEW
+  public surfaceMap: Map<string, SurfaceInfo> = new Map()
+  public caveBlocks: Set<string> = new Set()        // NEW: "x,y,z"
+  public placedFeatures: Set<string> = new Set()    // NEW: "type:x,z"
   public minY: number = 256
   public maxY: number = 0
 
@@ -156,5 +158,35 @@ export class GenerationContext {
   getSurfaceBlock(x: number, z: number): number {
     const surface = this.surfaceMap.get(`${x},${z}`)
     return surface ? surface.blockType : BlockType.air
+  }
+
+  // NEW: Mark block as cave
+  markCave(x: number, y: number, z: number): void {
+    this.caveBlocks.add(`${x},${y},${z}`)
+  }
+
+  // NEW: Check if block is in cave
+  isCave(x: number, y: number, z: number): boolean {
+    return this.caveBlocks.has(`${x},${y},${z}`)
+  }
+
+  // NEW: Mark feature placement
+  markFeature(x: number, z: number, type: string): void {
+    this.placedFeatures.add(`${type}:${x},${z}`)
+  }
+
+  // NEW: Check for nearby features
+  hasNearbyFeature(x: number, z: number, radius: number, type: string): boolean {
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dz = -radius; dz <= radius; dz++) {
+        const dist = Math.sqrt(dx*dx + dz*dz)
+        if (dist <= radius) {
+          if (this.placedFeatures.has(`${type}:${x + dx},${z + dz}`)) {
+            return true
+          }
+        }
+      }
+    }
+    return false
   }
 }
