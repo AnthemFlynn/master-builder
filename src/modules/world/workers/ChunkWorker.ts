@@ -4,7 +4,7 @@ import { WorkerMessage, MainMessage } from './types'
 import { WorldLoader } from '../application/WorldLoader'
 import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
-import { DramaticFeaturesPass } from '../generation/passes/DramaticFeaturesPass'
+import { CavePass } from '../generation/passes/CavePass'
 import { BiomePass } from '../generation/passes/BiomePass'
 
 // Initialize blocks definitions
@@ -17,13 +17,18 @@ async function initializeOrchestrator() {
   const loader = new WorldLoader()
   const worldDef = await loader.load('/worlds/default.json')
 
+  // CRITICAL: Pass ordering matters!
+  // 1. TerrainPass - Generate heightmap, fill terrain, climate data
+  // 2. CavePass - Carve caves (cheese + spaghetti), rebuild surface map
+  // 3. BiomePass - Apply surface materials (uses post-cave surface map)
   orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
-    new DramaticFeaturesPass(),
+    new CavePass(),
     new BiomePass()
   ])
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
+  console.log(`🌍 Pass ordering: Terrain → Caves → Biomes`)
 }
 
 // Initialize on worker start
