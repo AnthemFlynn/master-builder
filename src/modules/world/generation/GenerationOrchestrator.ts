@@ -45,12 +45,11 @@ export class GenerationOrchestrator {
       }
     }
 
-    // Log first few chunks to see what's being generated
-    if (context.chunkCoord.x >= -1 && context.chunkCoord.x <= 1 &&
-        context.chunkCoord.z >= -1 && context.chunkCoord.z <= 1) {
-      console.log(`[Chunk ${context.chunkCoord.x}, ${context.chunkCoord.z}] Block counts:`,
-        Array.from(blockCounts.entries()).map(([type, count]) => `Type${type}:${count}`).join(', '),
-        `minY=${minY}, maxY=${maxY}`)
+    // CRITICAL: Log if ANY glass blocks are generated
+    const glassCount = blockCounts.get(12) || 0  // BlockType.glass = 12
+    if (glassCount > 0) {
+      console.error(`🚨 GLASS BLOCKS GENERATED in chunk (${context.chunkCoord.x}, ${context.chunkCoord.z}): ${glassCount} blocks`)
+      console.error(`  All block types:`, Array.from(blockCounts.entries()).map(([type, count]) => `Type${type}:${count}`).join(', '))
     }
 
     return chunk
