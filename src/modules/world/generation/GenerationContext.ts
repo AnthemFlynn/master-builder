@@ -1,6 +1,7 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { WorldDefinition } from '../domain/WorldDefinition'
 import { BlockType } from '../domain/BlockType'
+import { SurfaceBiome, UndergroundBiome } from './biomes/BiomeTypes'
 
 interface SurfaceInfo {
   y: number
@@ -20,8 +21,10 @@ export class GenerationContext {
   public temperature: number[][]
   public humidity: number[][]
   public surfaceMap: Map<string, SurfaceInfo> = new Map()
-  public caveBlocks: Set<string> = new Set()        // NEW: "x,y,z"
-  public placedFeatures: Set<string> = new Set()    // NEW: "type:x,z"
+  public caveBlocks: Set<string> = new Set()
+  public placedFeatures: Set<string> = new Set()
+  public biomeMap: Map<string, SurfaceBiome> = new Map()             // NEW
+  public undergroundBiomeMap: Map<string, UndergroundBiome> = new Map()  // NEW
   public minY: number = 256
   public maxY: number = 0
 
@@ -188,5 +191,22 @@ export class GenerationContext {
       }
     }
     return false
+  }
+
+  // NEW: Biome accessors
+  setBiomeAt(x: number, z: number, biome: SurfaceBiome): void {
+    this.biomeMap.set(`${x},${z}`, biome)
+  }
+
+  getBiomeAt(x: number, z: number): SurfaceBiome | undefined {
+    return this.biomeMap.get(`${x},${z}`)
+  }
+
+  setUndergroundBiomeAt(x: number, z: number, biome: UndergroundBiome): void {
+    this.undergroundBiomeMap.set(`${x},${z}`, biome)
+  }
+
+  getUndergroundBiomeAt(x: number, z: number): UndergroundBiome | undefined {
+    return this.undergroundBiomeMap.get(`${x},${z}`)
   }
 }

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'bun:test'
 import { GenerationContext } from '../GenerationContext'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
+import { SurfaceBiomeType, UndergroundBiomeType } from '../biomes/BiomeTypes'
+import { SURFACE_BIOMES } from '../biomes/SurfaceBiomes'
+import { UNDERGROUND_BIOMES } from '../biomes/UndergroundBiomes'
 
 describe('GenerationContext', () => {
   const testWorldDef = {
@@ -153,5 +156,27 @@ describe('GenerationContext', () => {
     expect(context.hasNearbyFeature(10, 10, 3, 'tree')).toBe(true)
     expect(context.hasNearbyFeature(16, 10, 3, 'tree')).toBe(false)  // Too far
     expect(context.hasNearbyFeature(10, 10, 3, 'island')).toBe(false)  // Wrong type
+  })
+
+  it('should store biome data per column', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    const biome = SURFACE_BIOMES[SurfaceBiomeType.FOREST]
+    context.setBiomeAt(5, 10, biome)
+
+    const retrieved = context.getBiomeAt(5, 10)
+    expect(retrieved?.type).toBe(SurfaceBiomeType.FOREST)
+  })
+
+  it('should store underground biome data', () => {
+    const coord = new ChunkCoordinate(0, 0)
+    const context = new GenerationContext(coord, testWorldDef)
+
+    const undergroundBiome = UNDERGROUND_BIOMES[UndergroundBiomeType.ICE_CAVES]
+    context.setUndergroundBiomeAt(5, 10, undergroundBiome)
+
+    const retrieved = context.getUndergroundBiomeAt(5, 10)
+    expect(retrieved?.type).toBe(UndergroundBiomeType.ICE_CAVES)
   })
 })
