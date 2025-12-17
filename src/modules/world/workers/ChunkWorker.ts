@@ -8,6 +8,8 @@ import { WaterPass } from '../generation/passes/WaterPass'
 import { CavePass } from '../generation/passes/CavePass'
 import { BiomePass } from '../generation/passes/BiomePass'
 import { TreePass } from '../generation/passes/TreePass'
+import { DecorationPass } from '../generation/passes/DecorationPass'
+import { OrePass } from '../generation/passes/OrePass'
 
 // Initialize blocks definitions
 initializeBlockRegistry()
@@ -19,23 +21,27 @@ async function initializeOrchestrator() {
   const loader = new WorldLoader()
   const worldDef = await loader.load('/worlds/default.json')
 
-  // ARCHIPELAGO WORLD: "Islands are just mountains up to their necks in ocean"
+  // MINECRAFT-STYLE WORLD GENERATION
   // Pass ordering:
-  // 1. TerrainPass - Generate varied heightmap (peaks become islands, valleys become ocean floor)
-  // 2. WaterPass - Fill sea level (Y=62), beaches on gentle slopes, cliffs on steep
-  // 3. CavePass - Carve caves (underwater caves = dramatic canyons)
-  // 4. BiomePass - Apply surface materials (tropical on islands, ocean floor biomes underwater)
-  // 5. TreePass - Place trees on land (palms on tropical islands)
+  // 1. TerrainPass - Generate heightmap with continentalness (oceans, land, mountains)
+  // 2. WaterPass - Fill sea level (Y=63), beaches on gentle slopes
+  // 3. CavePass - Carve cave systems
+  // 4. OrePass - Place ore veins (coal, iron, gold, diamond)
+  // 5. BiomePass - Apply surface materials based on climate
+  // 6. TreePass - Place trees based on biome
+  // 7. DecorationPass - Place grass, flowers, mushrooms, cacti
   orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
     new WaterPass(),
     new CavePass(),
+    new OrePass(),
     new BiomePass(),
-    new TreePass()
+    new TreePass(),
+    new DecorationPass()
   ])
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Archipelago World - Pass ordering: Terrain → Water → Caves → Biomes → Trees`)
+  console.log(`🌍 Generation pipeline: Terrain → Water → Caves → Ores → Biomes → Trees → Decorations`)
 }
 
 // Initialize on worker start

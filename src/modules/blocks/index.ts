@@ -6,6 +6,8 @@ import { WOOD_BLOCKS } from './domain/definitions/wood'
 import { ILLUMINATION_BLOCKS } from './domain/definitions/illumination'
 import { METAL_BLOCKS } from './domain/definitions/metals'
 import { TRANSPARENT_BLOCKS } from './domain/definitions/transparent'
+import { FLUID_BLOCKS } from './domain/definitions/fluids'
+import { DECORATION_BLOCKS } from './domain/definitions/decorations'
 
 /**
  * Initialize block registry with all block definitions
@@ -20,7 +22,9 @@ export function initializeBlockRegistry(): void {
     ...WOOD_BLOCKS,
     ...ILLUMINATION_BLOCKS,
     ...METAL_BLOCKS,
-    ...TRANSPARENT_BLOCKS
+    ...TRANSPARENT_BLOCKS,
+    ...FLUID_BLOCKS,
+    ...DECORATION_BLOCKS
   ])
 
   console.log(`✅ BlockRegistry initialized with ${blockRegistry.size()} blocks`)

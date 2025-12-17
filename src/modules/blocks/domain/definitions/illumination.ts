@@ -2,7 +2,7 @@ import { BlockDefinition, BlockCategory } from '../types'
 
 export const ILLUMINATION_BLOCKS: BlockDefinition[] = [
   {
-    id: 12,  // BlockType.glowstone
+    id: 10,  // BlockType.glowstone
     name: 'Glowstone',
     category: BlockCategory.ILLUMINATION,
     textures: 'glowstone.png',

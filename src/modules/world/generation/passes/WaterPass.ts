@@ -4,7 +4,7 @@ import { BlockType } from '../../domain/BlockType'
 
 export class WaterPass implements GenerationPass {
   readonly name = 'WaterPass'
-  private readonly seaLevel = 62
+  private readonly seaLevel = 63  // Match Minecraft's sea level
 
   execute(context: GenerationContext): void {
     // Fill water (sea level)
@@ -25,7 +25,7 @@ export class WaterPass implements GenerationPass {
         // Fill air below sea level with water
         for (let y = terrainHeight + 1; y <= this.seaLevel; y++) {
           if (context.getBlock(x, y, z) === BlockType.air) {
-            context.setBlock(x, y, z, BlockType.glass)  // Water = glass for now
+            context.setBlock(x, y, z, BlockType.water)
           }
         }
       }
@@ -102,7 +102,7 @@ export class WaterPass implements GenerationPass {
         if (terrainHeight < this.seaLevel) {
           context.surfaceMap.set(`${x},${z}`, {
             y: this.seaLevel,
-            blockType: BlockType.glass,  // Water surface
+            blockType: BlockType.water,
             isCave: false
           })
         }
