@@ -89,8 +89,8 @@ export class TreePass implements GenerationPass {
       return false
     }
 
-    // Check 5: Vertical space (need at least 10 blocks of air above)
-    for (let y = surface.y + 1; y < surface.y + 10; y++) {
+    // Check 5: Vertical space (need at least 8 blocks of air above for normal trees)
+    for (let y = surface.y + 1; y < surface.y + 8; y++) {
       if (context.getBlock(x, y, z) !== BlockType.air) {
         return false  // Not enough vertical space
       }
@@ -100,39 +100,35 @@ export class TreePass implements GenerationPass {
   }
 
   private placeTree(context: GenerationContext, x: number, baseY: number, z: number, rng: SeededRandom): void {
-    // ORIGINAL DRAMATIC SCALE (what user liked):
-    // Gaussian: mean=60, stdDev=8, range=45-75 blocks (MASSIVE trees)
-    const height = Math.floor(rng.clampedGaussian(60, 8, 45, 75))
+    // Normal tree size: 4-7 blocks height (variation 2-9)
+    const height = Math.floor(rng.clampedGaussian(5.5, 1.5, 4, 7))
 
-    // Trunk: original had 4-7 block radius
-    const trunkRadius = Math.floor(rng.clampedGaussian(5.5, 1, 4, 7))
-
-    // Trunk cylinder
+    // Trunk: single block width
     for (let y = baseY + 1; y <= baseY + height; y++) {
-      for (let dx = -trunkRadius; dx <= trunkRadius; dx++) {
-        for (let dz = -trunkRadius; dz <= trunkRadius; dz++) {
-          const dist = Math.sqrt(dx*dx + dz*dz)
-          if (dist <= trunkRadius) {
-            context.setBlock(x + dx, y, z + dz, BlockType.tree)
-          }
-        }
-      }
+      context.setBlock(x, y, z, BlockType.tree)
     }
 
-    // Canopy: Original had 28 block radius (HUGE)
-    const canopyY = baseY + height
-    const canopyRadius = Math.floor(rng.clampedGaussian(28, 4, 24, 32))
+    // Canopy: 2-3 block radius, starts 2 blocks from top
+    const canopyStartY = baseY + height - 2
+    const canopyRadius = rng.next() > 0.5 ? 2 : 3
 
-    // Spherical canopy
-    for (let dx = -canopyRadius; dx <= canopyRadius; dx++) {
-      for (let dy = -canopyRadius/2; dy <= canopyRadius; dy++) {  // Flattened sphere
-        for (let dz = -canopyRadius; dz <= canopyRadius; dz++) {
-          const dist = Math.sqrt(dx*dx + (dy*1.5)*(dy*1.5) + dz*dz)  // Ellipsoid
-          if (dist <= canopyRadius) {
-            // Don't replace trunk with leaves
-            if (context.getBlock(x + dx, canopyY + dy, z + dz) !== BlockType.tree) {
-              context.setBlock(x + dx, canopyY + dy, z + dz, BlockType.leaf)
-            }
+    // Create leafy canopy (roughly spherical)
+    for (let dy = 0; dy <= 3; dy++) {
+      const y = canopyStartY + dy
+      // Radius varies by height (smaller at top)
+      const layerRadius = dy === 3 ? 1 : (dy === 0 ? canopyRadius - 1 : canopyRadius)
+
+      for (let dx = -layerRadius; dx <= layerRadius; dx++) {
+        for (let dz = -layerRadius; dz <= layerRadius; dz++) {
+          // Skip corners for rounder shape
+          if (Math.abs(dx) === layerRadius && Math.abs(dz) === layerRadius) continue
+
+          const px = x + dx
+          const pz = z + dz
+
+          // Only place if air (don't overwrite trunk)
+          if (context.getBlock(px, y, pz) === BlockType.air) {
+            context.setBlock(px, y, pz, BlockType.leaf)
           }
         }
       }

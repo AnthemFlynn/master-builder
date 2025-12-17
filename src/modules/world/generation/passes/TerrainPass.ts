@@ -38,25 +38,52 @@ export class TerrainPass implements GenerationPass {
       throw new Error('Noise generator requires noise configuration')
     }
 
-    // Initialize multi-scale noise samplers
+    // ARCHIPELAGO TERRAIN: "Islands are mountains up to their necks in ocean"
+    // Sea level = 62. We need:
+    // - Peaks reaching 75-100+ (island mountains)
+    // - Valleys going down to 15-40 (ocean floor canyons)
+
     const continentalNoise = createNoise2D(() => context.seed + 1000)
+    const ridgeNoise = createNoise2D(() => context.seed + 1500)      // Island ridges
     const terrainNoise = createNoise2D(() => context.seed + 2000)
     const detailNoise = createNoise2D(() => context.seed + 3000)
+    const underwaterNoise = createNoise2D(() => context.seed + 3500) // Ocean floor detail
 
-    const baseHeight = terrain.baseHeight
+    const seaLevel = 62
+    const baseHeight = terrain.baseHeight  // Usually 64
 
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         const worldX = context.chunkCoord.x * 24 + x
         const worldZ = context.chunkCoord.z * 24 + z
 
-        // Multi-scale noise combination
-        const continental = continentalNoise(worldX * 0.001, worldZ * 0.001) * 40
-        const terrain = terrainNoise(worldX * 0.01, worldZ * 0.01) * 15
-        const detail = detailNoise(worldX * 0.05, worldZ * 0.05) * 3
+        // Continental: large landmasses vs ocean basins (±50)
+        const continental = continentalNoise(worldX * 0.0008, worldZ * 0.0008) * 50
 
-        const height = Math.floor(baseHeight + continental + terrain + detail)
-        context.heightMap[x][z] = height
+        // Ridge noise: creates island chains/mountain ridges (±25)
+        const ridge = Math.abs(ridgeNoise(worldX * 0.004, worldZ * 0.004)) * 25
+
+        // Terrain variation (±18)
+        const terrainVar = terrainNoise(worldX * 0.012, worldZ * 0.012) * 18
+
+        // Detail (±4)
+        const detail = detailNoise(worldX * 0.05, worldZ * 0.05) * 4
+
+        let height = baseHeight + continental + ridge + terrainVar + detail
+
+        // UNDERWATER CANYON DRAMA: If below sea level, add extra depth variation
+        if (height < seaLevel) {
+          // How far below sea level?
+          const depthFactor = (seaLevel - height) / 40  // 0 to 1
+          // Add canyon depth (deeper areas get more dramatic variation)
+          const canyonDepth = underwaterNoise(worldX * 0.02, worldZ * 0.02) * 20 * depthFactor
+          height -= Math.abs(canyonDepth)  // Canyons go deeper
+        }
+
+        // Clamp to valid range
+        height = Math.max(5, Math.min(200, height))
+
+        context.heightMap[x][z] = Math.floor(height)
       }
     }
   }
