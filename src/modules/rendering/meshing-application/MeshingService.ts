@@ -105,9 +105,10 @@ export class MeshingService {
     this.dirtyQueue.set(key, reason)
   }
 
-  processDirtyQueue(): { budgetUsedMs: number; chunksProcessed: number } {
+  processDirtyQueue(budgetOverrideMs?: number): { budgetUsedMs: number; chunksProcessed: number } {
     const startTime = performance.now()
     let chunksProcessed = 0
+    const budgetMs = budgetOverrideMs ?? this.rebuildBudgetMs
 
     if (this.dirtyQueue.size === 0) {
       return { budgetUsedMs: 0, chunksProcessed: 0 }
@@ -118,8 +119,8 @@ export class MeshingService {
     for (const [key, reason] of entries) {
       const elapsed = performance.now() - startTime
 
-      // Enforce budget
-      if (elapsed >= this.rebuildBudgetMs) {
+      // Enforce budget (can be overridden for performance recovery)
+      if (elapsed >= budgetMs) {
         break
       }
 

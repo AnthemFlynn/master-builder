@@ -13,25 +13,32 @@ export class CollisionDetector implements ICollisionQuery {
   private eyeOffset = 1.6
   private stepSize = 0.1
 
+  // Pre-allocated vectors to avoid GC pressure in physics loop
+  private readonly workingPosition = new THREE.Vector3()
+  private readonly testPosition = new THREE.Vector3()
+  private readonly resultPosition = new THREE.Vector3()
+
   constructor(private voxels: IVoxelQuery) {}
 
   moveWithCollisions(position: THREE.Vector3, delta: THREE.Vector3): THREE.Vector3 {
-    const workingPosition = position.clone()
+    this.workingPosition.copy(position)
 
-    const sweepX = this.sweepAxis(workingPosition, delta.x, 'x')
-    workingPosition.x = sweepX.value
+    const sweepX = this.sweepAxis(this.workingPosition, delta.x, 'x')
+    this.workingPosition.x = sweepX.value
 
-    const sweepZ = this.sweepAxis(workingPosition, delta.z, 'z')
-    workingPosition.z = sweepZ.value
+    const sweepZ = this.sweepAxis(this.workingPosition, delta.z, 'z')
+    this.workingPosition.z = sweepZ.value
 
-    return workingPosition
+    // Return a copy since caller may store the result
+    return this.resultPosition.copy(this.workingPosition)
   }
 
   moveVertical(position: THREE.Vector3, deltaY: number): { position: THREE.Vector3; collided: boolean } {
-    const workingPosition = position.clone()
-    const sweepY = this.sweepAxis(workingPosition, deltaY, 'y')
-    workingPosition.y = sweepY.value
-    return { position: workingPosition, collided: sweepY.collided }
+    this.workingPosition.copy(position)
+    const sweepY = this.sweepAxis(this.workingPosition, deltaY, 'y')
+    this.workingPosition.y = sweepY.value
+    // Return a copy since caller may store the result
+    return { position: this.resultPosition.copy(this.workingPosition), collided: sweepY.collided }
   }
 
   isGrounded(position: THREE.Vector3): boolean {
@@ -63,15 +70,17 @@ export class CollisionDetector implements ICollisionQuery {
     let currentValue = position[axis]
     let collided = false
 
+    // Reuse pre-allocated test position
+    this.testPosition.copy(position)
+
     while (Math.abs(travelled) < Math.abs(delta)) {
       const remaining = delta - travelled
       const movement = Math.abs(remaining) < Math.abs(step) ? remaining : step
       const testValue = currentValue + movement
 
-      const testPosition = position.clone()
-      testPosition[axis] = testValue
+      this.testPosition[axis] = testValue
 
-      if (this.intersectsWorld(testPosition)) {
+      if (this.intersectsWorld(this.testPosition)) {
         collided = true
         break
       }
@@ -79,6 +88,9 @@ export class CollisionDetector implements ICollisionQuery {
       currentValue = testValue
       travelled += movement
     }
+
+    // Reset testPosition axis to match position for next call
+    this.testPosition[axis] = position[axis]
 
     return { value: currentValue, collided }
   }

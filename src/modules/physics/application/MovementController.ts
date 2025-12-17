@@ -25,6 +25,10 @@ export class MovementController {
   private right = new THREE.Vector3()
   private horizontal = new THREE.Vector3()
 
+  // Pre-allocated vectors for movement calculations
+  private readonly tempPosition = new THREE.Vector3()
+  private readonly tempVelocity = new THREE.Vector3()
+
   constructor(
     private collision: ICollisionQuery,
     private player: WorkerPlayerState // Use the worker-local player state interface
@@ -35,14 +39,15 @@ export class MovementController {
     cameraQuaternion: THREE.Quaternion,
     deltaTime: number
   ): THREE.Vector3 {
-    const position = this.player.getPosition().clone()
-    const velocity = this.player.getVelocity().clone()
+    // Reuse pre-allocated vectors to avoid GC pressure (this runs every frame)
+    this.tempPosition.copy(this.player.getPosition())
+    this.tempVelocity.copy(this.player.getVelocity())
 
     if (this.player.isFlying()) {
-      return this.applyFlyingMovement(movement, cameraQuaternion, position, velocity, deltaTime)
+      return this.applyFlyingMovement(movement, cameraQuaternion, this.tempPosition, this.tempVelocity, deltaTime)
     }
 
-    return this.applyWalkingMovement(movement, cameraQuaternion, position, velocity, deltaTime)
+    return this.applyWalkingMovement(movement, cameraQuaternion, this.tempPosition, this.tempVelocity, deltaTime)
   }
 
   private applyFlyingMovement(
