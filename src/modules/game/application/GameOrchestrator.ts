@@ -60,6 +60,8 @@ export class GameOrchestrator {
   private lastUpdateTime = performance.now()
   private lastChunkUnloadTime = performance.now()
   private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
+  private lastChunkFillTime = performance.now()
+  private chunkFillInterval = 1000 // Check for missing chunks every second
   private cameraControls: PointerLockControls
 
   // Chunk prioritization weights
@@ -252,6 +254,12 @@ export class GameOrchestrator {
         console.log(`🗑️ Unloaded ${unloadedCount} chunks outside render distance`)
       }
       this.lastChunkUnloadTime = now
+    }
+
+    // Periodically check for and regenerate missing chunks within render distance
+    if (now - this.lastChunkFillTime > this.chunkFillInterval) {
+      this.generateChunksInRenderDistance(newChunk)
+      this.lastChunkFillTime = now
     }
 
     // Process meshing queue
