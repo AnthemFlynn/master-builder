@@ -12,6 +12,11 @@ export class WorldService implements IVoxelQuery {
   private worker: Worker
   private environmentService?: EnvironmentService
 
+  // Debounce lighting recalculations to prevent CPU overload
+  private pendingLightingChunks = new Set<string>()
+  private lightingDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly LIGHTING_DEBOUNCE_MS = 50 // Batch lighting updates
+
   constructor(private eventBus?: EventBus) {
     this.worker = new Worker("/assets/ChunkWorker.js")
     this.worker.onmessage = this.handleWorkerMessage.bind(this)
@@ -86,22 +91,50 @@ export class WorldService implements IVoxelQuery {
           return
       }
 
-      const neighborVoxels: Record<string, ArrayBuffer> = {}
-      
-      // Center and Neighbors (for propagation)
-      const offsets = ['0,0', '1,0', '-1,0', '0,1', '0,-1']
-      
-      for (const key of offsets) {
-          const [dx, dz] = key.split(',').map(Number)
-          const nCoord = new ChunkCoordinate(coord.x + dx, coord.z + dz)
-          const nChunk = this.getChunk(nCoord)
-          if (nChunk) {
-              neighborVoxels[key] = nChunk.getRawBuffer()
-          }
+      // Add to pending set (deduplicates automatically)
+      this.pendingLightingChunks.add(coord.toKey())
+
+      // Debounce: wait for more chunks to accumulate before processing
+      if (this.lightingDebounceTimer) {
+          clearTimeout(this.lightingDebounceTimer)
       }
-      
-      // Delegate to Environment
-      this.environmentService.calculateLight(coord, neighborVoxels)
+
+      this.lightingDebounceTimer = setTimeout(() => {
+          this.flushPendingLighting()
+      }, this.LIGHTING_DEBOUNCE_MS)
+  }
+
+  private flushPendingLighting(): void {
+      if (!this.environmentService || this.pendingLightingChunks.size === 0) {
+          return
+      }
+
+      // Process all pending chunks
+      for (const key of this.pendingLightingChunks) {
+          const [x, z] = key.split(',').map(Number)
+          const coord = new ChunkCoordinate(x, z)
+
+          const neighborVoxels: Record<string, ArrayBuffer> = {}
+
+          // Center and Neighbors (for propagation)
+          const offsets = ['0,0', '1,0', '-1,0', '0,1', '0,-1']
+
+          for (const offsetKey of offsets) {
+              const [dx, dz] = offsetKey.split(',').map(Number)
+              const nCoord = new ChunkCoordinate(coord.x + dx, coord.z + dz)
+              const nChunk = this.getChunk(nCoord)
+              if (nChunk) {
+                  neighborVoxels[offsetKey] = nChunk.getRawBuffer()
+              }
+          }
+
+          // Delegate to Environment
+          this.environmentService.calculateLight(coord, neighborVoxels)
+      }
+
+      // Clear pending set
+      this.pendingLightingChunks.clear()
+      this.lightingDebounceTimer = null
   }
 
   getChunk(coord: ChunkCoordinate): ChunkData | null {
