@@ -5,7 +5,6 @@ import { WorldLoader } from '../application/WorldLoader'
 import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
 import { WaterPass } from '../generation/passes/WaterPass'
-import { IslandPass } from '../generation/passes/IslandPass'
 import { CavePass } from '../generation/passes/CavePass'
 import { BiomePass } from '../generation/passes/BiomePass'
 import { TreePass } from '../generation/passes/TreePass'
@@ -20,24 +19,23 @@ async function initializeOrchestrator() {
   const loader = new WorldLoader()
   const worldDef = await loader.load('/worlds/default.json')
 
-  // CRITICAL: Pass ordering matters!
-  // 1. TerrainPass - Generate heightmap, fill terrain, climate data
-  // 2. WaterPass - Fill sea level (Y=62), beaches, mark water surfaces
-  // 3. IslandPass - Add floating islands (dramatic sky islands aesthetic)
-  // 4. CavePass - Carve caves (through terrain AND islands), rebuild surface map
-  // 5. BiomePass - Apply surface materials (grass on islands, beaches, etc.)
-  // 6. TreePass - Place validated trees (on ground AND on island surfaces)
+  // ARCHIPELAGO WORLD: "Islands are just mountains up to their necks in ocean"
+  // Pass ordering:
+  // 1. TerrainPass - Generate varied heightmap (peaks become islands, valleys become ocean floor)
+  // 2. WaterPass - Fill sea level (Y=62), beaches on gentle slopes, cliffs on steep
+  // 3. CavePass - Carve caves (underwater caves = dramatic canyons)
+  // 4. BiomePass - Apply surface materials (tropical on islands, ocean floor biomes underwater)
+  // 5. TreePass - Place trees on land (palms on tropical islands)
   orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
     new WaterPass(),
-    new IslandPass(),
     new CavePass(),
     new BiomePass(),
     new TreePass()
   ])
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Sky Islands World - Pass ordering: Terrain → Water → Islands → Caves → Biomes → Trees`)
+  console.log(`🌍 Archipelago World - Pass ordering: Terrain → Water → Caves → Biomes → Trees`)
 }
 
 // Initialize on worker start

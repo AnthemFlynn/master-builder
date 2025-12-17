@@ -1,12 +1,12 @@
 {
   "meta": {
-    "name": "Sky Islands Test World",
+    "name": "Archipelago World",
     "seed": 42069,
     "version": "0.1.0"
   },
   "terrain": {
     "generator": "noise",
-    "baseHeight": 35,
+    "baseHeight": 60,
     "noise": {
       "type": "simplex",
       "octaves": 5,
@@ -18,40 +18,11 @@
   },
   "features": [
     {
-      "type": "floating_island",
-      "spacing": 500,
-      "noiseOffset": 150,
-      "radiusRange": [20, 35],
-      "heightRange": [80, 110],
-      "thickness": 12,
-      "material": "grass",
-      "supportPillars": false
-    },
-    {
       "type": "cave_system",
       "density": 0.015,
       "radiusRange": [4, 8],
       "depthRange": [10, 50],
       "windingFactor": 0.6
-    },
-    {
-      "type": "giant_tree",
-      "density": 0.002,
-      "trunkRadiusRange": [2, 4],
-      "heightRange": [25, 40],
-      "canopyRadius": 12,
-      "material": {
-        "trunk": "tree",
-        "leaves": "leaf"
-      }
-    },
-    {
-      "type": "crystal_formation",
-      "density": 0.005,
-      "heightRange": [6, 15],
-      "material": "glowstone",
-      "depthRange": [15, 50],
-      "onlyInCaves": true
     }
   ],
   "biomes": {
