@@ -16,7 +16,7 @@ export const DECORATION_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 0,
     collidable: false,
     friction: 1.0,
-    icon: '/textures/block/tall_grass.png',
+    icon: '/textures/block/short_grass.png',
     inventorySlot: null,
     categorySlot: 1
   },

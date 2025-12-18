@@ -12,7 +12,7 @@ export const FLUID_BLOCKS: BlockDefinition[] = [
     lightAbsorption: 0.15,  // Water slightly absorbs light
     collidable: false,  // Player can swim through
     friction: 0.5,  // Slower movement in water
-    icon: '/textures/block/water.png',
+    icon: '/textures/block/water_still.png',
     inventorySlot: null,
     categorySlot: 1
   }
