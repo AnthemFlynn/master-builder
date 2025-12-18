@@ -12,6 +12,9 @@ export class MeshingService {
   private dirtyQueue = new Map<string, 'block' | 'light' | 'global'>()
   private rebuildBudgetMs = 3
   private meshingWorkerPool: MeshingWorkerPool
+  // Backpressure: track in-flight mesh builds to prevent overwhelming GPU
+  private inFlightMeshes = new Set<string>()
+  private readonly maxConcurrentMeshes = 4  // Limit concurrent builds
 
   constructor(
     private voxels: IVoxelQuery & { getChunk: any }, // Need getChunk for buffers
@@ -114,6 +117,11 @@ export class MeshingService {
       return { budgetUsedMs: 0, chunksProcessed: 0 }
     }
 
+    // Backpressure: don't start new builds if we're at capacity
+    if (this.inFlightMeshes.size >= this.maxConcurrentMeshes) {
+      return { budgetUsedMs: 0, chunksProcessed: 0 }
+    }
+
     const entries = Array.from(this.dirtyQueue.entries())
 
     for (const [key, reason] of entries) {
@@ -124,12 +132,32 @@ export class MeshingService {
         break
       }
 
+      // Backpressure: stop if we've hit max concurrent builds
+      if (this.inFlightMeshes.size >= this.maxConcurrentMeshes) {
+        break
+      }
+
+      // Skip if this chunk is already being built
+      if (this.inFlightMeshes.has(key)) {
+        continue
+      }
+
       const coord = ChunkCoordinate.fromKey(key)
-      this.buildMesh(coord).catch((error) => {
-        console.error(`[MeshingService] Failed to build mesh for chunk (${coord.x}, ${coord.z}):`, error)
-        // Re-queue chunk for retry
-        this.markDirty(coord, reason)
-      })
+
+      // Track in-flight mesh
+      this.inFlightMeshes.add(key)
+
+      this.buildMesh(coord)
+        .catch((error) => {
+          console.error(`[MeshingService] Failed to build mesh for chunk (${coord.x}, ${coord.z}):`, error)
+          // Re-queue chunk for retry
+          this.markDirty(coord, reason)
+        })
+        .finally(() => {
+          // Remove from in-flight when done (success or failure)
+          this.inFlightMeshes.delete(key)
+        })
+
       this.dirtyQueue.delete(key)
       chunksProcessed++
     }
