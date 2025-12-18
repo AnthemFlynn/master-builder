@@ -18,14 +18,16 @@ export class CavePass implements GenerationPass {
     this.rebuildSurfaceMap(context)
   }
 
+  // Maximum Y for caves - well below ocean floor (35) to ensure caves are truly underground
+  private readonly CAVE_MAX_Y = 25
+
   private generateCheeseCaves(context: GenerationContext): void {
     const noise3D = createNoise3D(() => context.seed + 1000)
 
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
-        const surfaceHeight = context.heightMap[x][z]
         const minY = 5   // Don't carve near bedrock
-        const maxY = Math.max(minY, surfaceHeight - 10)  // Stay deep underground
+        const maxY = this.CAVE_MAX_Y  // Hard cap - caves stay deep underground
 
         for (let y = minY; y < maxY; y++) {
           const worldX = context.chunkCoord.x * 24 + x
@@ -52,16 +54,16 @@ export class CavePass implements GenerationPass {
 
     const startX = rng.int(0, 23)
     const startZ = rng.int(0, 23)
-    const surfaceHeight = context.heightMap[startX][startZ]
-    const startY = rng.int(15, Math.max(16, surfaceHeight - 15))  // Deep underground
+    // Start deep underground - between Y=10 and CAVE_MAX_Y
+    const startY = rng.int(10, this.CAVE_MAX_Y - 5)
 
-    // ORIGINAL DRAMATIC SCALE: radius 6-14 (bigger caves)
-    const radius = rng.clampedGaussian(10, 2, 6, 14)
+    // Smaller radius to fit in deep cave zone (radius 4-8)
+    const radius = rng.clampedGaussian(6, 1, 4, 8)
 
     this.carveWormTunnel(context, startX, startY, startZ, {
-      length: rng.int(40, 80),
+      length: rng.int(30, 60),
       radius: radius,
-      windingFactor: 0.75  // Original windingFactor
+      windingFactor: 0.75
     })
   }
 
@@ -104,9 +106,8 @@ export class CavePass implements GenerationPass {
       y += dirY
       z += dirZ
 
-      // Clamp Y to valid cave range
-      const surfaceHeight = context.heightMap[Math.floor(x)]?.[Math.floor(z)] ?? 60
-      y = Math.max(15, Math.min(surfaceHeight - 15, y))
+      // Clamp Y to valid cave range - hard cap at CAVE_MAX_Y (no surface checks needed)
+      y = Math.max(8, Math.min(this.CAVE_MAX_Y - 3, y))
 
       // Stop if worm leaves chunk
       if (x < -config.radius || x >= 24 + config.radius ||
@@ -120,9 +121,12 @@ export class CavePass implements GenerationPass {
     const minX = Math.max(0, Math.floor(cx - radius))
     const maxX = Math.min(23, Math.ceil(cx + radius))
     const minY = Math.max(5, Math.floor(cy - radius))  // Don't carve below Y=5
-    const maxY = Math.min(255, Math.ceil(cy + radius))
     const minZ = Math.max(0, Math.floor(cz - radius))
     const maxZ = Math.min(23, Math.ceil(cz + radius))
+
+    // Hard cap at CAVE_MAX_Y - no expensive surface height checks needed
+    // Caves are constrained to deep underground (below ocean floor)
+    const maxY = Math.min(this.CAVE_MAX_Y, Math.ceil(cy + radius))
 
     for (let x = minX; x <= maxX; x++) {
       for (let y = minY; y <= maxY; y++) {

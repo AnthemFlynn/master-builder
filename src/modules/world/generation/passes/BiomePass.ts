@@ -30,6 +30,9 @@ export class BiomePass implements GenerationPass {
         // Skip cave surfaces (underground ceilings)
         if (surface.isCave) continue
 
+        // Skip water surfaces (already handled by WaterPass)
+        if (surface.blockType === BlockType.water) continue
+
         // Get climate data
         const temp = context.temperature[x][z]
         const humidity = context.humidity[x][z]

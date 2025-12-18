@@ -12,8 +12,8 @@ export const UNDERGROUND_BIOMES: Record<UndergroundBiomeType, UndergroundBiome> 
 
   [UndergroundBiomeType.ICE_CAVES]: {
     type: UndergroundBiomeType.ICE_CAVES,
-    floorBlock: BlockType.glass,  // Ice = glass temporarily
-    formationMaterial: BlockType.glass,
+    floorBlock: BlockType.packed_ice,
+    formationMaterial: BlockType.ice,
     allowStalactites: true,
     formationDensity: 0.15
   },
@@ -24,6 +24,14 @@ export const UNDERGROUND_BIOMES: Record<UndergroundBiomeType, UndergroundBiome> 
     formationMaterial: BlockType.glowstone,
     allowStalactites: false,
     formationDensity: 0.05
+  },
+
+  [UndergroundBiomeType.DEEP_DARK]: {
+    type: UndergroundBiomeType.DEEP_DARK,
+    floorBlock: BlockType.stone,
+    formationMaterial: BlockType.obsidian,
+    allowStalactites: false,
+    formationDensity: 0.02
   }
 }
 

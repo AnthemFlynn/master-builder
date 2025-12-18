@@ -235,8 +235,8 @@ export class WorldService implements IVoxelQuery {
       const dz = chunk.coord.z - centerChunk.z
       const distanceSquared = dx * dx + dz * dz
 
-      // Unload if beyond max distance (add 1 to maxDistance for buffer zone)
-      if (distanceSquared > (maxDistance + 1) * (maxDistance + 1)) {
+      // Unload if beyond max distance (add 2 to maxDistance for larger buffer zone)
+      if (distanceSquared > (maxDistance + 2) * (maxDistance + 2)) {
         chunksToUnload.push(chunk.coord)
       }
     }

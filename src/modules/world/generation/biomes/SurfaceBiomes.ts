@@ -438,25 +438,25 @@ export function getSurfaceBiome(temp: number, humidity: number, elevation: numbe
   }
 
   // ===== HIGH ELEVATION BIOMES (mountains) =====
-  if (elevation > 100) {
-    // Extreme peaks
+  // Raised thresholds to prevent excessive grey stone
+  if (elevation > 120) {
+    // Extreme peaks (rare - max terrain is now ~95)
     if (temp < -0.3) return SURFACE_BIOMES[SurfaceBiomeType.FROZEN_PEAKS]
     if (temp < 0.3) return SURFACE_BIOMES[SurfaceBiomeType.JAGGED_PEAKS]
     return SURFACE_BIOMES[SurfaceBiomeType.STONY_PEAKS]
   }
 
-  if (elevation > 85) {
+  if (elevation > 100) {
     // High mountains
     if (temp < -0.2) return SURFACE_BIOMES[SurfaceBiomeType.SNOWY_SLOPES]
     if (temp < 0.3) return SURFACE_BIOMES[SurfaceBiomeType.GROVE]
     return SURFACE_BIOMES[SurfaceBiomeType.MOUNTAINS]
   }
 
-  if (elevation > 75) {
-    // Mountain meadows
+  if (elevation > 85) {
+    // Mountain meadows - prefer grass/meadow over stone
     if (temp < -0.3) return SURFACE_BIOMES[SurfaceBiomeType.SNOWY_SLOPES]
-    if (humidity > 0.3) return SURFACE_BIOMES[SurfaceBiomeType.MEADOW]
-    return SURFACE_BIOMES[SurfaceBiomeType.MOUNTAINS]
+    return SURFACE_BIOMES[SurfaceBiomeType.MEADOW]  // Always meadow, not stone
   }
 
   // ===== TEMPERATURE-BASED LOWLAND BIOMES =====

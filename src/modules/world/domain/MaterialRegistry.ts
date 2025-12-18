@@ -25,7 +25,17 @@ export class MaterialRegistry {
     ['soil_temperate', BlockType.dirt],
     ['granite', BlockType.stone],
     ['sand_yellow', BlockType.sand],
-    ['water_ocean', BlockType.glass]  // Temporary until water block
+    ['water_ocean', BlockType.water],
+    ['water', BlockType.water],
+    ['gravel', BlockType.gravel],
+    ['clay', BlockType.clay],
+    ['snow', BlockType.snow],
+    ['ice', BlockType.ice],
+    ['packed_ice', BlockType.packed_ice],
+    ['sandstone', BlockType.sandstone],
+    ['terracotta', BlockType.terracotta],
+    ['podzol', BlockType.podzol],
+    ['mycelium', BlockType.mycelium]
   ])
 
   resolve(materialName: string): BlockType {
