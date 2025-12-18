@@ -497,5 +497,23 @@ export const DECORATION_BLOCKS: BlockDefinition[] = [
     icon: '/textures/block/dark_oak_leaves.png',
     inventorySlot: null,
     categorySlot: 31
+  },
+
+  // ===== CROPS/SPECIAL =====
+  {
+    id: 64,  // BlockType.pumpkin
+    name: 'Pumpkin',
+    category: BlockCategory.GROUND,
+    // Face order: +X, -X, +Y (top), -Y (bottom), +Z, -Z
+    textures: ['pumpkin_side.png', 'pumpkin_side.png', 'pumpkin_top.png', 'pumpkin_top.png', 'pumpkin_side.png', 'pumpkin_side.png'],
+    transparent: false,
+    baseColor: { r: 0.9, g: 0.5, b: 0.1 },  // Orange
+    emissive: { r: 0, g: 0, b: 0 },
+    lightAbsorption: 1.0,
+    collidable: true,
+    friction: 1.0,
+    icon: '/textures/block/pumpkin_side.png',
+    inventorySlot: null,
+    categorySlot: 32
   }
 ]

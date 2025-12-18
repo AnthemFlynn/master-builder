@@ -13,7 +13,9 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 12,
     treeType: 'oak',
     grassDensity: 0.3,
-    flowerDensity: 0.02
+    flowerDensity: 0.02,
+    flowers: [BlockType.dandelion, BlockType.azure_bluet, BlockType.oxeye_daisy],
+    allowPumpkins: true
   },
 
   [SurfaceBiomeType.FOREST]: {
@@ -26,7 +28,10 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 3,
     treeType: 'oak',
     grassDensity: 0.4,
-    flowerDensity: 0.03
+    flowerDensity: 0.03,
+    flowers: [BlockType.poppy, BlockType.lily_of_valley, BlockType.dandelion],
+    allowPumpkins: true,
+    mushroomDensity: 0.01
   },
 
   [SurfaceBiomeType.BIRCH_FOREST]: {
@@ -39,7 +44,8 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 4,
     treeType: 'birch',
     grassDensity: 0.35,
-    flowerDensity: 0.04
+    flowerDensity: 0.04,
+    flowers: [BlockType.lily_of_valley, BlockType.azure_bluet, BlockType.white_tulip]
   },
 
   [SurfaceBiomeType.DARK_FOREST]: {
@@ -52,7 +58,9 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 2,
     treeType: 'dark_oak',
     grassDensity: 0.15,
-    flowerDensity: 0.01
+    flowerDensity: 0.01,
+    flowers: [BlockType.lily_of_valley],  // Only lily of the valley in dark forests
+    mushroomDensity: 0.05  // Lots of mushrooms in dark forest
   },
 
   [SurfaceBiomeType.FLOWER_FOREST]: {
@@ -66,6 +74,7 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     treeType: 'oak',
     grassDensity: 0.5,
     flowerDensity: 0.25
+    // No flowers array = uses ALL flower types (default behavior)
   },
 
   // ===== HOT/DRY BIOMES =====
@@ -91,7 +100,8 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 10,
     treeType: 'acacia',
     grassDensity: 0.6,
-    flowerDensity: 0.01
+    flowerDensity: 0.01,
+    flowers: [BlockType.dandelion, BlockType.orange_tulip]  // Warm-colored flowers
   },
 
   [SurfaceBiomeType.BADLANDS]: {
@@ -117,7 +127,9 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 4,
     treeType: 'spruce',
     grassDensity: 0.25,
-    flowerDensity: 0.02
+    flowerDensity: 0.02,
+    flowers: [BlockType.dandelion, BlockType.poppy],  // Hardy flowers
+    mushroomDensity: 0.02
   },
 
   [SurfaceBiomeType.SNOWY_TAIGA]: {
@@ -186,7 +198,9 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     treeType: 'oak',
     grassDensity: 0.5,
     flowerDensity: 0.01,
-    waterColor: { r: 0.4, g: 0.5, b: 0.3 }  // Murky green
+    flowers: [BlockType.blue_orchid],  // Blue orchids only in swamps
+    waterColor: { r: 0.4, g: 0.5, b: 0.3 },  // Murky green
+    mushroomDensity: 0.03  // Mushrooms thrive in swamps
   },
 
   [SurfaceBiomeType.MANGROVE_SWAMP]: {
@@ -213,7 +227,8 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 2,
     treeType: 'jungle',
     grassDensity: 0.7,
-    flowerDensity: 0.05
+    flowerDensity: 0.05,
+    flowers: [BlockType.blue_orchid, BlockType.allium, BlockType.pink_tulip]  // Tropical flowers
   },
 
   // ===== ELEVATED BIOMES =====
@@ -239,7 +254,8 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     minTreeSpacing: 15,
     treeType: 'oak',
     grassDensity: 0.8,
-    flowerDensity: 0.15
+    flowerDensity: 0.15,
+    flowers: [BlockType.dandelion, BlockType.cornflower, BlockType.oxeye_daisy, BlockType.azure_bluet]
   },
 
   [SurfaceBiomeType.GROVE]: {
@@ -403,7 +419,8 @@ export const SURFACE_BIOMES: Record<SurfaceBiomeType, SurfaceBiome> = {
     treeDensity: 0,
     minTreeSpacing: 0,
     grassDensity: 0,
-    flowerDensity: 0
+    flowerDensity: 0,
+    mushroomDensity: 0.15  // Lots of mushrooms!
   }
 }
 

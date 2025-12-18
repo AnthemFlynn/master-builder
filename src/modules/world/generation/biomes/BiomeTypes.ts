@@ -66,8 +66,11 @@ export interface SurfaceBiome {
   treeType?: 'oak' | 'birch' | 'spruce' | 'jungle' | 'acacia' | 'dark_oak' | 'mangrove'
   grassDensity?: number    // 0-1 (tall grass coverage)
   flowerDensity?: number   // 0-1 (flower coverage)
+  flowers?: BlockType[]    // Specific flower types for this biome (if empty, uses default set)
   allowSnow?: boolean      // Snow layer on top
   waterColor?: { r: number, g: number, b: number }  // Biome water tint
+  allowPumpkins?: boolean  // Can pumpkins spawn here
+  mushroomDensity?: number // 0-1 (mushroom coverage, separate from humidity-based)
 }
 
 export interface UndergroundBiome {

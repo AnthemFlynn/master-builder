@@ -66,5 +66,8 @@ export enum BlockType {
   spruce_leaves = 60,
   jungle_leaves = 61,
   acacia_leaves = 62,
-  dark_oak_leaves = 63
+  dark_oak_leaves = 63,
+
+  // Crops and special blocks
+  pumpkin = 64
 }
