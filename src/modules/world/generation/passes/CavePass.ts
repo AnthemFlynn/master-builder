@@ -128,15 +128,18 @@ export class CavePass implements GenerationPass {
     // Caves are constrained to deep underground (below ocean floor)
     const maxY = Math.min(this.CAVE_MAX_Y, Math.ceil(cy + radius))
 
+    // Pre-compute squared radius to avoid sqrt in hot loop
+    const radiusSq = radius * radius
+
     for (let x = minX; x <= maxX; x++) {
       for (let y = minY; y <= maxY; y++) {
         for (let z = minZ; z <= maxZ; z++) {
           const dx = x - cx
           const dy = y - cy
           const dz = z - cz
-          const distance = Math.sqrt(dx*dx + dy*dy + dz*dz)
+          const distanceSq = dx*dx + dy*dy + dz*dz
 
-          if (distance <= radius) {
+          if (distanceSq <= radiusSq) {
             context.setBlock(x, y, z, BlockType.air)
             context.markCave(x, y, z)
           }

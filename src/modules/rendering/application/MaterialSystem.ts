@@ -4,7 +4,9 @@ import { blockRegistry } from '../../../modules/blocks'
 export class MaterialSystem {
   private materials = new Map<string, THREE.Material>()
   private faceMaterials = new Map<string, THREE.Material>()
-  private readonly maxCacheSize = 100 // LRU cache limit
+  // Cache size increased to cover all block types × faces (~65 blocks × 6 faces = 390)
+  // Plus cross materials and some headroom
+  private readonly maxCacheSize = 500
 
   constructor() {
     this.materials.set('chunk', new THREE.MeshStandardMaterial({
