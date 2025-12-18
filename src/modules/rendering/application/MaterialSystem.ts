@@ -39,10 +39,22 @@ export class MaterialSystem {
     // Material not in cache, create new one
     const [blockTypeStr, faceIndexStr] = materialKey.split(':')
     const blockType = Number(blockTypeStr)
-    const faceIndex = Number(faceIndexStr)
-    mat = blockRegistry.createMaterialForFace(blockType, faceIndex)
-    mat.vertexColors = true
-    mat.side = THREE.FrontSide
+
+    // Check if this is a cross-billboard material
+    if (faceIndexStr === 'cross') {
+      // Cross-billboard: use block's texture with transparency
+      mat = blockRegistry.createMaterialForFace(blockType, 0) // Use first texture
+      mat.vertexColors = true
+      mat.side = THREE.FrontSide  // We duplicate verts for back faces
+      mat.transparent = true
+      mat.alphaTest = 0.5  // Discard pixels with alpha < 0.5
+      mat.depthWrite = true
+    } else {
+      const faceIndex = Number(faceIndexStr)
+      mat = blockRegistry.createMaterialForFace(blockType, faceIndex)
+      mat.vertexColors = true
+      mat.side = THREE.FrontSide
+    }
 
     // LRU eviction: Remove oldest entry if cache is full
     if (this.faceMaterials.size >= this.maxCacheSize) {

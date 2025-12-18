@@ -44,6 +44,90 @@ export class VertexBuilder {
     this.worldOffsetZ = chunkZ * 24
   }
 
+  /**
+   * Add cross-billboard quads (two intersecting planes forming X shape)
+   * Used for flowers, tall grass, and other vegetation
+   */
+  addCrossQuads(
+    x: number, y: number, z: number,
+    blockType: number
+  ): void {
+    const materialKey = `${blockType}:cross`
+    const buffer = this.getBuffer(materialKey)
+
+    // Get base color for the block
+    const baseColor = blockRegistry.getFaceColor(blockType, { x: 0, y: 1, z: 0 })
+
+    // Calculate world coordinates for lighting
+    const worldX = Math.floor(x + this.worldOffsetX)
+    const worldY = Math.floor(y)
+    const worldZ = Math.floor(z + this.worldOffsetZ)
+
+    // Sample lighting from above the block position
+    const lightValue = this.lighting.getLight(worldX, worldY + 1, worldZ)
+    const combined = combineLightChannels(lightValue)
+    const light = normalizeLightToColor(combined)
+
+    // Cross quads are centered in the block
+    // Diagonal 1: from (0,0,0) to (1,1,1)
+    // Diagonal 2: from (1,0,0) to (0,1,1)
+
+    const crossVertices = [
+      // First diagonal plane (NW to SE when viewed from above)
+      [
+        { x: x, y: y, z: z, u: 0, v: 1 },           // bottom-left
+        { x: x + 1, y: y, z: z + 1, u: 1, v: 1 },   // bottom-right
+        { x: x + 1, y: y + 1, z: z + 1, u: 1, v: 0 }, // top-right
+        { x: x, y: y + 1, z: z, u: 0, v: 0 }         // top-left
+      ],
+      // Second diagonal plane (NE to SW when viewed from above)
+      [
+        { x: x + 1, y: y, z: z, u: 0, v: 1 },       // bottom-left
+        { x: x, y: y, z: z + 1, u: 1, v: 1 },       // bottom-right
+        { x: x, y: y + 1, z: z + 1, u: 1, v: 0 },   // top-right
+        { x: x + 1, y: y + 1, z: z, u: 0, v: 0 }     // top-left
+      ]
+    ]
+
+    // Add variation for natural look
+    const hash = this.hash(worldX, worldY, worldZ)
+    const variation = 0.9 + hash * 0.2
+
+    for (const quad of crossVertices) {
+      // Add front face
+      for (const v of quad) {
+        buffer.positions.push(v.x, v.y, v.z)
+        buffer.colors.push(
+          light.r * baseColor.r * variation,
+          light.g * baseColor.g * variation,
+          light.b * baseColor.b * variation
+        )
+        buffer.uvs.push(v.u, v.v)
+      }
+
+      // Front face indices
+      const i = buffer.vertexCount
+      buffer.indices.push(i, i + 1, i + 2, i, i + 2, i + 3)
+      buffer.vertexCount += 4
+
+      // Add back face (same vertices, reversed winding)
+      for (const v of quad) {
+        buffer.positions.push(v.x, v.y, v.z)
+        buffer.colors.push(
+          light.r * baseColor.r * variation,
+          light.g * baseColor.g * variation,
+          light.b * baseColor.b * variation
+        )
+        buffer.uvs.push(v.u, v.v)
+      }
+
+      // Back face indices (reversed winding for back face)
+      const j = buffer.vertexCount
+      buffer.indices.push(j, j + 2, j + 1, j, j + 3, j + 2)
+      buffer.vertexCount += 4
+    }
+  }
+
   addQuad(
     x: number, y: number, z: number,
     width: number, height: number,
