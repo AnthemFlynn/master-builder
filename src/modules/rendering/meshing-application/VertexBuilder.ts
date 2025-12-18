@@ -74,18 +74,19 @@ export class VertexBuilder {
 
     const crossVertices = [
       // First diagonal plane (NW to SE when viewed from above)
+      // Note: V coordinates are flipped because Three.js flipY=true by default
       [
-        { x: x, y: y, z: z, u: 0, v: 1 },           // bottom-left
-        { x: x + 1, y: y, z: z + 1, u: 1, v: 1 },   // bottom-right
-        { x: x + 1, y: y + 1, z: z + 1, u: 1, v: 0 }, // top-right
-        { x: x, y: y + 1, z: z, u: 0, v: 0 }         // top-left
+        { x: x, y: y, z: z, u: 0, v: 0 },           // bottom-left
+        { x: x + 1, y: y, z: z + 1, u: 1, v: 0 },   // bottom-right
+        { x: x + 1, y: y + 1, z: z + 1, u: 1, v: 1 }, // top-right
+        { x: x, y: y + 1, z: z, u: 0, v: 1 }         // top-left
       ],
       // Second diagonal plane (NE to SW when viewed from above)
       [
-        { x: x + 1, y: y, z: z, u: 0, v: 1 },       // bottom-left
-        { x: x, y: y, z: z + 1, u: 1, v: 1 },       // bottom-right
-        { x: x, y: y + 1, z: z + 1, u: 1, v: 0 },   // top-right
-        { x: x + 1, y: y + 1, z: z, u: 0, v: 0 }     // top-left
+        { x: x + 1, y: y, z: z, u: 0, v: 0 },       // bottom-left
+        { x: x, y: y, z: z + 1, u: 1, v: 0 },       // bottom-right
+        { x: x, y: y + 1, z: z + 1, u: 1, v: 1 },   // top-right
+        { x: x + 1, y: y + 1, z: z, u: 0, v: 1 }     // top-left
       ]
     ]
 
