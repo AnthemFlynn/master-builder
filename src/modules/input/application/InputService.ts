@@ -201,10 +201,10 @@ export class InputService implements IInputQuery {
 
     const actionName = this.findActionByKey(event.code)
     
-    // DEBUG: Targeted logging for problem keys
-    if (['Space', 'Tab', 'KeyB'].includes(event.code)) {
-        console.log(`[Input] Debug KeyDown: ${event.code} mapped to ${actionName}`)
-    }
+    // DEBUG: Targeted logging for problem keys (disabled for performance)
+    // if (['Space', 'Tab', 'KeyB'].includes(event.code)) {
+    //     console.log(`[Input] Debug KeyDown: ${event.code} mapped to ${actionName}`)
+    // }
     
     if (!actionName) return
 

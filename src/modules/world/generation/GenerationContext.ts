@@ -84,7 +84,8 @@ export class GenerationContext {
     const length = this.size * this.height * this.size  // 24 * 256 * 24 = 147,456
     this.data = new Uint8Array(length)  // All values default to 0 (BlockType.air)
 
-    console.log(`🌍 GenerationContext initialized for chunk (${chunkCoord.x}, ${chunkCoord.z})`)
+    // Debug logging disabled for performance
+    // console.log(`🌍 GenerationContext initialized for chunk (${chunkCoord.x}, ${chunkCoord.z})`)
   }
 
   private getIndex(x: number, y: number, z: number): number {
