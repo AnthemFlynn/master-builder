@@ -33,6 +33,8 @@ export class VertexBuilder {
   private buffers = new Map<string, BufferData>()
   private worldOffsetX: number
   private worldOffsetZ: number
+  // Cache for hash values to avoid recalculating per-vertex
+  private hashCache = new Map<string, number>()
 
   constructor(
     private voxels: IVoxelQuery,
@@ -348,10 +350,19 @@ export class VertexBuilder {
   }
 
   private hash(x: number, y: number, z: number): number {
+    // Use cached value if available
+    const key = `${x},${y},${z}`
+    let cached = this.hashCache.get(key)
+    if (cached !== undefined) return cached
+
+    // Compute hash
     let seed = x * 374761393 + y * 668265263 + z * 3266489917
     seed = (seed ^ (seed >> 13)) >>> 0
     seed = (seed * 1274126177) >>> 0
-    return (seed & 0xffffff) / 0xffffff
+    cached = (seed & 0xffffff) / 0xffffff
+
+    this.hashCache.set(key, cached)
+    return cached
   }
 
   private getBuffer(materialKey: string): BufferData {

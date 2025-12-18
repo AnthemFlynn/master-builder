@@ -178,12 +178,13 @@ export class GenerationContext {
     this.placedFeatures.add(`${type}:${x},${z}`)
   }
 
-  // NEW: Check for nearby features
+  // NEW: Check for nearby features (optimized with squared distance)
   hasNearbyFeature(x: number, z: number, radius: number, type: string): boolean {
+    const radiusSq = radius * radius
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dz = -radius; dz <= radius; dz++) {
-        const dist = Math.sqrt(dx*dx + dz*dz)
-        if (dist <= radius) {
+        const distSq = dx*dx + dz*dz
+        if (distSq <= radiusSq) {
           if (this.placedFeatures.has(`${type}:${x + dx},${z + dz}`)) {
             return true
           }
