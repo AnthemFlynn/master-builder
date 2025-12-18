@@ -5,14 +5,14 @@ import { createNoise2D } from 'simplex-noise'
 import { SeededRandom } from '../utils/SeededRandom'
 
 /**
- * DecorationPass - Places vegetation decorations (grass, flowers, mushrooms)
- * Based on biome settings for density and type
+ * DecorationPass - Places vegetation decorations (grass, flowers, mushrooms, pumpkins)
+ * Now uses biome-specific flower lists and mushroom densities for more variety
  */
 export class DecorationPass implements GenerationPass {
   readonly name = 'DecorationPass'
 
-  // Flower types available for placement
-  private readonly FLOWERS = [
+  // Default flower types when biome doesn't specify
+  private readonly DEFAULT_FLOWERS = [
     BlockType.dandelion,
     BlockType.poppy,
     BlockType.blue_orchid,
@@ -76,29 +76,49 @@ export class DecorationPass implements GenerationPass {
           if (rng.next() < flowerChance) {
             // Check if space is empty above surface
             if (context.getBlock(x, surfaceY + 1, z) === BlockType.air) {
-              // Pick a random flower
-              const flowerIndex = Math.floor(rng.next() * this.FLOWERS.length)
-              context.setBlock(x, surfaceY + 1, z, this.FLOWERS[flowerIndex])
+              // Use biome-specific flowers if available, otherwise default set
+              const flowerList = biome.flowers && biome.flowers.length > 0
+                ? biome.flowers
+                : this.DEFAULT_FLOWERS
+              const flowerIndex = Math.floor(rng.next() * flowerList.length)
+              context.setBlock(x, surfaceY + 1, z, flowerList[flowerIndex])
             }
           }
         }
 
-        // Place mushrooms in dark/humid areas (low light, high humidity)
+        // Place mushrooms based on biome mushroomDensity or humidity
         if (surface.blockType === BlockType.grass || surface.blockType === BlockType.mycelium) {
           const humidity = context.humidity[x][z]
-          const temp = context.temperature[x][z]
 
-          // Mushrooms prefer shade and humidity
-          const mushroomChance = humidity > 0.4 ? 0.02 : (humidity > 0.2 ? 0.005 : 0)
+          // Use biome-specific mushroom density if set, otherwise humidity-based
+          let mushroomChance: number
+          if (biome.mushroomDensity !== undefined && biome.mushroomDensity > 0) {
+            mushroomChance = biome.mushroomDensity * clusterNoise
+          } else {
+            // Fallback: humidity-based mushrooms
+            mushroomChance = humidity > 0.4 ? 0.02 : (humidity > 0.2 ? 0.005 : 0)
+          }
 
           if (rng.next() < mushroomChance) {
             if (context.getBlock(x, surfaceY + 1, z) === BlockType.air) {
-              // Red mushrooms are rarer
-              const isRed = rng.next() < 0.3
+              // Red mushrooms are rarer (20% in dark forests, 30% elsewhere)
+              const redChance = biome.type === 'dark_forest' ? 0.4 : 0.3
+              const isRed = rng.next() < redChance
               context.setBlock(
                 x, surfaceY + 1, z,
                 isRed ? BlockType.red_mushroom : BlockType.brown_mushroom
               )
+            }
+          }
+        }
+
+        // Place pumpkin patches in allowed biomes
+        if (biome.allowPumpkins && surface.blockType === BlockType.grass) {
+          // Use separate noise for pumpkin clustering (larger patches)
+          const pumpkinNoise = (decorationNoise(worldX * 0.05, worldZ * 0.05) + 1) / 2
+          if (pumpkinNoise > 0.7 && rng.next() < 0.003) {  // Rare patches in clustered areas
+            if (context.getBlock(x, surfaceY + 1, z) === BlockType.air) {
+              context.setBlock(x, surfaceY + 1, z, BlockType.pumpkin)
             }
           }
         }
