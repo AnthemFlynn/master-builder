@@ -12,7 +12,7 @@ export const GROUND_BLOCKS: BlockDefinition[] = [
     textures: [
       'grass_block_side.png',  // +X face
       'grass_block_side.png',  // -X face
-      'grass_top_green.png',   // +Y face (top)
+      'grass_block_top.png',   // +Y face (top)
       'dirt.png',              // -Y face (bottom)
       'grass_block_side.png',  // +Z face
       'grass_block_side.png'   // -Z face

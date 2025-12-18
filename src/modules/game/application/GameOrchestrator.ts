@@ -56,10 +56,10 @@ export class GameOrchestrator {
 
   private currentChunk = new ChunkCoordinate(0, 0)
   private previousChunk = new ChunkCoordinate(0, 0)
-  private renderDistance = 5
+  private renderDistance = 6  // Increased to see more islands
   private lastUpdateTime = performance.now()
   private lastChunkUnloadTime = performance.now()
-  private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
+  private chunkUnloadInterval = 10000 // Unload chunks every 10 seconds (less aggressive)
   private lastChunkFillTime = performance.now()
   private chunkFillInterval = 1000 // Check for missing chunks every second
   private cameraControls: PointerLockControls

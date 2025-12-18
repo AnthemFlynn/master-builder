@@ -28,20 +28,20 @@ describe('WaterPass', () => {
     const pass = new WaterPass()
     pass.execute(context)
 
-    // Air blocks from Y=31 to Y=62 should now be water (glass)
+    // Air blocks from Y=31 to Y=63 should now be water
     let waterCount = 0
     for (let x = 0; x < 24; x++) {
-      for (let y = 31; y <= 62; y++) {
+      for (let y = 31; y <= 63; y++) {
         for (let z = 0; z < 24; z++) {
-          if (context.getBlock(x, y, z) === BlockType.glass) {  // water = glass
+          if (context.getBlock(x, y, z) === BlockType.water) {
             waterCount++
           }
         }
       }
     }
 
-    // 24 * 24 * 32 = 18432 water blocks
-    expect(waterCount).toBe(18432)
+    // 24 * 24 * 33 = 19008 water blocks
+    expect(waterCount).toBe(19008)
   })
 
   it('should not fill above sea level', () => {
@@ -65,7 +65,7 @@ describe('WaterPass', () => {
     for (let x = 0; x < 24; x++) {
       for (let y = 0; y < 256; y++) {
         for (let z = 0; z < 24; z++) {
-          if (context.getBlock(x, y, z) === BlockType.glass) {
+          if (context.getBlock(x, y, z) === BlockType.water) {
             waterCount++
           }
         }
@@ -98,12 +98,12 @@ describe('WaterPass', () => {
     // Ocean marking TBD - just verify water is placed for now
 
     let waterDepth = 0
-    for (let y = 21; y <= 62; y++) {
-      if (context.getBlock(12, y, 12) === BlockType.glass) {
+    for (let y = 21; y <= 63; y++) {
+      if (context.getBlock(12, y, 12) === BlockType.water) {
         waterDepth++
       }
     }
 
-    expect(waterDepth).toBe(42)  // Y=21 to Y=62
+    expect(waterDepth).toBe(43)  // Y=21 to Y=63
   })
 })

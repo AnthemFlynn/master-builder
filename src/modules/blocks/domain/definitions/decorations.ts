@@ -1,12 +1,14 @@
 import { BlockDefinition, BlockCategory } from '../types'
 
+// Decorations with proper Minecraft textures
+
 export const DECORATION_BLOCKS: BlockDefinition[] = [
   // ===== GRASS/PLANTS =====
   {
     id: 33,  // BlockType.tall_grass
     name: 'Tall Grass',
     category: BlockCategory.TRANSPARENT,
-    textures: 'tall_grass.png',
+    textures: 'short_grass.png',
     transparent: true,
     baseColor: { r: 0.35, g: 0.65, b: 0.25 },
     emissive: { r: 0, g: 0, b: 0 },
@@ -218,14 +220,14 @@ export const DECORATION_BLOCKS: BlockDefinition[] = [
     id: 47,  // BlockType.lily_of_valley
     name: 'Lily of the Valley',
     category: BlockCategory.TRANSPARENT,
-    textures: 'lily_of_valley.png',
+    textures: 'lily_of_the_valley.png',
     transparent: true,
     baseColor: { r: 0.9, g: 0.95, b: 0.9 },
     emissive: { r: 0, g: 0, b: 0 },
     lightAbsorption: 0,
     collidable: false,
     friction: 1.0,
-    icon: '/textures/block/lily_of_valley.png',
+    icon: '/textures/block/lily_of_the_valley.png',
     inventorySlot: null,
     categorySlot: 15
   },
