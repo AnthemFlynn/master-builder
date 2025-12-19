@@ -6,6 +6,7 @@ import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
 import { WaterPass } from '../generation/passes/WaterPass'
 import { CavePass } from '../generation/passes/CavePass'
+import { InterIslandCavePass } from '../generation/passes/InterIslandCavePass'
 import { BiomePass } from '../generation/passes/BiomePass'
 import { TreePass } from '../generation/passes/TreePass'
 import { DecorationPass } from '../generation/passes/DecorationPass'
@@ -26,14 +27,16 @@ async function initializeOrchestrator() {
   // 1. TerrainPass - Generate heightmap with continentalness (oceans, land, mountains)
   // 2. WaterPass - Fill sea level (Y=63), beaches on gentle slopes
   // 3. CavePass - Carve cave systems
-  // 4. OrePass - Place ore veins (coal, iron, gold, diamond)
-  // 5. BiomePass - Apply surface materials based on climate
-  // 6. TreePass - Place trees based on biome
-  // 7. DecorationPass - Place grass, flowers, mushrooms, cacti
+  // 4. InterIslandCavePass - Carve tunnel network connecting islands
+  // 5. OrePass - Place ore veins (coal, iron, gold, diamond)
+  // 6. BiomePass - Apply surface materials based on climate
+  // 7. TreePass - Place trees based on biome
+  // 8. DecorationPass - Place grass, flowers, mushrooms, cacti
   orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
     new WaterPass(),
     new CavePass(),
+    new InterIslandCavePass(),
     new OrePass(),
     new BiomePass(),
     new TreePass(),
@@ -41,7 +44,7 @@ async function initializeOrchestrator() {
   ])
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Generation pipeline: Terrain → Water → Caves → Ores → Biomes → Trees → Decorations`)
+  console.log(`🌍 Generation pipeline: Terrain → Water → Caves → InterIslandCaves → Ores → Biomes → Trees → Decorations`)
 }
 
 // Initialize on worker start
