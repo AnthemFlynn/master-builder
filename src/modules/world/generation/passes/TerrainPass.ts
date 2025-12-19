@@ -42,6 +42,10 @@ export class TerrainPass implements GenerationPass {
       throw new Error('OrganicIslandGenerator not initialized')
     }
 
+    // Store island configs in context for InterIslandCavePass
+    const islands = this.organicGenerator.getAllIslands()
+    context.setIslandConfigs(islands)
+
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         const worldX = context.chunkCoord.x * 24 + x

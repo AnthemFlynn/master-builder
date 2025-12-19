@@ -2,6 +2,7 @@ import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { WorldDefinition } from '../domain/WorldDefinition'
 import { BlockType } from '../domain/BlockType'
 import { SurfaceBiome, UndergroundBiome } from './biomes/BiomeTypes'
+import type { IslandConfig } from './OrganicIslandGenerator'
 
 interface SurfaceInfo {
   y: number
@@ -27,6 +28,9 @@ export class GenerationContext {
   public undergroundBiomeMap: Map<string, UndergroundBiome> = new Map()  // NEW
   public minY: number = 256
   public maxY: number = 0
+
+  // Island configs for inter-island cave system
+  private islandConfigs: IslandConfig[] = []
 
   private readonly size: number = 24
   private readonly height: number = 256
@@ -210,5 +214,14 @@ export class GenerationContext {
 
   getUndergroundBiomeAt(x: number, z: number): UndergroundBiome | undefined {
     return this.undergroundBiomeMap.get(`${x},${z}`)
+  }
+
+  // Island config accessors for inter-island cave system
+  setIslandConfigs(configs: IslandConfig[]): void {
+    this.islandConfigs = configs
+  }
+
+  getIslandConfigs(): IslandConfig[] {
+    return this.islandConfigs
   }
 }
