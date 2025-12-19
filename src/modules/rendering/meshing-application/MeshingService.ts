@@ -14,7 +14,12 @@ export class MeshingService {
   private meshingWorkerPool: MeshingWorkerPool
   // Backpressure: track in-flight mesh builds to prevent overwhelming GPU
   private inFlightMeshes = new Set<string>()
-  private readonly maxConcurrentMeshes = 4  // Limit concurrent builds
+  private maxConcurrentMeshes = 4  // Limit concurrent builds (can be boosted for startup)
+
+  // Startup boost: allow more concurrent builds during initial load
+  private boostMode = true
+  private readonly BOOST_CONCURRENT = 12  // Higher concurrency during startup
+  private readonly NORMAL_CONCURRENT = 4  // Normal concurrency after startup
 
   constructor(
     private voxels: IVoxelQuery & { getChunk: any }, // Need getChunk for buffers
@@ -111,14 +116,21 @@ export class MeshingService {
   processDirtyQueue(budgetOverrideMs?: number): { budgetUsedMs: number; chunksProcessed: number } {
     const startTime = performance.now()
     let chunksProcessed = 0
-    const budgetMs = budgetOverrideMs ?? this.rebuildBudgetMs
+
+    // During boost mode: higher budget (10ms) and more concurrent builds
+    const effectiveBudgetMs = budgetOverrideMs ?? (this.boostMode ? 10 : this.rebuildBudgetMs)
+    const effectiveMaxConcurrent = this.boostMode ? this.BOOST_CONCURRENT : this.maxConcurrentMeshes
 
     if (this.dirtyQueue.size === 0) {
+      // Auto-disable boost when queue is empty (initial load complete)
+      if (this.boostMode && this.inFlightMeshes.size === 0) {
+        this.disableBoostMode()
+      }
       return { budgetUsedMs: 0, chunksProcessed: 0 }
     }
 
     // Backpressure: don't start new builds if we're at capacity
-    if (this.inFlightMeshes.size >= this.maxConcurrentMeshes) {
+    if (this.inFlightMeshes.size >= effectiveMaxConcurrent) {
       return { budgetUsedMs: 0, chunksProcessed: 0 }
     }
 
@@ -127,13 +139,13 @@ export class MeshingService {
     for (const [key, reason] of entries) {
       const elapsed = performance.now() - startTime
 
-      // Enforce budget (can be overridden for performance recovery)
-      if (elapsed >= budgetMs) {
+      // Enforce budget (higher during boost mode)
+      if (elapsed >= effectiveBudgetMs) {
         break
       }
 
       // Backpressure: stop if we've hit max concurrent builds
-      if (this.inFlightMeshes.size >= this.maxConcurrentMeshes) {
+      if (this.inFlightMeshes.size >= effectiveMaxConcurrent) {
         break
       }
 
@@ -175,5 +187,23 @@ export class MeshingService {
 
   getWorkerUtilization(): { busy: number; total: number } {
     return this.meshingWorkerPool.getUtilization()
+  }
+
+  /**
+   * Disable startup boost mode (call after initial chunks are rendered)
+   */
+  disableBoostMode(): void {
+    if (this.boostMode) {
+      this.boostMode = false
+      this.maxConcurrentMeshes = this.NORMAL_CONCURRENT
+      console.log('🚀 Startup boost disabled, switching to normal meshing rate')
+    }
+  }
+
+  /**
+   * Check if boost mode is active
+   */
+  isBoostMode(): boolean {
+    return this.boostMode
   }
 }
