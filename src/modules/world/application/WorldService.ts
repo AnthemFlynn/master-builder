@@ -3,14 +3,17 @@ import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { blockRegistry } from '../../blocks'
-import { ChunkRequest, MainMessage } from '../workers/types'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
+import { ChunkWorkerPool } from '../infrastructure/ChunkWorkerPool'
 
 export class WorldService implements IVoxelQuery {
   private chunks = new Map<string, ChunkData>()
-  private worker: Worker
+  private workerPool: ChunkWorkerPool
   private environmentService?: EnvironmentService
+
+  // Track pending chunk requests to avoid duplicates
+  private pendingChunks = new Set<string>()
 
   // Debounce lighting recalculations to prevent CPU overload
   private pendingLightingChunks = new Set<string>()
@@ -18,9 +21,9 @@ export class WorldService implements IVoxelQuery {
   private readonly LIGHTING_DEBOUNCE_MS = 50 // Batch lighting updates
 
   constructor(private eventBus?: EventBus) {
-    this.worker = new Worker("/assets/ChunkWorker.js")
-    this.worker.onmessage = this.handleWorkerMessage.bind(this)
-    
+    // Use worker pool with 6 workers for parallel chunk generation
+    this.workerPool = new ChunkWorkerPool(6)
+
     if (this.eventBus) {
         this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
             const coord = new ChunkCoordinate(e.chunkCoord.x, e.chunkCoord.z)
@@ -36,53 +39,50 @@ export class WorldService implements IVoxelQuery {
       this.environmentService = service
   }
 
-  private handleWorkerMessage(e: MessageEvent<MainMessage>) {
-    const msg = e.data
-    
-    if (msg.type === 'CHUNK_GENERATED') {
-      const { x, z, blockBuffer, metadata, renderDistance } = msg
-      const coord = new ChunkCoordinate(x, z)
-      const chunk = this.getOrCreateChunk(coord)
-      
-      // Reconstruct ChunkData from buffer
-      // We need a way to load the buffer into the existing ChunkData instance or replace it.
-      // ChunkData constructor accepts buffer.
-      const newChunk = new ChunkData(coord, blockBuffer, metadata)
-      this.chunks.set(coord.toKey(), newChunk)
-      
-      console.log(`🌍 Worker generated chunk (${x}, ${z})`)
-
-      if (this.eventBus) {
-        this.eventBus.emit('world', {
-          type: 'ChunkGeneratedEvent',
-          timestamp: Date.now(),
-          chunkCoord: coord,
-          renderDistance
-        })
-      }
-      // Trigger lighting calculation for the newly generated chunk
-      this.calculateLightAsync(coord)
-    }
-  }
-
   generateChunkAsync(coord: ChunkCoordinate, renderDistance: number): void {
-    // If already generated? Check chunks map.
-    if (this.chunks.has(coord.toKey())) {
+    const key = coord.toKey()
+
+    // Skip if already generated or pending
+    if (this.chunks.has(key) || this.pendingChunks.has(key)) {
       return
     }
-    
-    // Mark as pending? Or just send request.
-    // To avoid duplicate requests, we can add a placeholder or set a pending flag.
-    // For now, simple check.
 
-    const request: ChunkRequest = {
-      type: 'GENERATE_CHUNK',
-      x: coord.x,
-      z: coord.z,
-      renderDistance
-    }
-    
-    this.worker.postMessage(request)
+    // Mark as pending to avoid duplicate requests
+    this.pendingChunks.add(key)
+
+    // Use worker pool for parallel generation
+    this.workerPool.generateChunk(coord, renderDistance)
+      .then(result => {
+        // Remove from pending
+        this.pendingChunks.delete(key)
+
+        const { x, z, blockBuffer, metadata } = result
+        const chunkCoord = new ChunkCoordinate(x, z)
+
+        // Create ChunkData from buffer
+        const newChunk = new ChunkData(chunkCoord, blockBuffer, metadata)
+        this.chunks.set(key, newChunk)
+
+        if (this.eventBus) {
+          this.eventBus.emit('world', {
+            type: 'ChunkGeneratedEvent',
+            timestamp: Date.now(),
+            chunkCoord,
+            renderDistance
+          })
+        }
+
+        // Trigger lighting calculation for the newly generated chunk
+        this.calculateLightAsync(chunkCoord)
+      })
+      .catch(error => {
+        console.error(`[WorldService] Failed to generate chunk (${coord.x}, ${coord.z}):`, error)
+        this.pendingChunks.delete(key)
+      })
+  }
+
+  getWorkerUtilization(): { busy: number; total: number } {
+    return this.workerPool.getUtilization()
   }
 
   calculateLightAsync(coord: ChunkCoordinate): void {
@@ -235,8 +235,8 @@ export class WorldService implements IVoxelQuery {
       const dz = chunk.coord.z - centerChunk.z
       const distanceSquared = dx * dx + dz * dz
 
-      // Unload if beyond max distance (add 2 to maxDistance for larger buffer zone)
-      if (distanceSquared > (maxDistance + 2) * (maxDistance + 2)) {
+      // Unload if beyond max distance (add 4 to cover square grid corners: sqrt(6²+6²) ≈ 8.49)
+      if (distanceSquared > (maxDistance + 4) * (maxDistance + 4)) {
         chunksToUnload.push(chunk.coord)
       }
     }
@@ -248,7 +248,7 @@ export class WorldService implements IVoxelQuery {
     return chunksToUnload.length
   }
 
-  private worldToChunkCoord(worldX: number, worldZ: number): ChunkCoordinate {
+  worldToChunkCoord(worldX: number, worldZ: number): ChunkCoordinate {
     return new ChunkCoordinate(
       Math.floor(worldX / 24),
       Math.floor(worldZ / 24)

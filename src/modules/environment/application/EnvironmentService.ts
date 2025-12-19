@@ -44,21 +44,21 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
       const cz = Math.floor(worldZ / 24)
       const coord = new ChunkCoordinate(cx, cz)
       const data = this.chunkDataMap.get(coord.toKey())
-      
+
       // Default to DARKNESS if chunk is missing
       if (!data) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
-      
+
       const lx = ((worldX % 24) + 24) % 24
       const lz = ((worldZ % 24) + 24) % 24
-      
+
       // Use ChunkData API
       const b = data.getBlockLight(lx, worldY, lz)
       const s = data.getSkyLight(lx, worldY, lz)
-      
+
       // Sky light is 4-bit intensity (white)
-      return { 
-          sky: { r: s, g: s, b: s }, 
-          block: b 
+      return {
+          sky: { r: s, g: s, b: s },
+          block: b
       }
   }
 
