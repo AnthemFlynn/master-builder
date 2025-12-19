@@ -31,6 +31,7 @@ import { getWorldPreset } from '../../world/domain/WorldPreset'
 import { GameState } from '../../input/domain/InputState'
 import { UIState } from '../../ui/domain/UIState'
 import { PerformanceMonitor } from '../infrastructure/PerformanceMonitor'
+import { generateSpiralOrder } from '../../world/infrastructure/ChunkPriorityQueue'
 
 export class GameOrchestrator {
   // Infrastructure
@@ -63,21 +64,6 @@ export class GameOrchestrator {
   private lastChunkFillTime = performance.now()
   private chunkFillInterval = 30000 // Check for missing chunks every 30 seconds (was 1s - caused CPU overload)
   private cameraControls: PointerLockControls
-
-  // Chunk prioritization weights
-  private readonly PRIORITY_DISTANCE_MULTIPLIER = 10
-  private readonly PRIORITY_VISIBLE_BONUS = -50
-  private readonly PRIORITY_FORWARD_BONUS = -20
-
-  // Pre-allocated objects for chunk prioritization (avoid GC pressure)
-  private readonly priorityFrustum = new THREE.Frustum()
-  private readonly priorityMatrix = new THREE.Matrix4()
-  private readonly priorityBoxMin = new THREE.Vector3()
-  private readonly priorityBoxMax = new THREE.Vector3()
-  private readonly priorityBox = new THREE.Box3()
-  private readonly priorityForward = new THREE.Vector3()
-  private readonly priorityChunkCenter = new THREE.Vector3()
-  private readonly priorityCameraPos = new THREE.Vector3()
 
   // FPS smoothing
   private frameTimeHistory: number[] = []
@@ -379,74 +365,14 @@ export class GameOrchestrator {
   }
 
   private generateChunksInRenderDistance(centerChunk: ChunkCoordinate): void {
-    const distance = this.renderDistance
-    const chunksToLoad: ChunkCoordinate[] = []
+    // Use spiral ordering: center chunk first, then outward in rings
+    // This ensures the player's immediate area loads before distant chunks
+    const spiralOrder = generateSpiralOrder(centerChunk, this.renderDistance)
 
-    // Generate grid of chunks
-    for (let x = -distance; x <= distance; x++) {
-      for (let z = -distance; z <= distance; z++) {
-        chunksToLoad.push(new ChunkCoordinate(centerChunk.x + x, centerChunk.z + z))
-      }
-    }
-
-    // Prioritize by visibility and distance
-    const prioritized = this.prioritizeChunks(chunksToLoad, this.camera)
-
-    // Send commands in priority order
-    for (const coord of prioritized) {
+    // Send commands in spiral order (center first)
+    for (const coord of spiralOrder) {
       this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
     }
-  }
-
-  private prioritizeChunks(chunks: ChunkCoordinate[], camera: THREE.Camera): ChunkCoordinate[] {
-    // Reuse pre-allocated frustum and matrix
-    this.priorityMatrix.multiplyMatrices(
-      camera.projectionMatrix,
-      camera.matrixWorldInverse
-    )
-    this.priorityFrustum.setFromProjectionMatrix(this.priorityMatrix)
-
-    // Sort by priority score
-    return chunks.sort((a, b) => {
-      const scoreA = this.calculatePriority(a, camera)
-      const scoreB = this.calculatePriority(b, camera)
-      return scoreA - scoreB
-    })
-  }
-
-  private calculatePriority(
-    coord: ChunkCoordinate,
-    camera: THREE.Camera
-  ): number {
-    // Factor 1: Distance (0-100)
-    const centerChunk = this.worldService.worldToChunkCoord(
-      camera.position.x,
-      camera.position.z
-    )
-    const dx = coord.x - centerChunk.x
-    const dz = coord.z - centerChunk.z
-    const distanceScore = Math.sqrt(dx * dx + dz * dz) * this.PRIORITY_DISTANCE_MULTIPLIER
-
-    // Factor 2: Frustum visibility (negative bonus if visible)
-    this.updateChunkBoundingBox(coord)
-    const visibilityScore = this.priorityFrustum.intersectsBox(this.priorityBox) ? this.PRIORITY_VISIBLE_BONUS : 0
-
-    // Factor 3: Movement direction (negative bonus if ahead)
-    const forwardScore = this.isInMovementDirection(coord, camera) ? this.PRIORITY_FORWARD_BONUS : 0
-
-    return distanceScore + visibilityScore + forwardScore
-  }
-
-  private updateChunkBoundingBox(coord: ChunkCoordinate): void {
-    const chunkSize = 24
-    const chunkHeight = 256
-    const worldX = coord.x * chunkSize
-    const worldZ = coord.z * chunkSize
-
-    // Reuse pre-allocated vectors and box
-    this.priorityBoxMin.set(worldX, 0, worldZ)
-    this.priorityBoxMax.set(worldX + chunkSize, chunkHeight, worldZ + chunkSize)
-    this.priorityBox.set(this.priorityBoxMin, this.priorityBoxMax)
   }
 
   private hasMissingChunks(centerChunk: ChunkCoordinate): boolean {
@@ -460,28 +386,6 @@ export class GameOrchestrator {
       }
     }
     return false
-  }
-
-  private isInMovementDirection(coord: ChunkCoordinate, camera: THREE.Camera): boolean {
-    const chunkSize = 24
-
-    // Get camera forward direction (horizontal plane only) - reuse pre-allocated vector
-    this.priorityForward.set(0, 0, -1)
-    this.priorityForward.applyQuaternion(camera.quaternion)
-    this.priorityForward.y = 0
-    this.priorityForward.normalize()
-
-    // Get direction to chunk center - reuse pre-allocated vectors
-    this.priorityChunkCenter.set(
-      coord.x * chunkSize + chunkSize / 2,
-      0,
-      coord.z * chunkSize + chunkSize / 2
-    )
-    this.priorityCameraPos.set(camera.position.x, 0, camera.position.z)
-    this.priorityChunkCenter.sub(this.priorityCameraPos).normalize()
-
-    // Check if chunk is in forward direction (dot product > 0.5 = ~60 degrees)
-    return this.priorityForward.dot(this.priorityChunkCenter) > 0.5
   }
 
   private setupInteractionListeners(): void {
