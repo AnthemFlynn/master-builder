@@ -62,24 +62,32 @@ export class CreativeModalManager {
   }
 
   private bankTabsContainer: HTMLDivElement
+  private bankButtons: HTMLButtonElement[] = []
 
   private renderBankButtons(): void {
-      this.bankTabsContainer.innerHTML = ''
-      const activeBank = this.inventory.getActiveBank()
-      
-      for (let i = 0; i < 10; i++) {
-          const btn = document.createElement('button')
-          btn.innerText = `Bank ${i}`
-          if (activeBank.id === i) {
-              btn.style.backgroundColor = '#218306' // Active highlight
+      // Only create buttons once, then just update styles
+      if (this.bankButtons.length === 0) {
+          this.bankTabsContainer.innerHTML = ''
+          for (let i = 0; i < 10; i++) {
+              const btn = document.createElement('button')
+              btn.innerText = `Bank ${i}`
+              btn.onclick = () => {
+                  this.inventory.selectBank(i)
+                  this.renderBank()
+                  this.updateBankButtonStyles() // Just update styles, don't rebuild
+              }
+              this.bankTabsContainer.appendChild(btn)
+              this.bankButtons.push(btn)
           }
-          btn.onclick = () => {
-              this.inventory.selectBank(i)
-              this.renderBank()
-              this.renderBankButtons()
-          }
-          this.bankTabsContainer.appendChild(btn)
       }
+      this.updateBankButtonStyles()
+  }
+
+  private updateBankButtonStyles(): void {
+      const activeBank = this.inventory.getActiveBank()
+      this.bankButtons.forEach((btn, i) => {
+          btn.style.backgroundColor = (activeBank.id === i) ? '#218306' : ''
+      })
   }
 
   private renderTabs(): void {

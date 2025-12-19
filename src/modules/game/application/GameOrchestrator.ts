@@ -61,7 +61,7 @@ export class GameOrchestrator {
   private lastChunkUnloadTime = performance.now()
   private chunkUnloadInterval = 10000 // Unload chunks every 10 seconds (less aggressive)
   private lastChunkFillTime = performance.now()
-  private chunkFillInterval = 1000 // Check for missing chunks every second
+  private chunkFillInterval = 30000 // Check for missing chunks every 30 seconds (was 1s - caused CPU overload)
   private cameraControls: PointerLockControls
 
   // Chunk prioritization weights
@@ -275,8 +275,11 @@ export class GameOrchestrator {
     }
 
     // Periodically check for and regenerate missing chunks within render distance
+    // Only runs if there are actually missing chunks (prevents CPU overload from constant regeneration)
     if (now - this.lastChunkFillTime > this.chunkFillInterval) {
-      this.generateChunksInRenderDistance(newChunk)
+      if (this.hasMissingChunks(newChunk)) {
+        this.generateChunksInRenderDistance(newChunk)
+      }
       this.lastChunkFillTime = now
     }
 
@@ -313,6 +316,11 @@ export class GameOrchestrator {
     })
 
     this.performanceMonitor.setQueueDepth('meshing', this.meshingService.getQueueDepth())
+    this.performanceMonitor.setWorkerUtilization(
+      'generation',
+      this.worldService.getWorkerUtilization().busy,
+      this.worldService.getWorkerUtilization().total
+    )
     this.performanceMonitor.setWorkerUtilization(
       'lighting',
       this.environmentService.getWorkerUtilization().busy,
@@ -439,6 +447,19 @@ export class GameOrchestrator {
     this.priorityBoxMin.set(worldX, 0, worldZ)
     this.priorityBoxMax.set(worldX + chunkSize, chunkHeight, worldZ + chunkSize)
     this.priorityBox.set(this.priorityBoxMin, this.priorityBoxMax)
+  }
+
+  private hasMissingChunks(centerChunk: ChunkCoordinate): boolean {
+    const distance = this.renderDistance
+    for (let x = -distance; x <= distance; x++) {
+      for (let z = -distance; z <= distance; z++) {
+        const coord = new ChunkCoordinate(centerChunk.x + x, centerChunk.z + z)
+        if (!this.worldService.getChunk(coord)) {
+          return true
+        }
+      }
+    }
+    return false
   }
 
   private isInMovementDirection(coord: ChunkCoordinate, camera: THREE.Camera): boolean {
