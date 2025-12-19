@@ -69,5 +69,6 @@ export enum BlockType {
   dark_oak_leaves = 63,
 
   // Crops and special blocks
-  pumpkin = 64
+  pumpkin = 64,
+  jack_o_lantern = 65  // Cave entrance marker (emissive)
 }

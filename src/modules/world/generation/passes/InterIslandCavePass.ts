@@ -92,7 +92,7 @@ export class InterIslandCavePass implements GenerationPass {
   }
 
   /**
-   * Carve branching tunnels from ring to each island and maze connections
+   * Carve branching tunnels from ring to each island entrance
    */
   private carveBranchTunnels(context: GenerationContext, islands: IslandConfig[]): void {
     const chunkWorldX = context.chunkCoord.x * 24
@@ -100,20 +100,23 @@ export class InterIslandCavePass implements GenerationPass {
     const noise3D = createNoise3D(() => context.seed + 9000)
 
     for (const island of islands) {
-      // Branch from ring (radius 100) to island entrance (radius ~50 from island center)
+      // Branch from ring (radius 100) to island entrance
+      // Islands are at radius ~120, entrance is 15 blocks from island center toward world center
+      // This puts entrance at radius ~105 (between ring at 100 and island at 120)
       const ringRadius = 100
-      const entranceRadius = 40  // How far from island center the entrance is
+      const entranceOffset = 15  // How far from island center toward world center
 
       // Calculate branch line from ring to island
       const angle = Math.atan2(island.centerZ, island.centerX)
 
-      // Ring point
+      // Ring point (on the circular highway)
       const ringX = Math.cos(angle) * ringRadius
       const ringZ = Math.sin(angle) * ringRadius
 
-      // Entrance point (closer to island center)
-      const entranceX = island.centerX - Math.cos(angle) * entranceRadius
-      const entranceZ = island.centerZ - Math.sin(angle) * entranceRadius
+      // Entrance point (on island slope, between ring and island center)
+      // Subtract moves toward world center
+      const entranceX = island.centerX - Math.cos(angle) * entranceOffset
+      const entranceZ = island.centerZ - Math.sin(angle) * entranceOffset
 
       // Check if this chunk intersects the branch tunnel
       for (let lx = 0; lx < 24; lx++) {
@@ -167,11 +170,12 @@ export class InterIslandCavePass implements GenerationPass {
 
     for (const island of islands) {
       // Entrance location: on slope facing archipelago center
+      // Must match the entranceOffset used in carveBranchTunnels
       const angle = Math.atan2(island.centerZ, island.centerX)
-      const entranceRadius = 40  // Distance from island center
+      const entranceOffset = 15  // Same as in carveBranchTunnels
 
-      const entranceX = island.centerX - Math.cos(angle) * entranceRadius
-      const entranceZ = island.centerZ - Math.sin(angle) * entranceRadius
+      const entranceX = island.centerX - Math.cos(angle) * entranceOffset
+      const entranceZ = island.centerZ - Math.sin(angle) * entranceOffset
 
       // Check if entrance is in this chunk
       const localX = Math.floor(entranceX - chunkWorldX)
@@ -181,9 +185,10 @@ export class InterIslandCavePass implements GenerationPass {
         // Find surface height at entrance location
         const surfaceY = this.findSurfaceAt(context, localX, localZ)
 
-        if (surfaceY > 30) {  // Only if above tunnel level
-          // Carve entrance shaft
-          this.carveEntranceOpening(context, localX, localZ, surfaceY, angle)
+        if (surfaceY > 35) {  // Only if above tunnel level
+          // Carve entrance shaft - direction is INTO the hill (toward island center)
+          const intoHillAngle = angle  // Toward island center = away from world center
+          this.carveEntranceOpening(context, localX, localZ, surfaceY, intoHillAngle, entranceX, entranceZ)
         }
       }
     }
@@ -191,55 +196,84 @@ export class InterIslandCavePass implements GenerationPass {
 
   /**
    * Carve the actual entrance opening - a sloped passage into the hillside
+   * Also places jack-o-lantern markers at the entrance
    */
   private carveEntranceOpening(
     context: GenerationContext,
     centerX: number,
     centerZ: number,
     surfaceY: number,
-    facingAngle: number
+    facingAngle: number,
+    worldEntranceX: number,
+    worldEntranceZ: number
   ): void {
-    const entranceWidth = 4
+    const entranceWidth = 5
     const entranceHeight = 4
 
-    // Direction into the hill (opposite of facing angle)
+    // Direction into the hill (toward island center)
     const intoHillX = Math.cos(facingAngle)
     const intoHillZ = Math.sin(facingAngle)
 
-    // Carve a sloping entrance passage
-    for (let depth = 0; depth < 20; depth++) {
-      const y = Math.floor(surfaceY - depth * 0.8)  // Slope down
-      if (y < 30) break  // Stop when we reach tunnel level
+    // Place jack-o-lantern markers at entrance (pillars on each side)
+    const markerOffsetX = Math.sin(facingAngle) * 3  // Perpendicular to entrance
+    const markerOffsetZ = -Math.cos(facingAngle) * 3
+
+    // Left pillar
+    const leftX = Math.floor(centerX + markerOffsetX)
+    const leftZ = Math.floor(centerZ + markerOffsetZ)
+    if (leftX >= 0 && leftX < 24 && leftZ >= 0 && leftZ < 24) {
+      for (let h = 0; h < 3; h++) {
+        context.setBlock(leftX, surfaceY + h, leftZ, BlockType.cobblestone)
+      }
+      context.setBlock(leftX, surfaceY + 3, leftZ, BlockType.jack_o_lantern)
+    }
+
+    // Right pillar
+    const rightX = Math.floor(centerX - markerOffsetX)
+    const rightZ = Math.floor(centerZ - markerOffsetZ)
+    if (rightX >= 0 && rightX < 24 && rightZ >= 0 && rightZ < 24) {
+      for (let h = 0; h < 3; h++) {
+        context.setBlock(rightX, surfaceY + h, rightZ, BlockType.cobblestone)
+      }
+      context.setBlock(rightX, surfaceY + 3, rightZ, BlockType.jack_o_lantern)
+    }
+
+    // Carve a sloping entrance passage going INTO the hill
+    for (let depth = 0; depth < 25; depth++) {
+      const y = Math.floor(surfaceY - depth * 0.6)  // Gentle slope down
+      if (y < 28) break  // Stop near tunnel level
 
       const x = Math.floor(centerX + intoHillX * depth)
       const z = Math.floor(centerZ + intoHillZ * depth)
 
-      // Carve a rectangular passage
-      for (let dx = -entranceWidth/2; dx <= entranceWidth/2; dx++) {
-        for (let dz = -entranceWidth/2; dz <= entranceWidth/2; dz++) {
-          for (let dy = 0; dy < entranceHeight; dy++) {
-            const lx = x + Math.floor(dx * Math.abs(Math.sin(facingAngle)) + dz * Math.abs(Math.cos(facingAngle)))
-            const lz = z + Math.floor(dx * Math.abs(Math.cos(facingAngle)) + dz * Math.abs(Math.sin(facingAngle)))
-            const ly = y + dy
+      // Carve an arched passage
+      for (let w = -entranceWidth/2; w <= entranceWidth/2; w++) {
+        // Calculate perpendicular offset
+        const perpX = Math.sin(facingAngle) * w
+        const perpZ = -Math.cos(facingAngle) * w
 
-            if (lx >= 0 && lx < 24 && lz >= 0 && lz < 24 && ly > 5 && ly < 200) {
-              const currentBlock = context.getBlock(lx, ly, lz)
-              if (currentBlock !== BlockType.air && currentBlock !== BlockType.water) {
-                context.setBlock(lx, ly, lz, BlockType.air)
-                context.markCave(lx, ly, lz)
-              }
+        for (let dy = 0; dy < entranceHeight; dy++) {
+          const lx = Math.floor(x + perpX)
+          const lz = Math.floor(z + perpZ)
+          const ly = y + dy
+
+          if (lx >= 0 && lx < 24 && lz >= 0 && lz < 24 && ly > 5 && ly < 200) {
+            const currentBlock = context.getBlock(lx, ly, lz)
+            if (currentBlock !== BlockType.air && currentBlock !== BlockType.water) {
+              context.setBlock(lx, ly, lz, BlockType.air)
+              context.markCave(lx, ly, lz)
             }
           }
         }
       }
     }
 
-    // Continue with vertical shaft to connect to tunnel
-    const shaftX = Math.floor(centerX + intoHillX * 15)
-    const shaftZ = Math.floor(centerZ + intoHillZ * 15)
-    const shaftTopY = Math.floor(surfaceY - 15 * 0.8)
+    // Continue with vertical shaft to connect to underground tunnel
+    const shaftX = Math.floor(centerX + intoHillX * 20)
+    const shaftZ = Math.floor(centerZ + intoHillZ * 20)
+    const shaftTopY = Math.floor(surfaceY - 20 * 0.6)
 
-    for (let y = shaftTopY; y >= 25; y--) {
+    for (let y = shaftTopY; y >= 22; y--) {
       for (let dx = -2; dx <= 2; dx++) {
         for (let dz = -2; dz <= 2; dz++) {
           const lx = shaftX + dx
