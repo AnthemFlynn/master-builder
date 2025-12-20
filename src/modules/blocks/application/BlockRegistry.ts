@@ -70,6 +70,12 @@ export class BlockRegistry {
     const textureName = Array.isArray(block.textures) ? block.textures[0] : block.textures
     const map = this.createTexture(textureName)
 
+    // Calculate emissive intensity based on block strength
+    // High-emissive blocks (glowstone, jack-o-lantern) get full intensity
+    const hasEmissive = block.emissive.r > 0 || block.emissive.g > 0 || block.emissive.b > 0
+    const maxEmissive = Math.max(block.emissive.r, block.emissive.g, block.emissive.b)
+    const emissiveIntensity = hasEmissive ? Math.min(1.2, maxEmissive / 12.5) : 0  // 15 / 12.5 = 1.2
+
     return new THREE.MeshStandardMaterial({
       map,
       transparent: block.transparent,
@@ -81,7 +87,7 @@ export class BlockRegistry {
         block.emissive.g / 15,
         block.emissive.b / 15
       ),
-      emissiveIntensity: block.emissive.r > 0 || block.emissive.g > 0 || block.emissive.b > 0 ? 0.8 : 0
+      emissiveIntensity
     })
   }
 
