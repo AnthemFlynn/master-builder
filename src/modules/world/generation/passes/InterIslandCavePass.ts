@@ -53,6 +53,9 @@ export class InterIslandCavePass implements GenerationPass {
     // Noise for tunnel variation
     const waveNoise = createNoise2D(() => context.seed + 8000)
 
+    let cavesCarved = 0
+    let lightsPlaced = 0
+
     for (let lx = 0; lx < 24; lx++) {
       for (let lz = 0; lz < 24; lz++) {
         const worldX = chunkWorldX + lx
@@ -90,6 +93,7 @@ export class InterIslandCavePass implements GenerationPass {
               if (currentBlock !== BlockType.air && currentBlock !== BlockType.water) {
                 context.setBlock(lx, y, lz, BlockType.air)
                 context.markCave(lx, y, lz)
+                cavesCarved++
               }
             }
           }
@@ -104,17 +108,17 @@ export class InterIslandCavePass implements GenerationPass {
               // Place glowstone at eye level on the wall
               const lightY = tunnelY + 1
               if (lightY > 5 && lightY < 40) {
-                const existing = context.getBlock(lx, lightY, lz)
                 context.setBlock(lx, lightY, lz, BlockType.glowstone)
-                const after = context.getBlock(lx, lightY, lz)
-                if (existing !== after) {
-                  // Silently track placement - too spammy to log every block
-                }
+                lightsPlaced++
               }
             }
           }
         }
       }
+    }
+
+    if (cavesCarved > 0 || lightsPlaced > 0) {
+      console.log(`🛣️  Ring highway at chunk (${context.chunkCoord.x}, ${context.chunkCoord.z}): ${cavesCarved} blocks carved, ${lightsPlaced} lights placed`)
     }
   }
 
@@ -126,7 +130,11 @@ export class InterIslandCavePass implements GenerationPass {
     const chunkWorldZ = context.chunkCoord.z * 24
     const noise3D = createNoise3D(() => context.seed + 9000)
 
-    for (const island of islands) {
+    let totalBranchesCarved = 0
+    let totalBranchLights = 0
+
+    for (let islandIdx = 0; islandIdx < islands.length; islandIdx++) {
+      const island = islands[islandIdx]
       // Branch from ring (radius 100) to island entrance
       // Islands are at radius ~120, entrance is 15 blocks from island center toward world center
       // This puts entrance at radius ~105 (between ring at 100 and island at 120)
@@ -144,6 +152,9 @@ export class InterIslandCavePass implements GenerationPass {
       // Subtract moves toward world center
       const entranceX = island.centerX - Math.cos(angle) * entranceOffset
       const entranceZ = island.centerZ - Math.sin(angle) * entranceOffset
+
+      let branchCarvesInChunk = 0
+      let branchLightsInChunk = 0
 
       // Check if this chunk intersects the branch tunnel
       for (let lx = 0; lx < 24; lx++) {
@@ -179,6 +190,7 @@ export class InterIslandCavePass implements GenerationPass {
                 if (currentBlock !== BlockType.air && currentBlock !== BlockType.water) {
                   context.setBlock(lx, y, lz, BlockType.air)
                   context.markCave(lx, y, lz)
+                  branchCarvesInChunk++
                 }
               }
             }
@@ -195,6 +207,7 @@ export class InterIslandCavePass implements GenerationPass {
                 const lightY = tunnelY + 1
                 if (lightY > 5 && lightY < 45) {
                   context.setBlock(lx, lightY, lz, BlockType.glowstone)
+                  branchLightsInChunk++
                 }
               }
             }
@@ -205,10 +218,17 @@ export class InterIslandCavePass implements GenerationPass {
               const lightY = tunnelY
               if (lightY > 5 && lightY < 45) {
                 context.setBlock(lx, lightY, lz, BlockType.glowstone)
+                branchLightsInChunk++
               }
             }
           }
         }
+      }
+
+      if (branchCarvesInChunk > 0 || branchLightsInChunk > 0) {
+        totalBranchesCarved += branchCarvesInChunk
+        totalBranchLights += branchLightsInChunk
+        console.log(`🌉 Branch ${islandIdx} at chunk (${context.chunkCoord.x}, ${context.chunkCoord.z}): ${branchCarvesInChunk} blocks, ${branchLightsInChunk} lights`)
       }
     }
   }
