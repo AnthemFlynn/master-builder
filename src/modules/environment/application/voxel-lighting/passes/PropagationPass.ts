@@ -187,10 +187,13 @@ export class PropagationPass implements ILightingPass {
             const blockDef = blockRegistry.get(blockType)
             if (blockDef && blockDef.emissive) {
               const { r: er, g: eg, b: eb } = blockDef.emissive
-              r = Math.max(r, er)
-              g = Math.max(g, eg)
-              b = Math.max(b, eb)
-              emissiveCount++
+              // Only count if actually emissive (non-zero values)
+              if (er > 0 || eg > 0 || eb > 0) {
+                r = Math.max(r, er)
+                g = Math.max(g, eg)
+                b = Math.max(b, eb)
+                emissiveCount++
+              }
             }
           }
 
