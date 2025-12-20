@@ -116,7 +116,8 @@ export class GameOrchestrator {
     this.inventoryService = new InventoryService(this.eventBus)
     this.uiService = new UIService(this.eventBus, {
       requestPointerLock: () => this.cameraControls.lock(),
-      exitPointerLock: () => this.cameraControls.unlock()
+      exitPointerLock: () => this.cameraControls.unlock(),
+      getPlayerPosition: () => this.playerService.getPosition()
     }, this.inventoryService, this.performanceMonitor)
     this.audioService = new AudioService(camera, this.eventBus)
     this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)

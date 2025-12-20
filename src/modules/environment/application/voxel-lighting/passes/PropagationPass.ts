@@ -170,11 +170,12 @@ export class PropagationPass implements ILightingPass {
     }
 
     // Phase 1: Seed internal
+    let emissiveCount = 0
     for (let localX = 0; localX < 24; localX++) {
       for (let localY = 0; localY < 256; localY++) {
         for (let localZ = 0; localZ < 24; localZ++) {
           const blockType = voxels.getBlockType(worldX + localX, localY, worldZ + localZ)
-          
+
           const bl = chunkData.getBlockLight(localX, localY, localZ)
           const sl = chunkData.getSkyLight(localX, localY, localZ)
           let r = bl.r
@@ -189,6 +190,7 @@ export class PropagationPass implements ILightingPass {
               r = Math.max(r, er)
               g = Math.max(g, eg)
               b = Math.max(b, eb)
+              emissiveCount++
             }
           }
 
@@ -200,6 +202,9 @@ export class PropagationPass implements ILightingPass {
           }
         }
       }
+    }
+    if (emissiveCount > 0) {
+      console.log(`💡 PropagationPass found ${emissiveCount} emissive blocks in chunk (${coord.x}, ${coord.z})`)
     }
 
     // Phase 2: Flood-fill (BFS) with High Perf Queue

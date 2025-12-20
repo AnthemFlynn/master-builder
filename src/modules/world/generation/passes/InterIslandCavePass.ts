@@ -21,10 +21,17 @@ export class InterIslandCavePass implements GenerationPass {
   private readonly ENTRANCE_Y = 50       // Where entrance meets surface
   private readonly TUNNEL_RADIUS = 4     // Main highway width
   private readonly BRANCH_RADIUS = 2.5   // Side tunnel width
+  private readonly LIGHT_SPACING = 8     // Glowstone every N blocks
 
   execute(context: GenerationContext): void {
     const islands = context.getIslandConfigs?.() ?? []
-    if (islands.length < 2) return
+
+    if (islands.length < 2) {
+      console.log(`⏭️  InterIslandCavePass: Skipping (only ${islands.length} island(s))`)
+      return
+    }
+
+    console.log(`🗺️  InterIslandCavePass: Carving network for ${islands.length} islands at chunk (${context.chunkCoord.x}, ${context.chunkCoord.z})`)
 
     // For each chunk, check if it intersects any tunnels
     this.carveHighwayRing(context, islands)
@@ -83,6 +90,26 @@ export class InterIslandCavePass implements GenerationPass {
               if (currentBlock !== BlockType.air && currentBlock !== BlockType.water) {
                 context.setBlock(lx, y, lz, BlockType.air)
                 context.markCave(lx, y, lz)
+              }
+            }
+          }
+
+          // Add wall lights every LIGHT_SPACING blocks along the ring
+          // Use angle to determine position on ring for consistent spacing
+          const ringPosition = Math.floor(angle * ringRadius / (Math.PI * 2) * 100)
+          if (ringPosition % this.LIGHT_SPACING === 0) {
+            // Place on the outer wall of the tunnel (away from center)
+            const isOuterEdge = distFromRing > this.TUNNEL_RADIUS - 1.5 && distFromRing < this.TUNNEL_RADIUS
+            if (isOuterEdge) {
+              // Place glowstone at eye level on the wall
+              const lightY = tunnelY + 1
+              if (lightY > 5 && lightY < 40) {
+                const existing = context.getBlock(lx, lightY, lz)
+                context.setBlock(lx, lightY, lz, BlockType.glowstone)
+                const after = context.getBlock(lx, lightY, lz)
+                if (existing !== after) {
+                  // Silently track placement - too spammy to log every block
+                }
               }
             }
           }
@@ -155,6 +182,31 @@ export class InterIslandCavePass implements GenerationPass {
                 }
               }
             }
+
+            // Add wall lights along branch tunnels
+            // Use distance along tunnel (t) to determine light placement
+            const branchLength = Math.sqrt((entranceX - ringX) ** 2 + (entranceZ - ringZ) ** 2)
+            const positionAlongBranch = Math.floor(t * branchLength)
+
+            // Place lights every LIGHT_SPACING blocks, on the tunnel edge
+            if (positionAlongBranch % this.LIGHT_SPACING === 0) {
+              const isEdge = distFromBranch > effectiveRadius - 1 && distFromBranch < effectiveRadius
+              if (isEdge) {
+                const lightY = tunnelY + 1
+                if (lightY > 5 && lightY < 45) {
+                  context.setBlock(lx, lightY, lz, BlockType.glowstone)
+                }
+              }
+            }
+
+            // Add cluster of lights at junction (where t is close to 0, near highway ring)
+            if (t < 0.15 && distFromBranch < 1.5) {
+              // Place extra lights at junction
+              const lightY = tunnelY
+              if (lightY > 5 && lightY < 45) {
+                context.setBlock(lx, lightY, lz, BlockType.glowstone)
+              }
+            }
           }
         }
       }
@@ -168,7 +220,8 @@ export class InterIslandCavePass implements GenerationPass {
     const chunkWorldX = context.chunkCoord.x * 24
     const chunkWorldZ = context.chunkCoord.z * 24
 
-    for (const island of islands) {
+    for (let i = 0; i < islands.length; i++) {
+      const island = islands[i]
       // Entrance location: on slope facing archipelago center
       // Must match the entranceOffset used in carveBranchTunnels
       const angle = Math.atan2(island.centerZ, island.centerX)
@@ -181,11 +234,12 @@ export class InterIslandCavePass implements GenerationPass {
       const localX = Math.floor(entranceX - chunkWorldX)
       const localZ = Math.floor(entranceZ - chunkWorldZ)
 
-      if (localX >= -3 && localX < 27 && localZ >= -3 && localZ < 27) {
+      if (localX >= 0 && localX < 24 && localZ >= 0 && localZ < 24) {
         // Find surface height at entrance location
         const surfaceY = this.findSurfaceAt(context, localX, localZ)
 
         if (surfaceY > 35) {  // Only if above tunnel level
+          console.log(`🚪 Cave entrance for island ${i}: world(${entranceX.toFixed(0)}, ${entranceZ.toFixed(0)}) surfaceY=${surfaceY}`)
           // Carve entrance shaft - direction is INTO the hill (toward island center)
           const intoHillAngle = angle  // Toward island center = away from world center
           this.carveEntranceOpening(context, localX, localZ, surfaceY, intoHillAngle, entranceX, entranceZ)
@@ -196,7 +250,7 @@ export class InterIslandCavePass implements GenerationPass {
 
   /**
    * Carve the actual entrance opening - a sloped passage into the hillside
-   * Also places jack-o-lantern markers at the entrance
+   * Places MASSIVE glowstone beacon towers at the entrance (20 blocks tall)
    */
   private carveEntranceOpening(
     context: GenerationContext,
@@ -207,48 +261,82 @@ export class InterIslandCavePass implements GenerationPass {
     worldEntranceX: number,
     worldEntranceZ: number
   ): void {
-    const entranceWidth = 5
-    const entranceHeight = 4
+    const entranceWidth = 6
+    const entranceHeight = 5
 
     // Direction into the hill (toward island center)
     const intoHillX = Math.cos(facingAngle)
     const intoHillZ = Math.sin(facingAngle)
 
-    // Place jack-o-lantern markers at entrance (pillars on each side)
-    const markerOffsetX = Math.sin(facingAngle) * 3  // Perpendicular to entrance
-    const markerOffsetZ = -Math.cos(facingAngle) * 3
+    // Direction OUT of the hill (facing outward, toward world center)
+    const outOfHillX = -intoHillX
+    const outOfHillZ = -intoHillZ
+
+    // Place MASSIVE glowstone beacon towers (20 blocks tall!)
+    // These should be visible from anywhere on the archipelago
+    const BEACON_HEIGHT = 20
+
+    // Center beacon - right at entrance
+    if (centerX >= 0 && centerX < 24 && centerZ >= 0 && centerZ < 24) {
+      for (let h = 0; h < BEACON_HEIGHT; h++) {
+        context.setBlock(centerX, surfaceY + h, centerZ, BlockType.glowstone)
+      }
+      console.log(`🔦 Placed ${BEACON_HEIGHT}-block glowstone beacon at local (${centerX}, ${centerZ}) Y=${surfaceY}`)
+    }
+
+    // Side pillars (perpendicular to entrance direction, 5 blocks apart)
+    const markerOffsetX = Math.sin(facingAngle) * 5
+    const markerOffsetZ = -Math.cos(facingAngle) * 5
 
     // Left pillar
     const leftX = Math.floor(centerX + markerOffsetX)
     const leftZ = Math.floor(centerZ + markerOffsetZ)
     if (leftX >= 0 && leftX < 24 && leftZ >= 0 && leftZ < 24) {
-      for (let h = 0; h < 3; h++) {
-        context.setBlock(leftX, surfaceY + h, leftZ, BlockType.cobblestone)
+      for (let h = 0; h < BEACON_HEIGHT - 5; h++) {
+        context.setBlock(leftX, surfaceY + h, leftZ, BlockType.glowstone)
       }
-      context.setBlock(leftX, surfaceY + 3, leftZ, BlockType.jack_o_lantern)
     }
 
     // Right pillar
     const rightX = Math.floor(centerX - markerOffsetX)
     const rightZ = Math.floor(centerZ - markerOffsetZ)
     if (rightX >= 0 && rightX < 24 && rightZ >= 0 && rightZ < 24) {
-      for (let h = 0; h < 3; h++) {
-        context.setBlock(rightX, surfaceY + h, rightZ, BlockType.cobblestone)
+      for (let h = 0; h < BEACON_HEIGHT - 5; h++) {
+        context.setBlock(rightX, surfaceY + h, rightZ, BlockType.glowstone)
       }
-      context.setBlock(rightX, surfaceY + 3, rightZ, BlockType.jack_o_lantern)
     }
 
-    // Carve a sloping entrance passage going INTO the hill
-    for (let depth = 0; depth < 25; depth++) {
-      const y = Math.floor(surfaceY - depth * 0.6)  // Gentle slope down
-      if (y < 28) break  // Stop near tunnel level
+    // Outer beacon (facing outward from island) - even more visible from sea
+    const outerX = Math.floor(centerX + outOfHillX * 3)
+    const outerZ = Math.floor(centerZ + outOfHillZ * 3)
+    if (outerX >= 0 && outerX < 24 && outerZ >= 0 && outerZ < 24) {
+      for (let h = 0; h < BEACON_HEIGHT + 5; h++) {
+        context.setBlock(outerX, surfaceY + h, outerZ, BlockType.glowstone)
+      }
+    }
+
+    // Carve a SLOPED PASSAGE from surface down to underground level
+    // Slope of 1.5 means we drop 1.5 blocks per block of horizontal depth
+    // With surfaceY ~89 and target Y ~30, we need to drop ~59 blocks
+    // 59 / 1.5 = ~40 blocks of horizontal depth
+    const SLOPE = 1.5
+    const MAX_DEPTH = 50
+    const TARGET_Y = 28  // Branch tunnels are at Y=25-30
+
+    let lastCarvedY = surfaceY
+    let lastCarvedDepth = 0
+
+    for (let depth = -3; depth < MAX_DEPTH; depth++) {
+      const y = Math.floor(surfaceY - Math.max(0, depth) * SLOPE)
+
+      // Stop when we reach underground tunnel level
+      if (y < TARGET_Y) break
 
       const x = Math.floor(centerX + intoHillX * depth)
       const z = Math.floor(centerZ + intoHillZ * depth)
 
       // Carve an arched passage
       for (let w = -entranceWidth/2; w <= entranceWidth/2; w++) {
-        // Calculate perpendicular offset
         const perpX = Math.sin(facingAngle) * w
         const perpZ = -Math.cos(facingAngle) * w
 
@@ -266,16 +354,38 @@ export class InterIslandCavePass implements GenerationPass {
           }
         }
       }
+
+      // Add wall lights along the sloped passage every 6 blocks
+      if (depth > 0 && depth % 6 === 0) {
+        // Place glowstone on the left wall
+        const wallOffset = entranceWidth / 2 + 0.5
+        const leftWallX = Math.floor(x + Math.sin(facingAngle) * wallOffset)
+        const leftWallZ = Math.floor(z - Math.cos(facingAngle) * wallOffset)
+        if (leftWallX >= 0 && leftWallX < 24 && leftWallZ >= 0 && leftWallZ < 24) {
+          context.setBlock(leftWallX, y + 2, leftWallZ, BlockType.glowstone)
+        }
+
+        // Place glowstone on the right wall
+        const rightWallX = Math.floor(x - Math.sin(facingAngle) * wallOffset)
+        const rightWallZ = Math.floor(z + Math.cos(facingAngle) * wallOffset)
+        if (rightWallX >= 0 && rightWallX < 24 && rightWallZ >= 0 && rightWallZ < 24) {
+          context.setBlock(rightWallX, y + 2, rightWallZ, BlockType.glowstone)
+        }
+      }
+
+      lastCarvedY = y
+      lastCarvedDepth = depth
     }
 
-    // Continue with vertical shaft to connect to underground tunnel
-    const shaftX = Math.floor(centerX + intoHillX * 20)
-    const shaftZ = Math.floor(centerZ + intoHillZ * 20)
-    const shaftTopY = Math.floor(surfaceY - 20 * 0.6)
+    // Vertical shaft at the END of the sloped passage to connect to highway
+    // This creates a continuous path: surface → sloped passage → vertical drop → highway
+    const shaftX = Math.floor(centerX + intoHillX * lastCarvedDepth)
+    const shaftZ = Math.floor(centerZ + intoHillZ * lastCarvedDepth)
 
-    for (let y = shaftTopY; y >= 22; y--) {
-      for (let dx = -2; dx <= 2; dx++) {
-        for (let dz = -2; dz <= 2; dz++) {
+    // Carve vertical shaft from where sloped passage ends down to highway level
+    for (let y = lastCarvedY; y >= this.HIGHWAY_Y - 2; y--) {
+      for (let dx = -3; dx <= 3; dx++) {
+        for (let dz = -3; dz <= 3; dz++) {
           const lx = shaftX + dx
           const lz = shaftZ + dz
           if (lx >= 0 && lx < 24 && lz >= 0 && lz < 24) {
@@ -287,7 +397,27 @@ export class InterIslandCavePass implements GenerationPass {
           }
         }
       }
+
+      // Add lights on the shaft walls every 4 blocks vertically
+      if (y % 4 === 0) {
+        // Place glowstone on all 4 walls of the shaft
+        const wallPositions = [
+          { dx: 3, dz: 0 },   // +X wall
+          { dx: -3, dz: 0 },  // -X wall
+          { dx: 0, dz: 3 },   // +Z wall
+          { dx: 0, dz: -3 }   // -Z wall
+        ]
+        for (const pos of wallPositions) {
+          const lx = shaftX + pos.dx
+          const lz = shaftZ + pos.dz
+          if (lx >= 0 && lx < 24 && lz >= 0 && lz < 24) {
+            context.setBlock(lx, y, lz, BlockType.glowstone)
+          }
+        }
+      }
     }
+
+    console.log(`🚇 Carved entrance: surface Y=${surfaceY} → sloped to Y=${lastCarvedY} at depth=${lastCarvedDepth} → vertical to Y=${this.HIGHWAY_Y}`)
   }
 
   private findSurfaceAt(context: GenerationContext, lx: number, lz: number): number {

@@ -35,11 +35,7 @@ export const ILLUMINATION_BLOCKS: BlockDefinition[] = [
     id: 65,  // BlockType.jack_o_lantern
     name: 'Jack o\'Lantern',
     category: BlockCategory.ILLUMINATION,
-    textures: {
-      top: 'pumpkin_top.png',
-      bottom: 'pumpkin_top.png',
-      sides: 'jack_o_lantern.png'
-    },
+    textures: 'jack_o_lantern.png',  // Single texture for all faces
     transparent: false,
     emissive: { r: 15, g: 12, b: 4 },  // Warm orange glow
     lightAbsorption: 0.0,

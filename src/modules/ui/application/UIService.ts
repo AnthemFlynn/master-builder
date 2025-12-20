@@ -10,9 +10,16 @@ import { InventoryBank } from '../../inventory/domain/InventoryState'
 import { DebugOverlay } from './DebugOverlay'
 import { PerformanceMonitor } from '../../game/infrastructure/PerformanceMonitor'
 
+interface Position {
+  x: number
+  y: number
+  z: number
+}
+
 export interface UIServiceOptions {
   requestPointerLock?: () => void
   exitPointerLock?: () => void
+  getPlayerPosition?: () => Position
 }
 
 export class UIService implements IUIQuery {
@@ -56,7 +63,7 @@ export class UIService implements IUIQuery {
         this.onPlay()
     })
 
-    this.debugOverlay = new DebugOverlay(performanceMonitor)
+    this.debugOverlay = new DebugOverlay(performanceMonitor, options.getPlayerPosition)
 
     // Listen for mouse movements for the radial menu
     this.eventBus.on('input', 'InputMouseMoveEvent', (e: any) => {
