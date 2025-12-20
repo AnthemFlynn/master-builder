@@ -7,6 +7,13 @@ import { SeededRandom } from '../utils/SeededRandom'
 export class CavePass implements GenerationPass {
   readonly name = 'CavePass'
 
+  // Maximum Y for caves - well below ocean floor (35) to ensure caves are truly underground
+  private readonly CAVE_MAX_Y = 25
+
+  // Lighting configuration
+  private readonly LIGHT_SPACING = 12  // Place lights every N blocks along tunnels
+  private readonly CAVERN_LIGHT_DENSITY = 0.03  // 3% of cavern floor gets lights
+
   execute(context: GenerationContext): void {
     // Generate cheese caves (large caverns)
     this.generateCheeseCaves(context)
@@ -14,12 +21,12 @@ export class CavePass implements GenerationPass {
     // Generate spaghetti caves (winding tunnels)
     this.generateSpaghettiCaves(context)
 
+    // Add ambient lighting to carved caves
+    this.addCaveLighting(context)
+
     // Rebuild surface map (caves changed what's "surface")
     this.rebuildSurfaceMap(context)
   }
-
-  // Maximum Y for caves - well below ocean floor (35) to ensure caves are truly underground
-  private readonly CAVE_MAX_Y = 25
 
   private generateCheeseCaves(context: GenerationContext): void {
     const noise3D = createNoise3D(() => context.seed + 1000)
@@ -87,6 +94,17 @@ export class CavePass implements GenerationPass {
       // Carve sphere at current position
       this.carveSphere(context, x, y, z, config.radius)
 
+      // Place light every LIGHT_SPACING steps along the tunnel
+      if (step % this.LIGHT_SPACING === 0) {
+        const lx = Math.floor(x)
+        const ly = Math.floor(y)
+        const lz = Math.floor(z)
+        if (lx >= 0 && lx < 24 && lz >= 0 && lz < 24 && ly >= 6 && ly < this.CAVE_MAX_Y) {
+          // Place glowstone on the floor of the tunnel
+          context.setBlock(lx, ly, lz, BlockType.glowstone)
+        }
+      }
+
       // Update direction with 3D noise (winding)
       const noiseVal = noise3D(x * 0.1, y * 0.1, z * 0.1)
       dirX += noiseVal * config.windingFactor
@@ -145,6 +163,63 @@ export class CavePass implements GenerationPass {
           }
         }
       }
+    }
+  }
+
+  /**
+   * Add ambient lighting to carved cave spaces.
+   * Places glowstone on cave floors at regular intervals.
+   */
+  private addCaveLighting(context: GenerationContext): void {
+    const rng = new SeededRandom(context.seed + context.chunkCoord.x * 101 + context.chunkCoord.z * 53 + 5000)
+    let lightsPlaced = 0
+
+    for (let x = 0; x < 24; x++) {
+      for (let z = 0; z < 24; z++) {
+        for (let y = 6; y < this.CAVE_MAX_Y; y++) {
+          // Check if this is a cave air block
+          if (!context.isCave(x, y, z)) continue
+          if (context.getBlock(x, y, z) !== BlockType.air) continue
+
+          // Check if floor below is solid (this is a floor position)
+          const blockBelow = context.getBlock(x, y - 1, z)
+          const isFloor = blockBelow !== BlockType.air && blockBelow !== BlockType.water
+
+          // Check if ceiling above is solid (could place on ceiling)
+          const blockAbove = context.getBlock(x, y + 1, z)
+          const isCeiling = blockAbove !== BlockType.air && blockAbove !== BlockType.water
+
+          if (isFloor) {
+            // Deterministic spacing based on world coordinates
+            const worldX = context.chunkCoord.x * 24 + x
+            const worldZ = context.chunkCoord.z * 24 + z
+
+            // Grid-based placement for regular spacing
+            const gridX = Math.floor(worldX / this.LIGHT_SPACING)
+            const gridZ = Math.floor(worldZ / this.LIGHT_SPACING)
+
+            // Only place at grid intersections (with some noise for organic feel)
+            const atGridPoint = (worldX % this.LIGHT_SPACING === 0) && (worldZ % this.LIGHT_SPACING === 0)
+
+            // Also add some random lights for organic distribution
+            const randomLight = rng.next() < this.CAVERN_LIGHT_DENSITY
+
+            if (atGridPoint || randomLight) {
+              // Place glowstone on the solid floor (not in the air)
+              context.setBlock(x, y - 1, z, BlockType.glowstone)
+              lightsPlaced++
+            }
+          } else if (isCeiling && rng.next() < this.CAVERN_LIGHT_DENSITY * 0.5) {
+            // Occasionally place ceiling lights (rarer)
+            context.setBlock(x, y + 1, z, BlockType.glowstone)
+            lightsPlaced++
+          }
+        }
+      }
+    }
+
+    if (lightsPlaced > 0) {
+      console.log(`🕯️  CavePass lit chunk (${context.chunkCoord.x}, ${context.chunkCoord.z}): ${lightsPlaced} lights`)
     }
   }
 
