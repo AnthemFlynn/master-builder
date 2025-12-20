@@ -211,8 +211,10 @@ export class CavePass implements GenerationPass {
       }
     }
 
-    // Always log to help debug - shows cave detection stats
-    console.log(`🕯️  CavePass chunk (${context.chunkCoord.x}, ${context.chunkCoord.z}): caves=${caveBlocksFound}, floors=${floorPositionsFound}, lights=${lightsPlaced}`)
+    // Only log when lights are placed (reduces noise)
+    if (lightsPlaced > 0) {
+      console.log(`🕯️  CavePass chunk (${context.chunkCoord.x}, ${context.chunkCoord.z}): ${lightsPlaced} lights placed`)
+    }
   }
 
   private rebuildSurfaceMap(context: GenerationContext): void {

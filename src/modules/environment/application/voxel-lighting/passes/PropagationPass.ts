@@ -206,9 +206,11 @@ export class PropagationPass implements ILightingPass {
         }
       }
     }
-    if (emissiveCount > 0) {
-      console.log(`💡 PropagationPass found ${emissiveCount} emissive blocks in chunk (${coord.x}, ${coord.z})`)
-    }
+    // Only log if we found actual light-emitting blocks (not just ambient)
+    // Disabled: too noisy during normal gameplay
+    // if (emissiveCount > 0) {
+    //   console.log(`💡 PropagationPass found ${emissiveCount} emissive blocks in chunk (${coord.x}, ${coord.z})`)
+    // }
 
     // Phase 2: Flood-fill (BFS) with High Perf Queue
     while (!isEmpty()) {
