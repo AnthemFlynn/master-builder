@@ -7,10 +7,10 @@ import { SeededRandom } from '../utils/SeededRandom'
 export class CavePass implements GenerationPass {
   readonly name = 'CavePass'
 
-  // Maximum Y for caves - must reach INTO terrain, not below it
-  // Terrain baseHeight=60, amplitude=25 means ground is roughly Y=35-85
-  // Caves should carve from Y=10 up to Y=55 to be inside the terrain
-  private readonly CAVE_MAX_Y = 55
+  // Cave Y range - must be BELOW ocean floor (45) but above bedrock
+  // Sea level = 63, Ocean floor = 45
+  // Caves should carve from Y=10 up to Y=42 (safely below ocean floor)
+  private readonly CAVE_MAX_Y = 42
 
   // Lighting configuration
   private readonly LIGHT_SPACING = 12  // Place lights every N blocks along tunnels
@@ -35,8 +35,14 @@ export class CavePass implements GenerationPass {
 
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
-        const minY = 10   // Don't carve too low
-        const maxY = this.CAVE_MAX_Y  // Caves up to Y=55
+        // Get terrain surface height at this position
+        const terrainHeight = context.heightMap[x][z]
+
+        // Caves go from Y=10 up to 20 blocks below surface (but not into water)
+        const minY = 10
+        const maxY = Math.min(terrainHeight - 8, this.CAVE_MAX_Y)  // Stay 8 blocks below surface
+
+        if (maxY <= minY) continue  // No room for caves here
 
         for (let y = minY; y < maxY; y++) {
           const worldX = context.chunkCoord.x * 24 + x
@@ -48,7 +54,7 @@ export class CavePass implements GenerationPass {
 
           const density = noise3D(worldX * 0.04, y * 0.04, worldZ * 0.04)
 
-          // Threshold: 0.6 creates larger caves (was 0.65)
+          // Threshold: 0.6 creates larger caves
           if (density > 0.6) {
             context.setBlock(x, y, z, BlockType.air)
             context.markCave(x, y, z)
@@ -61,13 +67,20 @@ export class CavePass implements GenerationPass {
   private generateSpaghettiCaves(context: GenerationContext): void {
     const rng = new SeededRandom(context.seed + context.chunkCoord.x * 31 + context.chunkCoord.z * 17 + 2000)
 
-    // Density: 5% of chunks get spaghetti caves (increased for more caves)
+    // Density: 5% of chunks get spaghetti caves
     if (rng.next() > 0.05) return
 
     const startX = rng.int(0, 23)
     const startZ = rng.int(0, 23)
-    // Start in the middle of the cave zone (Y=20 to Y=50)
-    const startY = rng.int(20, this.CAVE_MAX_Y - 5)
+
+    // Get terrain height at start point
+    const terrainHeight = context.heightMap[startX][startZ]
+    const maxCaveY = Math.min(terrainHeight - 8, this.CAVE_MAX_Y)
+
+    if (maxCaveY < 20) return  // Not enough room for caves
+
+    // Start between Y=15 and maxCaveY
+    const startY = rng.int(15, maxCaveY - 5)
 
     // Tunnel radius 4-8 blocks
     const radius = rng.clampedGaussian(6, 1, 4, 8)
@@ -75,7 +88,8 @@ export class CavePass implements GenerationPass {
     this.carveWormTunnel(context, startX, startY, startZ, {
       length: rng.int(30, 60),
       radius: radius,
-      windingFactor: 0.75
+      windingFactor: 0.75,
+      maxY: maxCaveY
     })
   }
 
@@ -84,9 +98,10 @@ export class CavePass implements GenerationPass {
     startX: number,
     startY: number,
     startZ: number,
-    config: { length: number; radius: number; windingFactor: number }
+    config: { length: number; radius: number; windingFactor: number; maxY?: number }
   ): void {
     const noise3D = createNoise3D(() => context.seed + startX + startY + startZ + 3000)
+    const maxY = config.maxY ?? this.CAVE_MAX_Y
 
     let x = startX
     let y = startY
@@ -97,14 +112,14 @@ export class CavePass implements GenerationPass {
 
     for (let step = 0; step < config.length; step++) {
       // Carve sphere at current position
-      this.carveSphere(context, x, y, z, config.radius)
+      this.carveSphere(context, x, y, z, config.radius, maxY)
 
       // Place light every LIGHT_SPACING steps along the tunnel
       if (step % this.LIGHT_SPACING === 0) {
         const lx = Math.floor(x)
         const ly = Math.floor(y)
         const lz = Math.floor(z)
-        if (lx >= 0 && lx < 24 && lz >= 0 && lz < 24 && ly >= 10 && ly < this.CAVE_MAX_Y) {
+        if (lx >= 0 && lx < 24 && lz >= 0 && lz < 24 && ly >= 10 && ly < maxY) {
           // Place glowstone on the floor of the tunnel
           context.setBlock(lx, ly, lz, BlockType.glowstone)
         }
@@ -130,7 +145,7 @@ export class CavePass implements GenerationPass {
       z += dirZ
 
       // Clamp Y to valid cave range
-      y = Math.max(15, Math.min(this.CAVE_MAX_Y - 3, y))
+      y = Math.max(15, Math.min(maxY - 3, y))
 
       // Stop if worm leaves chunk
       if (x < -config.radius || x >= 24 + config.radius ||
@@ -140,15 +155,16 @@ export class CavePass implements GenerationPass {
     }
   }
 
-  private carveSphere(context: GenerationContext, cx: number, cy: number, cz: number, radius: number): void {
+  private carveSphere(context: GenerationContext, cx: number, cy: number, cz: number, radius: number, caveMaxY?: number): void {
     const minX = Math.max(0, Math.floor(cx - radius))
     const maxX = Math.min(23, Math.ceil(cx + radius))
     const minY = Math.max(10, Math.floor(cy - radius))  // Don't carve below Y=10
     const minZ = Math.max(0, Math.floor(cz - radius))
     const maxZ = Math.min(23, Math.ceil(cz + radius))
 
-    // Cap at CAVE_MAX_Y to stay within terrain
-    const maxY = Math.min(this.CAVE_MAX_Y, Math.ceil(cy + radius))
+    // Cap at provided maxY or default CAVE_MAX_Y
+    const limitY = caveMaxY ?? this.CAVE_MAX_Y
+    const maxY = Math.min(limitY, Math.ceil(cy + radius))
 
     // Pre-compute squared radius to avoid sqrt in hot loop
     const radiusSq = radius * radius
