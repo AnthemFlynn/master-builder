@@ -23,6 +23,9 @@ export class CavePass implements GenerationPass {
     // Generate spaghetti caves (winding tunnels)
     this.generateSpaghettiCaves(context)
 
+    // Create surface entrances to caves
+    this.generateCaveEntrances(context)
+
     // Add ambient lighting to carved caves
     this.addCaveLighting(context)
 
@@ -91,6 +94,84 @@ export class CavePass implements GenerationPass {
       windingFactor: 0.75,
       maxY: maxCaveY
     })
+  }
+
+  /**
+   * Generate surface entrances to caves.
+   * Scans for cave air blocks and creates sloped tunnels from surface.
+   */
+  private generateCaveEntrances(context: GenerationContext): void {
+    const rng = new SeededRandom(context.seed + context.chunkCoord.x * 73 + context.chunkCoord.z * 29 + 4000)
+
+    // ~15% of chunks get a cave entrance
+    if (rng.next() > 0.15) return
+
+    // Find a cave position to connect to
+    let caveX = -1, caveY = -1, caveZ = -1
+
+    // Search for a cave air block
+    for (let attempts = 0; attempts < 50; attempts++) {
+      const testX = rng.int(4, 19)  // Stay away from edges
+      const testZ = rng.int(4, 19)
+      const terrainHeight = context.heightMap[testX][testZ]
+
+      // Look for cave air below terrain
+      for (let y = Math.min(terrainHeight - 10, this.CAVE_MAX_Y - 5); y >= 15; y--) {
+        if (context.isCave(testX, y, testZ) && context.getBlock(testX, y, testZ) === BlockType.air) {
+          caveX = testX
+          caveY = y
+          caveZ = testZ
+          break
+        }
+      }
+      if (caveX >= 0) break
+    }
+
+    // No cave found in this chunk
+    if (caveX < 0) return
+
+    const terrainHeight = context.heightMap[caveX][caveZ]
+
+    // Carve a sloped entrance from surface down to cave
+    const entranceRadius = 2
+    let y = terrainHeight
+    let x = caveX
+    let z = caveZ
+
+    // Carve downward at an angle until we reach the cave
+    while (y > caveY) {
+      // Carve a small sphere at current position
+      for (let dx = -entranceRadius; dx <= entranceRadius; dx++) {
+        for (let dy = -entranceRadius; dy <= entranceRadius; dy++) {
+          for (let dz = -entranceRadius; dz <= entranceRadius; dz++) {
+            const nx = x + dx
+            const ny = y + dy
+            const nz = z + dz
+            if (nx < 0 || nx >= 24 || nz < 0 || nz >= 24 || ny < 10) continue
+
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
+            if (dist <= entranceRadius) {
+              context.setBlock(nx, ny, nz, BlockType.air)
+              context.markCave(nx, ny, nz)
+            }
+          }
+        }
+      }
+
+      // Move down and slightly toward cave center
+      y -= 1
+      // Slight horizontal drift toward cave position
+      if (y > caveY + 3) {
+        x += (caveX - x) * 0.1
+        z += (caveZ - z) * 0.1
+      }
+    }
+
+    // Place jack-o-lantern at entrance for visibility
+    const entranceY = terrainHeight + 1
+    if (caveX >= 0 && caveX < 24 && caveZ >= 0 && caveZ < 24) {
+      context.setBlock(caveX, entranceY, caveZ, BlockType.jack_o_lantern)
+    }
   }
 
   private carveWormTunnel(
