@@ -17,11 +17,14 @@ export class InterIslandCavePass implements GenerationPass {
   readonly name = 'InterIslandCavePass'
 
   // Tunnel depth constants
-  private readonly HIGHWAY_Y = 20        // Main tunnel depth
-  private readonly ENTRANCE_Y = 50       // Where entrance meets surface
+  private readonly HIGHWAY_Y = 25        // Main tunnel depth (below ocean floor at 45)
   private readonly TUNNEL_RADIUS = 4     // Main highway width
-  private readonly BRANCH_RADIUS = 2.5   // Side tunnel width
+  private readonly BRANCH_RADIUS = 3     // Side tunnel width
   private readonly LIGHT_SPACING = 8     // Glowstone every N blocks
+
+  // Highway ring goes through CENTER ocean (inside inner island edge at radius 45)
+  // Islands are at radius 120 with radius 65-75, so inner edge is at ~45-55
+  private readonly HIGHWAY_RING_RADIUS = 35  // In center ocean, not through islands
 
   execute(context: GenerationContext): void {
     const islands = context.getIslandConfigs?.() ?? []
@@ -46,8 +49,8 @@ export class InterIslandCavePass implements GenerationPass {
     const chunkWorldX = context.chunkCoord.x * 24
     const chunkWorldZ = context.chunkCoord.z * 24
 
-    // Ring parameters - slightly inside the island ring
-    const ringRadius = 100  // Islands are at 120, tunnels at 100
+    // Ring in center ocean - OUTSIDE of any island territory
+    const ringRadius = this.HIGHWAY_RING_RADIUS
     const ringCenter = { x: 0, z: 0 }  // Archipelago center
 
     // Noise for tunnel variation
@@ -135,11 +138,10 @@ export class InterIslandCavePass implements GenerationPass {
 
     for (let islandIdx = 0; islandIdx < islands.length; islandIdx++) {
       const island = islands[islandIdx]
-      // Branch from ring (radius 100) to island entrance
-      // Islands are at radius ~120, entrance is 15 blocks from island center toward world center
-      // This puts entrance at radius ~105 (between ring at 100 and island at 120)
-      const ringRadius = 100
-      const entranceOffset = 15  // How far from island center toward world center
+      // Branch from ring (radius 35) to island entrance
+      // Islands are at radius ~120, entrance is on the inner slope facing center
+      const ringRadius = this.HIGHWAY_RING_RADIUS
+      const entranceOffset = 50  // How far from island center toward world center (on inner slope)
 
       // Calculate branch line from ring to island
       const angle = Math.atan2(island.centerZ, island.centerX)
@@ -242,10 +244,10 @@ export class InterIslandCavePass implements GenerationPass {
 
     for (let i = 0; i < islands.length; i++) {
       const island = islands[i]
-      // Entrance location: on slope facing archipelago center
+      // Entrance location: on inner slope facing archipelago center
       // Must match the entranceOffset used in carveBranchTunnels
       const angle = Math.atan2(island.centerZ, island.centerX)
-      const entranceOffset = 15  // Same as in carveBranchTunnels
+      const entranceOffset = 50  // Same as in carveBranchTunnels - on inner slope
 
       const entranceX = island.centerX - Math.cos(angle) * entranceOffset
       const entranceZ = island.centerZ - Math.sin(angle) * entranceOffset

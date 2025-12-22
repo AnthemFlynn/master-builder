@@ -11,9 +11,9 @@ export class CavePass implements GenerationPass {
   private readonly SEA_LEVEL = 63
   private readonly OCEAN_FLOOR = 45
 
-  // Cave depth - must extend down to inter-island highway level (Y=20)
-  // This allows island caves to connect to the underground highway network
-  private readonly CAVE_MIN_Y = 15  // Just above highway level (Y=20)
+  // Cave depth - stay above ocean floor to avoid breaking terrain
+  // The InterIslandCavePass handles connections via explicit entrance shafts
+  private readonly CAVE_MIN_Y = 48  // Safely above ocean floor
 
   // Lighting configuration
   private readonly LIGHT_SPACING = 12  // Place lights every N blocks along tunnels
@@ -48,9 +48,13 @@ export class CavePass implements GenerationPass {
         // Skip underwater areas entirely
         if (terrainHeight <= this.SEA_LEVEL) continue
 
-        // Caves go from CAVE_MIN_Y (connects to highway) up to 5 blocks below surface
+        // PROTECT VOLCANIC PEAKS - no caves in high elevation areas
+        // This preserves the dramatic peak shapes
+        if (terrainHeight > 100) continue  // Skip mountain peaks
+
+        // Caves go from CAVE_MIN_Y up to well below surface to protect terrain
         const minY = this.CAVE_MIN_Y
-        const maxY = terrainHeight - 5  // Stay 5 blocks below surface
+        const maxY = terrainHeight - 15  // Stay 15 blocks below surface (was 5)
 
         if (maxY <= minY) continue  // No room for caves here
 
@@ -87,8 +91,8 @@ export class CavePass implements GenerationPass {
       const testZ = rng.int(4, 19)
       const h = context.heightMap[testX][testZ]
 
-      // Only start on LAND (above sea level)
-      if (h > this.SEA_LEVEL) {
+      // Only start on LAND (above sea level) but not on peaks
+      if (h > this.SEA_LEVEL && h <= 100) {
         startX = testX
         startZ = testZ
         terrainHeight = h
@@ -99,7 +103,7 @@ export class CavePass implements GenerationPass {
     // No land found in this chunk
     if (startX < 0) return
 
-    const maxCaveY = terrainHeight - 5  // Stay 5 blocks below surface
+    const maxCaveY = terrainHeight - 15  // Stay 15 blocks below surface
 
     if (maxCaveY < this.CAVE_MIN_Y + 10) return  // Not enough room for caves
 
@@ -136,8 +140,8 @@ export class CavePass implements GenerationPass {
       const testZ = rng.int(4, 19)
       const terrainHeight = context.heightMap[testX][testZ]
 
-      // Only create entrances on LAND
-      if (terrainHeight <= this.SEA_LEVEL) continue
+      // Only create entrances on LAND but not on peaks
+      if (terrainHeight <= this.SEA_LEVEL || terrainHeight > 100) continue
 
       // Look for cave air below terrain
       for (let y = terrainHeight - 10; y >= this.CAVE_MIN_Y; y--) {
@@ -301,10 +305,10 @@ export class CavePass implements GenerationPass {
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         const terrainHeight = context.heightMap[x][z]
-        // Only add lights on land
-        if (terrainHeight <= this.SEA_LEVEL) continue
+        // Only add lights on land (not peaks)
+        if (terrainHeight <= this.SEA_LEVEL || terrainHeight > 100) continue
 
-        for (let y = this.CAVE_MIN_Y; y < terrainHeight - 5; y++) {
+        for (let y = this.CAVE_MIN_Y; y < terrainHeight - 15; y++) {
           // Check if this is a cave air block
           if (!context.isCave(x, y, z)) continue
           if (context.getBlock(x, y, z) !== BlockType.air) continue
