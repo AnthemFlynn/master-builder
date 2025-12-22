@@ -7,10 +7,9 @@ import { SeededRandom } from '../utils/SeededRandom'
 export class CavePass implements GenerationPass {
   readonly name = 'CavePass'
 
-  // Cave Y range - must be BELOW ocean floor (45) but above bedrock
-  // Sea level = 63, Ocean floor = 45
-  // Caves should carve from Y=10 up to Y=42 (safely below ocean floor)
-  private readonly CAVE_MAX_Y = 42
+  // World elevation constants (must match OrganicIslandGenerator)
+  private readonly SEA_LEVEL = 63
+  private readonly OCEAN_FLOOR = 45
 
   // Lighting configuration
   private readonly LIGHT_SPACING = 12  // Place lights every N blocks along tunnels
@@ -41,9 +40,13 @@ export class CavePass implements GenerationPass {
         // Get terrain surface height at this position
         const terrainHeight = context.heightMap[x][z]
 
-        // Caves go from Y=10 up to 20 blocks below surface (but not into water)
-        const minY = 10
-        const maxY = Math.min(terrainHeight - 8, this.CAVE_MAX_Y)  // Stay 8 blocks below surface
+        // ONLY generate caves on LAND (above sea level)
+        // Skip underwater areas entirely
+        if (terrainHeight <= this.SEA_LEVEL) continue
+
+        // Caves go from ocean floor up to 5 blocks below surface
+        const minY = this.OCEAN_FLOOR
+        const maxY = terrainHeight - 5  // Stay 5 blocks below surface
 
         if (maxY <= minY) continue  // No room for caves here
 
@@ -70,20 +73,34 @@ export class CavePass implements GenerationPass {
   private generateSpaghettiCaves(context: GenerationContext): void {
     const rng = new SeededRandom(context.seed + context.chunkCoord.x * 31 + context.chunkCoord.z * 17 + 2000)
 
-    // Density: 5% of chunks get spaghetti caves
-    if (rng.next() > 0.05) return
+    // Density: 10% of land chunks get spaghetti caves
+    if (rng.next() > 0.10) return
 
-    const startX = rng.int(0, 23)
-    const startZ = rng.int(0, 23)
+    // Find a valid land position to start
+    let startX = -1, startZ = -1, terrainHeight = 0
+    for (let attempts = 0; attempts < 20; attempts++) {
+      const testX = rng.int(4, 19)
+      const testZ = rng.int(4, 19)
+      const h = context.heightMap[testX][testZ]
 
-    // Get terrain height at start point
-    const terrainHeight = context.heightMap[startX][startZ]
-    const maxCaveY = Math.min(terrainHeight - 8, this.CAVE_MAX_Y)
+      // Only start on LAND (above sea level)
+      if (h > this.SEA_LEVEL) {
+        startX = testX
+        startZ = testZ
+        terrainHeight = h
+        break
+      }
+    }
 
-    if (maxCaveY < 20) return  // Not enough room for caves
+    // No land found in this chunk
+    if (startX < 0) return
 
-    // Start between Y=15 and maxCaveY
-    const startY = rng.int(15, maxCaveY - 5)
+    const maxCaveY = terrainHeight - 5  // Stay 5 blocks below surface
+
+    if (maxCaveY < this.OCEAN_FLOOR + 10) return  // Not enough room for caves
+
+    // Start between ocean floor and maxCaveY
+    const startY = rng.int(this.OCEAN_FLOOR + 5, maxCaveY - 5)
 
     // Tunnel radius 4-8 blocks
     const radius = rng.clampedGaussian(6, 1, 4, 8)
@@ -103,20 +120,23 @@ export class CavePass implements GenerationPass {
   private generateCaveEntrances(context: GenerationContext): void {
     const rng = new SeededRandom(context.seed + context.chunkCoord.x * 73 + context.chunkCoord.z * 29 + 4000)
 
-    // ~15% of chunks get a cave entrance
-    if (rng.next() > 0.15) return
+    // ~20% of land chunks with caves get an entrance
+    if (rng.next() > 0.20) return
 
-    // Find a cave position to connect to
+    // Find a cave position to connect to (must be on LAND)
     let caveX = -1, caveY = -1, caveZ = -1
 
-    // Search for a cave air block
+    // Search for a cave air block on land
     for (let attempts = 0; attempts < 50; attempts++) {
       const testX = rng.int(4, 19)  // Stay away from edges
       const testZ = rng.int(4, 19)
       const terrainHeight = context.heightMap[testX][testZ]
 
+      // Only create entrances on LAND
+      if (terrainHeight <= this.SEA_LEVEL) continue
+
       // Look for cave air below terrain
-      for (let y = Math.min(terrainHeight - 10, this.CAVE_MAX_Y - 5); y >= 15; y--) {
+      for (let y = terrainHeight - 10; y >= this.OCEAN_FLOOR; y--) {
         if (context.isCave(testX, y, testZ) && context.getBlock(testX, y, testZ) === BlockType.air) {
           caveX = testX
           caveY = y
@@ -127,7 +147,7 @@ export class CavePass implements GenerationPass {
       if (caveX >= 0) break
     }
 
-    // No cave found in this chunk
+    // No cave found on land in this chunk
     if (caveX < 0) return
 
     const terrainHeight = context.heightMap[caveX][caveZ]
@@ -147,7 +167,7 @@ export class CavePass implements GenerationPass {
             const nx = x + dx
             const ny = y + dy
             const nz = z + dz
-            if (nx < 0 || nx >= 24 || nz < 0 || nz >= 24 || ny < 10) continue
+            if (nx < 0 || nx >= 24 || nz < 0 || nz >= 24 || ny < this.OCEAN_FLOOR) continue
 
             const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
             if (dist <= entranceRadius) {
@@ -179,10 +199,10 @@ export class CavePass implements GenerationPass {
     startX: number,
     startY: number,
     startZ: number,
-    config: { length: number; radius: number; windingFactor: number; maxY?: number }
+    config: { length: number; radius: number; windingFactor: number; maxY: number }
   ): void {
     const noise3D = createNoise3D(() => context.seed + startX + startY + startZ + 3000)
-    const maxY = config.maxY ?? this.CAVE_MAX_Y
+    const maxY = config.maxY
 
     let x = startX
     let y = startY
@@ -236,16 +256,15 @@ export class CavePass implements GenerationPass {
     }
   }
 
-  private carveSphere(context: GenerationContext, cx: number, cy: number, cz: number, radius: number, caveMaxY?: number): void {
+  private carveSphere(context: GenerationContext, cx: number, cy: number, cz: number, radius: number, caveMaxY: number): void {
     const minX = Math.max(0, Math.floor(cx - radius))
     const maxX = Math.min(23, Math.ceil(cx + radius))
-    const minY = Math.max(10, Math.floor(cy - radius))  // Don't carve below Y=10
+    const minY = Math.max(this.OCEAN_FLOOR, Math.floor(cy - radius))  // Don't carve below ocean floor
     const minZ = Math.max(0, Math.floor(cz - radius))
     const maxZ = Math.min(23, Math.ceil(cz + radius))
 
-    // Cap at provided maxY or default CAVE_MAX_Y
-    const limitY = caveMaxY ?? this.CAVE_MAX_Y
-    const maxY = Math.min(limitY, Math.ceil(cy + radius))
+    // Cap at provided maxY
+    const maxY = Math.min(caveMaxY, Math.ceil(cy + radius))
 
     // Pre-compute squared radius to avoid sqrt in hot loop
     const radiusSq = radius * radius
@@ -274,16 +293,16 @@ export class CavePass implements GenerationPass {
   private addCaveLighting(context: GenerationContext): void {
     const rng = new SeededRandom(context.seed + context.chunkCoord.x * 101 + context.chunkCoord.z * 53 + 5000)
     let lightsPlaced = 0
-    let caveBlocksFound = 0
-    let floorPositionsFound = 0
 
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
-        for (let y = 10; y < this.CAVE_MAX_Y; y++) {
+        const terrainHeight = context.heightMap[x][z]
+        // Only add lights on land
+        if (terrainHeight <= this.SEA_LEVEL) continue
+
+        for (let y = this.OCEAN_FLOOR; y < terrainHeight - 5; y++) {
           // Check if this is a cave air block
           if (!context.isCave(x, y, z)) continue
-          caveBlocksFound++
-
           if (context.getBlock(x, y, z) !== BlockType.air) continue
 
           // Check if floor below is solid (this is a floor position)
@@ -291,7 +310,6 @@ export class CavePass implements GenerationPass {
           const isFloor = blockBelow !== BlockType.air && blockBelow !== BlockType.water
 
           if (isFloor) {
-            floorPositionsFound++
             // Deterministic spacing based on world coordinates
             const worldX = context.chunkCoord.x * 24 + x
             const worldZ = context.chunkCoord.z * 24 + z
