@@ -7,9 +7,11 @@ import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { ILightingQuery } from '../ports/ILightingQuery'
 import { ILightStorage } from '../ports/ILightStorage'
+import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { LightValue } from '../domain/voxel-lighting/LightValue'
 import { LightingWorkerPool } from '../infrastructure/LightingWorkerPool'
+import { BlockType } from '../../world/domain/BlockType'
 
 export class EnvironmentService implements ILightingQuery, ILightStorage {
   private timeCycle: TimeCycle
@@ -17,15 +19,18 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
   private lightingWorkerPool: LightingWorkerPool
   // Use ChunkData instead of LightData
   private chunkDataMap = new Map<string, ChunkData>()
+  private voxelQuery: IVoxelQuery | null = null
+  private camera: THREE.Camera
 
   constructor(
-    scene: THREE.Scene, 
+    scene: THREE.Scene,
     camera: THREE.Camera,
     private eventBus: EventBus
   ) {
+    this.camera = camera
     this.timeCycle = new TimeCycle()
     this.skyAdapter = new ThreeSkyAdapter(scene, camera, this.timeCycle)
-    
+
     // Add Hemisphere Light (Sky + Ground Reflection)
     const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x444422, 0.6)
     scene.add(hemiLight)
@@ -36,6 +41,13 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
     this.setupEventListeners()
 
     console.log('🌍 EnvironmentModule initialized (Real-time sync + Voxel Lighting)')
+  }
+
+  /**
+   * Set voxel query for underwater detection
+   */
+  setVoxelQuery(voxelQuery: IVoxelQuery): void {
+    this.voxelQuery = voxelQuery
   }
 
   // ILightingQuery Implementation
@@ -120,14 +132,45 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
   }
 
   update(): void {
+    // Check if camera is underwater
+    this.checkUnderwater()
     this.skyAdapter.update()
+  }
+
+  private checkUnderwater(): void {
+    if (!this.voxelQuery) return
+
+    // Check block at camera (eye) position
+    const pos = this.camera.position
+    const blockType = this.voxelQuery.getBlockType(
+      Math.floor(pos.x),
+      Math.floor(pos.y),
+      Math.floor(pos.z)
+    )
+
+    const isUnderwater = blockType === BlockType.water
+    this.skyAdapter.setUnderwater(isUnderwater)
+  }
+
+  isUnderwater(): boolean {
+    return this.skyAdapter.getIsUnderwater()
   }
 
   setHour(hour: number | null): void {
     this.timeCycle.setHour(hour)
     this.skyAdapter.updateLighting()
   }
-  
+
+  /**
+   * Get current time of day as decimal (0-24)
+   * Returns null if using real time (no override)
+   */
+  getTimeOfDay(): number | null {
+    const time = this.timeCycle.getTime()
+    // If we have an override, return it; otherwise return current hour
+    return time.hour + time.minute / 60
+  }
+
   getTimeString(): string {
     const { hour, minute } = this.timeCycle.getTime()
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
