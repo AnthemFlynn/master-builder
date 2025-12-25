@@ -5,12 +5,14 @@ import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { blockRegistry } from '../../blocks'
 import { EventBus } from '../../game/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
+import { ModificationTracker } from '../../persistence/application/ModificationTracker'
 import { ChunkWorkerPool } from '../infrastructure/ChunkWorkerPool'
 
 export class WorldService implements IVoxelQuery {
   private chunks = new Map<string, ChunkData>()
   private workerPool: ChunkWorkerPool
   private environmentService?: EnvironmentService
+  private modificationTracker?: ModificationTracker
 
   // Track pending chunk requests to avoid duplicates
   private pendingChunks = new Set<string>()
@@ -39,6 +41,10 @@ export class WorldService implements IVoxelQuery {
       this.environmentService = service
   }
 
+  setModificationTracker(tracker: ModificationTracker) {
+      this.modificationTracker = tracker
+  }
+
   generateChunkAsync(coord: ChunkCoordinate, renderDistance: number): void {
     const key = coord.toKey()
 
@@ -61,6 +67,19 @@ export class WorldService implements IVoxelQuery {
 
         // Create ChunkData from buffer
         const newChunk = new ChunkData(chunkCoord, blockBuffer, metadata)
+
+        // Apply saved modifications if any exist
+        if (this.modificationTracker) {
+          const mods = this.modificationTracker.getChunkModifications(key)
+          if (mods && mods.size > 0) {
+            for (const [localKey, blockType] of mods) {
+              const [lx, ly, lz] = localKey.split(',').map(Number)
+              newChunk.setBlockId(lx, ly, lz, blockType)
+            }
+            console.log(`📝 Applied ${mods.size} modifications to chunk (${x}, ${z})`)
+          }
+        }
+
         this.chunks.set(key, newChunk)
 
         if (this.eventBus) {
