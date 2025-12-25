@@ -17,6 +17,7 @@ import { AutoSaveManager } from '../../persistence/application/AutoSaveManager'
 import { IndexedDBAdapter } from '../../persistence/adapters/IndexedDBAdapter'
 import { SaveGameHandler } from '../../persistence/application/handlers/SaveGameHandler'
 import { LoadGameHandler } from '../../persistence/application/handlers/LoadGameHandler'
+import { ModificationTracker } from '../../persistence/application/ModificationTracker'
 import { CommandBus } from '../infrastructure/CommandBus'
 import { EventBus } from '../infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
@@ -53,6 +54,7 @@ export class GameOrchestrator {
   private inventoryService: InventoryService
   private persistenceService: PersistenceService
   private autoSaveManager: AutoSaveManager
+  private modificationTracker: ModificationTracker
   private worldPreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
   private currentChunk = new ChunkCoordinate(0, 0)
@@ -80,6 +82,9 @@ export class GameOrchestrator {
     this.commandBus = new CommandBus()
     this.eventBus = new EventBus()
     this.performanceMonitor = new PerformanceMonitor()
+
+    // Create modification tracker (listens to block events)
+    this.modificationTracker = new ModificationTracker(this.eventBus)
 
     // Make it available on window.debug
     ;(window as any).debug = {
@@ -122,9 +127,10 @@ export class GameOrchestrator {
     this.audioService = new AudioService(camera, this.eventBus)
     this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)
     this.environmentService = new EnvironmentService(scene, camera, this.eventBus)
-    
-    // Link services (resolve circular dependency)
+
+    // Link services (resolve circular dependencies)
     this.worldService.setEnvironmentService(this.environmentService)
+    this.environmentService.setVoxelQuery(this.worldService) // For underwater detection
 
     // Initialize player position from camera (ensure spawning above ground)
     this.playerService.updatePosition(this.camera.position)
@@ -190,11 +196,26 @@ export class GameOrchestrator {
     // Register persistence command handlers
     this.commandBus.register(
       'SaveGameCommand',
-      new SaveGameHandler(this.persistenceService, this.playerService, this.eventBus)
+      new SaveGameHandler(
+        this.persistenceService,
+        this.playerService,
+        this.interactionService,
+        this.environmentService,
+        this.modificationTracker,
+        this.eventBus
+      )
     )
     this.commandBus.register(
       'LoadGameCommand',
-      new LoadGameHandler(this.persistenceService, this.playerService, this.eventBus)
+      new LoadGameHandler(
+        this.persistenceService,
+        this.playerService,
+        this.interactionService,
+        this.environmentService,
+        this.modificationTracker,
+        this.worldService,
+        this.eventBus
+      )
     )
 
     // Start auto-save

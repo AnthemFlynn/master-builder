@@ -248,6 +248,18 @@ export class WorldService implements IVoxelQuery {
     return chunksToUnload.length
   }
 
+  /**
+   * Clear all chunks (used when loading a save)
+   */
+  clearAllChunks(): void {
+    const coords = Array.from(this.chunks.values()).map(c => c.coord)
+    for (const coord of coords) {
+      this.unloadChunk(coord)
+    }
+    this.pendingChunks.clear()
+    console.log('🗑️ Cleared all chunks')
+  }
+
   worldToChunkCoord(worldX: number, worldZ: number): ChunkCoordinate {
     return new ChunkCoordinate(
       Math.floor(worldX / 24),
