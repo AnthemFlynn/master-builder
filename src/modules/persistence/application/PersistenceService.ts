@@ -4,6 +4,9 @@ import { IPersistenceQuery } from '../ports/IPersistenceQuery'
 import { GameSnapshot, PlayerSnapshot } from '../domain/GameSnapshot'
 import { SaveSlot } from '../domain/SaveSlot'
 import { PlayerService } from '../../player/application/PlayerService'
+import { InteractionService } from '../../interaction/application/InteractionService'
+import { EnvironmentService } from '../../environment/application/EnvironmentService'
+import { ModificationTracker } from './ModificationTracker'
 
 /**
  * Service orchestrating game state persistence
@@ -20,9 +23,14 @@ export class PersistenceService implements IPersistenceQuery {
 
   /**
    * Capture current game state from services
-   * Phase 1: Player only
+   * Now captures full game state including hotbar, time, and block modifications
    */
-  captureGameSnapshot(playerService: PlayerService): GameSnapshot {
+  captureGameSnapshot(
+    playerService: PlayerService,
+    interactionService: InteractionService,
+    environmentService: EnvironmentService,
+    modificationTracker: ModificationTracker
+  ): GameSnapshot {
     const playerState = playerService.getState()
 
     const playerSnapshot: PlayerSnapshot = {
@@ -45,23 +53,40 @@ export class PersistenceService implements IPersistenceQuery {
     return {
       version: '1.0.0',
       player: playerSnapshot,
+      selectedHotbarSlot: interactionService.getSelectedBlock(),
+      timeOfDay: environmentService.getTimeOfDay(),
+      blockModifications: modificationTracker.getAllModifications(),
       metadata: {
         savedAt: Date.now(),
-        playTime: 0 // TODO: Track play time
+        playTime: 0 // TODO: Track actual play time
       }
     }
   }
 
   /**
    * Restore game state to services
-   * Phase 1: Player only
+   * Now restores full game state including hotbar, time, and block modifications
    */
-  async restoreGameSnapshot(
+  restoreGameSnapshot(
     snapshot: GameSnapshot,
-    playerService: PlayerService
-  ): Promise<void> {
+    playerService: PlayerService,
+    interactionService: InteractionService,
+    environmentService: EnvironmentService,
+    modificationTracker: ModificationTracker
+  ): void {
     // Restore player state
     playerService.restoreState(snapshot.player)
+
+    // Restore hotbar selection
+    interactionService.setSelectedBlock(snapshot.selectedHotbarSlot)
+
+    // Restore time of day
+    if (snapshot.timeOfDay !== null) {
+      environmentService.setHour(snapshot.timeOfDay)
+    }
+
+    // Load block modifications
+    modificationTracker.loadModifications(snapshot.blockModifications)
 
     console.log('✅ Game state restored from snapshot')
   }
