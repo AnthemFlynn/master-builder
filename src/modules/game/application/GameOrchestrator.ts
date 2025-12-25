@@ -190,6 +190,8 @@ export class GameOrchestrator {
     // Initialize IndexedDB (async operation, but don't block initialization)
     this.persistenceService.initialize().then(() => {
       console.log('✅ Persistence module initialized')
+      // Now that persistence is ready, wire up the save/load modal
+      this.uiService.setPersistence(this.commandBus, this.persistenceService)
     }).catch((error) => {
       console.error('❌ Failed to initialize persistence:', error)
     })
