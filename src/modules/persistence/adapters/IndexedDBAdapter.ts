@@ -73,12 +73,86 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
   }
 
   /**
+   * Save block modifications for a slot
+   */
+  async saveWorldData(slotId: string, modifications: Record<string, Record<string, number>>): Promise<void> {
+    if (!this.db) throw new Error('[IndexedDBAdapter] Database not initialized')
+
+    const transaction = this.db.transaction(['world-data'], 'readwrite')
+    const store = transaction.objectStore('world-data')
+
+    // Clear existing world data for this slot
+    const index = store.index('slotId')
+    const clearRequest = index.openCursor(IDBKeyRange.only(slotId))
+
+    await new Promise<void>((resolve, reject) => {
+      clearRequest.onsuccess = () => {
+        const cursor = clearRequest.result
+        if (cursor) {
+          cursor.delete()
+          cursor.continue()
+        } else {
+          resolve()
+        }
+      }
+      clearRequest.onerror = () => reject(clearRequest.error)
+    })
+
+    // Save new world data (in a new transaction since the previous one completed)
+    const saveTransaction = this.db.transaction(['world-data'], 'readwrite')
+    const saveStore = saveTransaction.objectStore('world-data')
+
+    for (const chunkKey in modifications) {
+      saveStore.put({
+        slotId,
+        chunkKey,
+        modifications: modifications[chunkKey]
+      })
+    }
+
+    return new Promise((resolve, reject) => {
+      saveTransaction.oncomplete = () => resolve()
+      saveTransaction.onerror = () => reject(saveTransaction.error)
+    })
+  }
+
+  /**
+   * Load block modifications for a slot
+   */
+  async loadWorldData(slotId: string): Promise<Record<string, Record<string, number>>> {
+    if (!this.db) throw new Error('[IndexedDBAdapter] Database not initialized')
+
+    const transaction = this.db.transaction(['world-data'], 'readonly')
+    const store = transaction.objectStore('world-data')
+    const index = store.index('slotId')
+
+    return new Promise((resolve, reject) => {
+      const request = index.openCursor(IDBKeyRange.only(slotId))
+      const result: Record<string, Record<string, number>> = {}
+
+      request.onsuccess = () => {
+        const cursor = request.result
+        if (cursor) {
+          result[cursor.value.chunkKey] = cursor.value.modifications
+          cursor.continue()
+        } else {
+          resolve(result)
+        }
+      }
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  /**
    * Save complete game state to a slot
    */
   async saveGame(slotId: string, snapshot: GameSnapshot): Promise<SaveSlot> {
     if (!this.db) {
       throw new Error('[IndexedDBAdapter] Database not initialized')
     }
+
+    // Save world data first (block modifications)
+    await this.saveWorldData(slotId, snapshot.blockModifications)
 
     const transaction = this.db.transaction(
       ['save-slots', 'player-data'],
@@ -99,9 +173,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
       // Create save slot metadata
       const saveSlot: SaveSlot = {
         id: slotId,
-        name: slotId, // Will be improved in Phase 6
+        name: slotId,
         timestamp: snapshot.metadata.savedAt,
-        worldPresetId: 'island', // Will be added in Phase 3
+        worldPresetId: 'island',
         playerPosition: snapshot.player.position,
         playTime: snapshot.metadata.playTime
       }
@@ -110,11 +184,13 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
       const slotsStore = transaction.objectStore('save-slots')
       slotsStore.put(saveSlot)
 
-      // Store 2: Player data
+      // Store 2: Player data (including hotbar and time)
       const playerStore = transaction.objectStore('player-data')
       playerStore.put({
         slotId,
-        ...snapshot.player
+        ...snapshot.player,
+        selectedHotbarSlot: snapshot.selectedHotbarSlot,
+        timeOfDay: snapshot.timeOfDay
       })
     })
   }
@@ -126,6 +202,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
     if (!this.db) {
       throw new Error('[IndexedDBAdapter] Database not initialized')
     }
+
+    // Load world data (block modifications)
+    const blockModifications = await this.loadWorldData(slotId)
 
     const transaction = this.db.transaction(['player-data'], 'readonly')
 
@@ -146,7 +225,7 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
           return
         }
 
-        // Reconstruct game snapshot
+        // Reconstruct game snapshot with all fields
         const snapshot: GameSnapshot = {
           version: '1.0.0',
           player: {
@@ -157,6 +236,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
             falling: playerData.falling,
             jumpVelocity: playerData.jumpVelocity
           },
+          selectedHotbarSlot: playerData.selectedHotbarSlot ?? 1,
+          timeOfDay: playerData.timeOfDay ?? null,
+          blockModifications,
           metadata: {
             savedAt: Date.now(),
             playTime: 0
