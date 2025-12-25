@@ -130,6 +130,7 @@ export class GameOrchestrator {
 
     // Link services (resolve circular dependencies)
     this.worldService.setEnvironmentService(this.environmentService)
+    this.worldService.setModificationTracker(this.modificationTracker)
     this.environmentService.setVoxelQuery(this.worldService) // For underwater detection
 
     // Initialize player position from camera (ensure spawning above ground)
