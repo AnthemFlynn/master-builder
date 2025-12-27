@@ -203,7 +203,7 @@ export class SaveLoadModal {
         align-items: center;
         justify-content: center;
       }
-      .modal-backdrop {
+      .save-load-modal .modal-backdrop {
         position: absolute;
         top: 0;
         left: 0;
@@ -211,7 +211,7 @@ export class SaveLoadModal {
         height: 100%;
         background: rgba(0, 0, 0, 0.7);
       }
-      .modal-content {
+      .save-load-modal .modal-content {
         position: relative;
         background: #2a2a2a;
         border-radius: 8px;
@@ -221,18 +221,18 @@ export class SaveLoadModal {
         color: white;
         font-family: sans-serif;
       }
-      .modal-header {
+      .save-load-modal .modal-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 16px 20px;
         border-bottom: 1px solid #444;
       }
-      .modal-header h2 {
+      .save-load-modal .modal-header h2 {
         margin: 0;
         font-size: 18px;
       }
-      .close-btn {
+      .save-load-modal .close-btn {
         background: none;
         border: none;
         color: white;
@@ -241,73 +241,73 @@ export class SaveLoadModal {
         padding: 0;
         line-height: 1;
       }
-      .modal-body {
+      .save-load-modal .modal-body {
         padding: 16px;
       }
-      .modal-footer {
+      .save-load-modal .modal-footer {
         padding: 12px 16px;
         border-top: 1px solid #444;
         text-align: right;
       }
-      .slot-card {
+      .save-load-modal .slot-card {
         background: #3a3a3a;
         border-radius: 6px;
         padding: 12px 16px;
         margin-bottom: 12px;
       }
-      .slot-card.auto-save {
+      .save-load-modal .slot-card.auto-save {
         border-left: 3px solid #ffd700;
       }
-      .slot-card.empty {
+      .save-load-modal .slot-card.empty {
         opacity: 0.7;
       }
-      .slot-header {
+      .save-load-modal .slot-header {
         font-weight: bold;
         margin-bottom: 8px;
       }
-      .slot-date {
+      .save-load-modal .slot-date {
         font-size: 13px;
         color: #aaa;
       }
-      .slot-info {
+      .save-load-modal .slot-info {
         display: flex;
         justify-content: space-between;
         font-size: 12px;
         color: #888;
         margin-top: 4px;
       }
-      .slot-empty {
+      .save-load-modal .slot-empty {
         color: #666;
         font-style: italic;
       }
-      .slot-buttons {
+      .save-load-modal .slot-buttons {
         margin-top: 10px;
         display: flex;
         gap: 8px;
         justify-content: flex-end;
       }
-      .slot-buttons button {
+      .save-load-modal .slot-buttons button {
         padding: 6px 16px;
         border: none;
         border-radius: 4px;
         cursor: pointer;
         font-size: 13px;
       }
-      .load-btn {
+      .save-load-modal .load-btn {
         background: #4a7c4e;
         color: white;
       }
-      .load-btn:hover {
+      .save-load-modal .load-btn:hover {
         background: #5a9c5e;
       }
-      .save-btn {
+      .save-load-modal .save-btn {
         background: #4a6a9c;
         color: white;
       }
-      .save-btn:hover {
+      .save-load-modal .save-btn:hover {
         background: #5a7abc;
       }
-      .back-btn {
+      .save-load-modal .back-btn {
         padding: 8px 20px;
         background: #555;
         border: none;
@@ -315,7 +315,7 @@ export class SaveLoadModal {
         color: white;
         cursor: pointer;
       }
-      .back-btn:hover {
+      .save-load-modal .back-btn:hover {
         background: #666;
       }
       .save-notification {
