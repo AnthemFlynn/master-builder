@@ -137,19 +137,51 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
     this.skyAdapter.update()
   }
 
+  // Hysteresis to prevent rapid underwater state switching at water surface
+  private isCurrentlyUnderwater = false
+  private lastTransitionY: number | null = null
+  private readonly HYSTERESIS_DISTANCE = 0.5 // Must move 0.5 blocks past transition point to switch back
+
   private checkUnderwater(): void {
     if (!this.voxelQuery) return
 
-    // Check block at camera (eye) position
     const pos = this.camera.position
-    const blockType = this.voxelQuery.getBlockType(
+
+    // Check block at camera's eye position
+    const blockAtCamera = this.voxelQuery.getBlockType(
       Math.floor(pos.x),
       Math.floor(pos.y),
       Math.floor(pos.z)
     )
 
-    const isUnderwater = blockType === BlockType.water
-    this.skyAdapter.setUnderwater(isUnderwater)
+    const cameraInWater = blockAtCamera === BlockType.water
+
+    // Apply hysteresis: once we transition, require movement past threshold to transition back
+    if (this.lastTransitionY === null) {
+      // First check - just set initial state
+      this.isCurrentlyUnderwater = cameraInWater
+      this.lastTransitionY = pos.y
+      this.skyAdapter.setUnderwater(cameraInWater)
+      return
+    }
+
+    if (this.isCurrentlyUnderwater) {
+      // Currently underwater - only surface if we've moved UP past hysteresis AND not in water
+      if (!cameraInWater && pos.y > this.lastTransitionY + this.HYSTERESIS_DISTANCE) {
+        console.log(`🌊 Surfacing at y=${pos.y.toFixed(2)}`)
+        this.isCurrentlyUnderwater = false
+        this.lastTransitionY = pos.y
+        this.skyAdapter.setUnderwater(false)
+      }
+    } else {
+      // Currently above water - only submerge if we've moved DOWN past hysteresis AND in water
+      if (cameraInWater && pos.y < this.lastTransitionY - this.HYSTERESIS_DISTANCE) {
+        console.log(`🌊 Submerging at y=${pos.y.toFixed(2)}`)
+        this.isCurrentlyUnderwater = true
+        this.lastTransitionY = pos.y
+        this.skyAdapter.setUnderwater(true)
+      }
+    }
   }
 
   isUnderwater(): boolean {

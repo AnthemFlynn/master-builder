@@ -54,4 +54,13 @@ export class WorkerVoxelQuery implements IVoxelQuery {
     clear(): void {
         this.chunks.clear()
     }
+
+    /**
+     * Check if a block is water
+     */
+    isBlockWater(worldX: number, worldY: number, worldZ: number): boolean {
+        const blockType = this.getBlockType(worldX, worldY, worldZ)
+        // Water is BlockType 16
+        return blockType === 16
+    }
 }
