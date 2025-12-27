@@ -7,6 +7,7 @@ import { MenuManager } from './MenuManager'
 import { RadialMenuManager } from './components/RadialMenuManager'
 import { CreativeModalManager } from './components/CreativeModalManager'
 import { SaveLoadModal } from '../components/SaveLoadModal'
+import { PortalOverlay } from '../components/PortalOverlay'
 import { InventoryService } from '../../inventory/application/InventoryService'
 import { InventoryBank } from '../../inventory/domain/InventoryState'
 import { DebugOverlay } from './DebugOverlay'
@@ -25,6 +26,7 @@ export interface UIServiceOptions {
   requestPointerLock?: () => void
   exitPointerLock?: () => void
   getPlayerPosition?: () => Position
+  onStartNewGame?: () => void  // Called when Play button clicked (triggers loading)
 }
 
 export class UIService implements IUIQuery {
@@ -34,6 +36,7 @@ export class UIService implements IUIQuery {
   private radialMenuManager: RadialMenuManager
   private creativeModalManager: CreativeModalManager
   private saveLoadModal: SaveLoadModal | null = null
+  private portalOverlay: PortalOverlay
   private debugOverlay: DebugOverlay
 
   constructor(
@@ -48,9 +51,15 @@ export class UIService implements IUIQuery {
 
     this.menuManager = new MenuManager(
       () => {
-        this.onPlay()
+        // Play button - start new game with loading screen
+        if (this.options.onStartNewGame) {
+          this.options.onStartNewGame()
+        } else {
+          this.onPlay() // Fallback if no callback provided
+        }
       },
       () => {
+        // Resume - no loading needed, chunks already exist
         this.onPlay()
       },
       () => {
@@ -69,6 +78,7 @@ export class UIService implements IUIQuery {
         this.onPlay()
     })
 
+    this.portalOverlay = new PortalOverlay()
     this.debugOverlay = new DebugOverlay(performanceMonitor, options.getPlayerPosition)
 
     // Wire up the "Load Game" button (modal will be set later)
@@ -81,8 +91,8 @@ export class UIService implements IUIQuery {
         }
     })
 
-    // Start in menu state (HTML shows menu by default)
-    this.setState(UIState.MENU)
+    // Start in splash state (HTML shows splash by default)
+    this.setState(UIState.SPLASH)
   }
 
   private setupSaveLoadButton(): void {
@@ -107,6 +117,8 @@ export class UIService implements IUIQuery {
         commandBus.send(new SaveGameCommand(slotId, slotId, false))
       },
       onLoad: async (slotId) => {
+        // DON'T lock pointer here - will be locked when user clicks "Enter World"
+        // Browser releases pointer lock during DOM changes
         commandBus.send(new LoadGameCommand(slotId))
       },
       onClose: () => {
@@ -123,14 +135,14 @@ export class UIService implements IUIQuery {
     // Update UI components
     this.hudManager.updateState(newState)
     this.menuManager.updateState(newState)
-    
+
     // Radial Menu Control
     if (newState === UIState.RADIAL_MENU) {
         this.radialMenuManager.show()
     } else {
         this.radialMenuManager.hide()
     }
-    
+
     // Creative Modal Control
     if (newState === UIState.CREATIVE_INVENTORY) {
         this.creativeModalManager.show()
@@ -194,5 +206,29 @@ export class UIService implements IUIQuery {
 
   update(): void {
     this.debugOverlay.update()
+  }
+
+  // Portal Overlay Methods
+  showLoading(message = 'Entering World...'): void {
+    this.portalOverlay.show(message)
+  }
+
+  hideLoading(): void {
+    this.portalOverlay.hide()
+  }
+
+  /**
+   * Collapse the portal with animation, then call callback
+   */
+  collapsePortal(onComplete?: () => void): void {
+    this.portalOverlay.collapse(onComplete)
+  }
+
+  updateLoadingProgress(current: number, total: number, _phase = 'chunks'): void {
+    this.portalOverlay.updateProgress(current, total)
+  }
+
+  isLoading(): boolean {
+    return this.portalOverlay.getIsVisible()
   }
 }

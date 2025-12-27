@@ -71,6 +71,15 @@ export class GameOrchestrator {
   private frameTimeHistory: number[] = []
   private readonly FPS_SAMPLE_SIZE = 60
 
+  // Loading tracking
+  private isLoadingWorld = false
+  private loadingChunksTarget = 0
+  private loadingChunksReady = new Set<string>()
+  private loadingSpawnChunk: string = '0,0' // Track spawn chunk key
+  private readonly LOAD_THRESHOLD = 0.80 // Portal fades at 80%
+  private hasFoundGround = false // Track if we've placed player on ground
+  private ignoreUnlockUntil = 0 // Timestamp to ignore pointer unlocks (grace period)
+
   constructor(
     private scene: THREE.Scene,
     private camera: THREE.PerspectiveCamera
@@ -122,7 +131,8 @@ export class GameOrchestrator {
     this.uiService = new UIService(this.eventBus, {
       requestPointerLock: () => this.cameraControls.lock(),
       exitPointerLock: () => this.cameraControls.unlock(),
-      getPlayerPosition: () => this.playerService.getPosition()
+      getPlayerPosition: () => this.playerService.getPosition(),
+      onStartNewGame: () => this.startNewGame()
     }, this.inventoryService, this.performanceMonitor)
     this.audioService = new AudioService(camera, this.eventBus)
     this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)
@@ -161,9 +171,13 @@ export class GameOrchestrator {
       }
       
       // Manage Pointer Lock based on State (Single Source of Truth)
+      // Check if already locked to avoid race conditions with double-lock calls
       if (event.newState === UIState.PLAYING) {
-          this.cameraControls.lock()
-      } else {
+          if (!document.pointerLockElement) {
+              this.cameraControls.lock()
+          }
+      } else if (event.newState !== UIState.RADIAL_MENU && event.newState !== UIState.CREATIVE_INVENTORY) {
+          // Don't unlock for radial/creative - they handle their own pointer state
           this.cameraControls.unlock()
       }
     })
@@ -233,15 +247,97 @@ export class GameOrchestrator {
     // Setup pointer lock listeners
     this.setupPointerLockListeners()
 
+    // Listen for game load events to regenerate chunks
+    this.eventBus.on('persistence', 'GameLoadedEvent', (event: any) => {
+      console.log('📂 Game loaded, regenerating chunks around player position')
+
+      const playerPos = event.playerPosition
+      const centerChunk = new ChunkCoordinate(
+        Math.floor(playerPos.x / 24),
+        Math.floor(playerPos.z / 24)
+      )
+
+      // For loaded games, spawn at saved position (already on ground)
+      this.camera.position.set(playerPos.x, playerPos.y, playerPos.z)
+      this.playerService.updatePosition(this.camera.position)
+      this.playerService.setMode(PlayerMode.Walking)
+      this.playerService.setVelocity({ x: 0, y: 0, z: 0 })
+      this.hasFoundGround = true // Already at saved position
+
+      // Enter playing state and lock pointer
+      this.cameraControls.lock()
+      this.uiService.onPlay()
+
+      this.previousChunk = centerChunk
+      // Start loading mode and generate chunks
+      this.startLoadingMode(centerChunk, 'Returning to World...')
+    })
+
+    // Track chunk mesh completion for loading progress
+    this.eventBus.on('meshing', 'ChunkMeshBuiltEvent', (event: any) => {
+      if (this.isLoadingWorld) {
+        const key = `${event.chunkCoord.x},${event.chunkCoord.z}`
+        this.loadingChunksReady.add(key)
+        this.uiService.updateLoadingProgress(
+          this.loadingChunksReady.size,
+          this.loadingChunksTarget,
+          'chunks'
+        )
+
+        // When spawn chunk is ready, place player on actual ground
+        if (!this.hasFoundGround && key === this.loadingSpawnChunk) {
+          this.placePlayerOnGround()
+        }
+
+        // Check if loading threshold met
+        const progress = this.loadingChunksReady.size / this.loadingChunksTarget
+        if (progress >= this.LOAD_THRESHOLD) {
+          this.finishLoading()
+        }
+      }
+    })
+
     console.log('✅ GameOrchestrator: All 10 modules initialized')
 
-    // Generate initial chunks
+    // Don't auto-generate chunks - wait for user to click Play
+    // Chunks will be generated when user clicks Play button
     const initialChunk = new ChunkCoordinate(
       Math.floor(this.camera.position.x / 24),
       Math.floor(this.camera.position.z / 24)
     )
-    this.generateChunksInRenderDistance(initialChunk)
     this.previousChunk = initialChunk
+  }
+
+  /**
+   * Called when user clicks Play - enters game immediately with loading overlay
+   */
+  startNewGame(): void {
+    console.log('🆕 Starting new game...')
+
+    // Clear any existing state from previous session
+    this.worldService.clearAllChunks()
+    this.modificationTracker.clear() // Fresh world with no modifications
+    this.hasFoundGround = false
+
+    // Spawn at default ground level - will adjust when spawn chunk loads
+    // Portal overlay covers the view until world is ready
+    this.camera.position.set(12, 45, 12)
+    this.playerService.updatePosition(this.camera.position)
+    this.playerService.setMode(PlayerMode.Walking)
+    this.playerService.setVelocity({ x: 0, y: 0, z: 0 })
+
+    // Enter PLAYING state IMMEDIATELY (before async loading)
+    // This way pointer lock happens in user gesture context
+    this.cameraControls.lock()
+    this.uiService.onPlay()
+
+    const centerChunk = new ChunkCoordinate(
+      Math.floor(this.camera.position.x / 24),
+      Math.floor(this.camera.position.z / 24)
+    )
+
+    // Start loading with overlay (player is already in-game, can look around)
+    this.startLoadingMode(centerChunk, 'Generating world...')
   }
 
   update(skipHeavyProcessing = false): void {
@@ -398,6 +494,107 @@ export class GameOrchestrator {
     for (const coord of spiralOrder) {
       this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
     }
+  }
+
+  /**
+   * Start loading mode - shows loading screen and tracks chunk progress
+   */
+  private startLoadingMode(centerChunk: ChunkCoordinate, message = 'Loading world...'): void {
+    this.isLoadingWorld = true
+    this.loadingChunksReady.clear()
+
+    // Track spawn chunk - MUST be ready before game starts
+    this.loadingSpawnChunk = `${centerChunk.x},${centerChunk.z}`
+    console.log(`📍 Spawn chunk: ${this.loadingSpawnChunk}`)
+
+    // Calculate total chunks in render distance (circular area approximation)
+    const diameter = this.renderDistance * 2 + 1
+    this.loadingChunksTarget = diameter * diameter
+
+    // Show loading screen
+    this.uiService.showLoading(message)
+    this.uiService.updateLoadingProgress(0, this.loadingChunksTarget, 'chunks')
+
+    // Generate chunks
+    this.generateChunksInRenderDistance(centerChunk)
+  }
+
+  /**
+   * Place player on actual ground level when spawn chunk is ready
+   */
+  private placePlayerOnGround(): void {
+    const x = this.camera.position.x
+    const z = this.camera.position.z
+    const groundY = this.findGroundLevel(x, z)
+    // Spawn 3 blocks above ground - gravity will settle the player
+    // This avoids edge cases where collision detection differs from our check
+    const finalY = groundY + 3
+
+    this.camera.position.y = finalY
+    this.playerService.updatePosition(this.camera.position)
+    this.hasFoundGround = true
+
+    console.log(`📍 Placed player above ground at y=${finalY.toFixed(1)} (ground=${groundY})`)
+  }
+
+  /**
+   * Finish loading mode - fade out portal overlay
+   */
+  private finishLoading(): void {
+    if (!this.isLoadingWorld) return
+
+    this.isLoadingWorld = false
+
+    // Grace period: ignore pointer unlocks for 1.5 seconds after loading
+    // Browser sometimes releases lock during animations
+    this.ignoreUnlockUntil = Date.now() + 1500
+
+    console.log(`✅ World loaded: ${this.loadingChunksReady.size}/${this.loadingChunksTarget} chunks ready`)
+
+    // Fade out portal overlay (player is already on ground and in walking mode)
+    this.uiService.collapsePortal(() => {
+      console.log(`🎮 Portal faded, gameplay active`)
+      // Re-lock pointer if it was lost during animation
+      if (!document.pointerLockElement) {
+        this.cameraControls.lock()
+      }
+    })
+
+    console.log(`🎮 Loading complete, pointer locked: ${!!document.pointerLockElement}`)
+  }
+
+  /**
+   * Find a safe spawn level (solid block with 2+ air blocks above)
+   */
+  private findGroundLevel(x: number, z: number): number {
+    const chunkX = Math.floor(x / 24)
+    const chunkZ = Math.floor(z / 24)
+    const chunk = this.worldService.getChunk(new ChunkCoordinate(chunkX, chunkZ))
+
+    if (!chunk) {
+      console.warn(`⚠️ Spawn chunk not found, using default height`)
+      return 64
+    }
+
+    // Local coordinates within chunk
+    const localX = Math.floor(x) - chunkX * 24
+    const localZ = Math.floor(z) - chunkZ * 24
+
+    // Scan from top down to find solid block with 2 air blocks above (player headroom)
+    for (let y = 253; y >= 0; y--) {
+      const blockHere = chunk.getBlockId(localX, y, localZ)
+      const blockAbove1 = chunk.getBlockId(localX, y + 1, localZ)
+      const blockAbove2 = chunk.getBlockId(localX, y + 2, localZ)
+
+      // Found solid ground with enough headroom
+      if (blockHere !== 0 && blockAbove1 === 0 && blockAbove2 === 0) {
+        return y + 1 // Stand on top of the block
+      }
+    }
+
+    // No safe spot found, use default
+    console.warn(`⚠️ No safe spawn found at (${x}, ${z}), using default height`)
+    return 64
   }
 
   private hasMissingChunks(centerChunk: ChunkCoordinate): boolean {
@@ -603,8 +800,28 @@ export class GameOrchestrator {
   }
 
   private setupPointerLockListeners(): void {
+    // Lock event: Log for debugging
+    this.cameraControls.addEventListener('lock', () => {
+      console.log('🔒 Pointer locked')
+    })
+
     // Unlock event: If unlocked externally (ESC), pause game.
     this.cameraControls.addEventListener('unlock', () => {
+      console.log(`🔓 Pointer unlocked (UI state: ${this.uiService.getState()}, loading: ${this.isLoadingWorld})`)
+
+      // During loading, ignore spurious unlocks from browser
+      if (this.isLoadingWorld) {
+        console.log('⏳ Ignoring unlock during loading')
+        return
+      }
+
+      // Grace period after loading - browser releases lock during animations
+      if (Date.now() < this.ignoreUnlockUntil) {
+        console.log('⏳ Ignoring unlock during grace period, re-locking...')
+        setTimeout(() => this.cameraControls.lock(), 100)
+        return
+      }
+
       if (this.uiService.isPlaying()) {
         this.uiService.onPause()
       }
