@@ -7,17 +7,22 @@ export type MeshingRequest =
       neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
     }
 
+// Geometry buffer structure for a single material
+export type GeometryBuffers = {
+  positions: ArrayBuffer
+  colors: ArrayBuffer
+  uvs: ArrayBuffer
+  indices: ArrayBuffer
+}
+
 export type MeshingResponse =
   | {
       type: 'MESH_GENERATED'
       x: number
       z: number
-      geometry: Record<string, {
-        positions: ArrayBuffer
-        colors: ArrayBuffer
-        uvs: ArrayBuffer
-        indices: ArrayBuffer
-      }>
+      // Separate opaque and transparent geometry for two-pass rendering
+      opaqueGeometry: Record<string, GeometryBuffers>
+      transparentGeometry: Record<string, GeometryBuffers>
       timingMs: number
     }
 

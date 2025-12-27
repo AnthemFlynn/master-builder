@@ -30,7 +30,9 @@ function normalizeLightToColor(light: RGB): RGB {
 }
 
 export class VertexBuilder {
-  private buffers = new Map<string, BufferData>()
+  // Separate buffers for opaque and transparent geometry (Minecraft two-VBO approach)
+  private opaqueBuffers = new Map<string, BufferData>()
+  private transparentBuffers = new Map<string, BufferData>()
   private worldOffsetX: number
   private worldOffsetZ: number
   // Cache for hash values to avoid recalculating per-vertex
@@ -55,7 +57,8 @@ export class VertexBuilder {
     blockType: number
   ): void {
     const materialKey = `${blockType}:cross`
-    const buffer = this.getBuffer(materialKey)
+    // Cross quads (flowers, grass) are always transparent
+    const buffer = this.getBuffer(materialKey, true)
 
     // Get base color for the block
     const baseColor = blockRegistry.getFaceColor(blockType, { x: 0, y: 1, z: 0 })
@@ -140,7 +143,9 @@ export class VertexBuilder {
     faceIndex: number
   ): void {
     const materialKey = `${blockType}:${faceIndex}`
-    const buffer = this.getBuffer(materialKey)
+    const blockDef = blockRegistry.get(blockType)
+    const isTransparent = blockDef?.transparent ?? false
+    const buffer = this.getBuffer(materialKey, isTransparent)
     const vertices = this.getQuadVertices(x, y, z, width, height, axis, direction)
     const normal = this.getFaceNormal(axis, direction)
     // Note: blockRegistry.getFaceColor returns THREE.Color, which might fail in worker if THREE not tree-shaken properly?
@@ -223,20 +228,29 @@ export class VertexBuilder {
     buffer.vertexCount += 4
   }
 
-  // Returns raw arrays instead of BufferGeometry
-  getBuffers(): Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }> {
-    const map = new Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>()
-    for (const [key, buffer] of this.buffers.entries()) {
-      if (buffer.positions.length === 0) continue
-      
-      map.set(key, {
-        positions: new Float32Array(buffer.positions),
-        colors: new Float32Array(buffer.colors),
-        uvs: new Float32Array(buffer.uvs),
-        indices: new Uint16Array(buffer.indices)
-      })
+  // Returns raw arrays instead of BufferGeometry - separate opaque and transparent for two-pass rendering
+  getBuffers(): {
+    opaque: Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>,
+    transparent: Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>
+  } {
+    const convertBufferMap = (bufferMap: Map<string, BufferData>) => {
+      const result = new Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>()
+      for (const [key, buffer] of bufferMap.entries()) {
+        if (buffer.positions.length === 0) continue
+        result.set(key, {
+          positions: new Float32Array(buffer.positions),
+          colors: new Float32Array(buffer.colors),
+          uvs: new Float32Array(buffer.uvs),
+          indices: new Uint16Array(buffer.indices)
+        })
+      }
+      return result
     }
-    return map
+
+    return {
+      opaque: convertBufferMap(this.opaqueBuffers),
+      transparent: convertBufferMap(this.transparentBuffers)
+    }
   }
 
   private getQuadVertices(
@@ -365,8 +379,9 @@ export class VertexBuilder {
     return cached
   }
 
-  private getBuffer(materialKey: string): BufferData {
-    let buffer = this.buffers.get(materialKey)
+  private getBuffer(materialKey: string, isTransparent: boolean): BufferData {
+    const bufferMap = isTransparent ? this.transparentBuffers : this.opaqueBuffers
+    let buffer = bufferMap.get(materialKey)
     if (!buffer) {
       buffer = {
         positions: [],
@@ -375,7 +390,7 @@ export class VertexBuilder {
         indices: [],
         vertexCount: 0
       }
-      this.buffers.set(materialKey, buffer)
+      bufferMap.set(materialKey, buffer)
     }
     return buffer
   }

@@ -80,26 +80,33 @@ export class MeshingService {
       {} // neighborLight is empty as it's now in neighborVoxels
     )
 
-    const { x, z, geometry } = result
+    const { x, z, opaqueGeometry, transparentGeometry } = result
     const resultCoord = new ChunkCoordinate(x, z)
 
-    const geometryMap = new Map<string, THREE.BufferGeometry>()
-
-    for (const [key, buffers] of Object.entries(geometry as Record<string, any>)) {
+    // Helper to convert buffer records to BufferGeometry maps
+    const createGeometryMap = (geometryRecord: Record<string, any>) => {
+      const map = new Map<string, THREE.BufferGeometry>()
+      for (const [key, buffers] of Object.entries(geometryRecord)) {
         const geo = new THREE.BufferGeometry()
         geo.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
         geo.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
         geo.setIndex(new THREE.Uint16BufferAttribute(buffers.indices, 1))
         geo.computeVertexNormals()
-        geometryMap.set(key, geo)
+        map.set(key, geo)
+      }
+      return map
     }
+
+    const opaqueGeometryMap = createGeometryMap(opaqueGeometry)
+    const transparentGeometryMap = createGeometryMap(transparentGeometry)
 
     this.eventBus.emit('meshing', {
         type: 'ChunkMeshBuiltEvent',
         timestamp: Date.now(),
         chunkCoord: resultCoord,
-        geometryMap
+        opaqueGeometryMap,
+        transparentGeometryMap
     })
   }
 
