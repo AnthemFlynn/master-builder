@@ -1,5 +1,7 @@
-import { serve } from "bun";
 import { rmSync } from "node:fs";
+
+// Parse command line flags
+const isDev = process.argv.includes('--dev');
 
 // Clean dist
 try {
@@ -18,9 +20,10 @@ const workerBuild = await Bun.build({
   entrypoints: workerEntrypoints,
   outdir: "./dist/assets",
   target: "browser",
-  minify: true,
-  kind: "worker", // Explicitly tell Bun this is a worker
-  naming: "[name].[ext]", // Flatten output structure
+  minify: !isDev,
+  sourcemap: isDev ? "external" : "none",
+  kind: "worker",
+  naming: "[name].[ext]",
 });
 
 if (!workerBuild.success) {
@@ -34,9 +37,10 @@ const build = await Bun.build({
   entrypoints: ["./src/main.ts"],
   outdir: "./dist",
   target: "browser",
-  minify: true,
-  splitting: false, // Disable code splitting
-  naming: "index.js", // Match HTML reference
+  minify: !isDev,
+  sourcemap: isDev ? "external" : "none",
+  splitting: false,
+  naming: "index.js",
 });
 
 if (!build.success) {
@@ -66,4 +70,4 @@ await Bun.write("./dist/style.css", css);
 // Copy public folder to dist
 await Bun.$`cp -r public/* dist/ 2>/dev/null || true`;
 
-console.log("✅ Build Complete!");
+console.log(`✅ Build Complete! (${isDev ? 'development' : 'production'})`);
