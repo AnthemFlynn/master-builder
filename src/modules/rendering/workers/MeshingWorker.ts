@@ -127,13 +127,31 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
         mesher.buildMesh(vertexBuilder)
 
-        const buffersMap = vertexBuilder.getBuffers()
+        const { opaque, transparent } = vertexBuilder.getBuffers()
 
         const transferList: ArrayBuffer[] = []
-        const outputGeometry: Record<string, any> = {}
+        const opaqueGeometry: Record<string, any> = {}
+        const transparentGeometry: Record<string, any> = {}
 
-        for (const [key, buffers] of buffersMap.entries()) {
-            outputGeometry[key] = {
+        // Process opaque geometry
+        for (const [key, buffers] of opaque.entries()) {
+            opaqueGeometry[key] = {
+                positions: buffers.positions.buffer,
+                colors: buffers.colors.buffer,
+                uvs: buffers.uvs.buffer,
+                indices: buffers.indices.buffer
+            }
+            transferList.push(
+                buffers.positions.buffer,
+                buffers.colors.buffer,
+                buffers.uvs.buffer,
+                buffers.indices.buffer
+            )
+        }
+
+        // Process transparent geometry (water, glass, etc.)
+        for (const [key, buffers] of transparent.entries()) {
+            transparentGeometry[key] = {
                 positions: buffers.positions.buffer,
                 colors: buffers.colors.buffer,
                 uvs: buffers.uvs.buffer,
@@ -154,7 +172,8 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
             type: 'MESH_GENERATED',
             x,
             z,
-            geometry: outputGeometry,
+            opaqueGeometry,
+            transparentGeometry,
             timingMs: duration
         }
 
