@@ -1,5 +1,5 @@
-// src/modules/terrain/application/CommandBus.ts
-import { Command, CommandHandler } from '../domain/commands/Command'
+// src/shared/infrastructure/CommandBus.ts
+import { Command, CommandHandler } from '../domain/Command'
 
 export class CommandBus {
   private handlers = new Map<string, CommandHandler<any>>()

@@ -1,4 +1,4 @@
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { GameAction } from '../domain/GameAction'
 import { KeyBinding } from '../domain/KeyBinding'
 import { GameState } from '../domain/InputState'

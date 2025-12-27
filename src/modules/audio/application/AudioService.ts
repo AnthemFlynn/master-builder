@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 
 export class AudioService {
   private listener: THREE.AudioListener

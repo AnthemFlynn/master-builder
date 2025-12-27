@@ -1,5 +1,5 @@
 // src/modules/persistence/domain/commands/SaveGameCommand.ts
-import { Command } from '../../../game/domain/commands/Command'
+import { Command } from '../../../../shared/domain/Command'
 
 export class SaveGameCommand implements Command {
   readonly type = 'SaveGameCommand'

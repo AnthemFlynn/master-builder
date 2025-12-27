@@ -1,5 +1,5 @@
-import { EventBus } from '../../game/infrastructure/EventBus'
-import { CommandBus } from '../../game/infrastructure/CommandBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
+import { CommandBus } from '../../../shared/infrastructure/CommandBus'
 import { UIState } from '../domain/UIState'
 import { IUIQuery } from '../ports/IUIQuery'
 import { HUDManager } from './HUDManager'

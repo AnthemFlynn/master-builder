@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { PlayerState } from '../domain/PlayerState'
 import { PlayerMode } from '../domain/PlayerMode'
 import { IPlayerQuery } from '../ports/IPlayerQuery'
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 
 export class PlayerService implements IPlayerQuery {
   private state: PlayerState

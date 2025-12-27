@@ -1,5 +1,5 @@
 // src/modules/persistence/domain/events/PersistenceEvents.ts
-import { DomainEvent } from '../../../game/domain/events/DomainEvent'
+import { DomainEvent } from '../../../../shared/domain/DomainEvent'
 import { SaveSlot } from '../SaveSlot'
 
 // Save Events
