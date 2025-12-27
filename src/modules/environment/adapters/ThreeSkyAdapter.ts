@@ -7,6 +7,14 @@ export class ThreeSkyAdapter {
   private sunLight: THREE.DirectionalLight
   private sunMesh: THREE.Mesh
   private lastUpdate = 0
+  private isUnderwater = false
+
+  // Underwater fog settings
+  private readonly UNDERWATER_FOG_COLOR = 0x1a5f7a  // Teal blue
+  private readonly UNDERWATER_FOG_NEAR = 0.5
+  private readonly UNDERWATER_FOG_FAR = 30  // Very short visibility underwater
+  private readonly NORMAL_FOG_NEAR = 1
+  private readonly NORMAL_FOG_FAR = 400
 
   // Location (Default: San Francisco)
   latitude: number = 37.7749
@@ -84,6 +92,28 @@ export class ThreeSkyAdapter {
     this.updateLighting()
   }
 
+  /**
+   * Set underwater mode - changes fog to blue tint with short visibility
+   */
+  setUnderwater(underwater: boolean): void {
+    if (this.isUnderwater === underwater) return
+    this.isUnderwater = underwater
+
+    if (underwater) {
+      // Switch to underwater fog
+      const underwaterColor = new THREE.Color(this.UNDERWATER_FOG_COLOR)
+      this.scene.fog = new THREE.Fog(underwaterColor, this.UNDERWATER_FOG_NEAR, this.UNDERWATER_FOG_FAR)
+      this.scene.background = underwaterColor
+    } else {
+      // Restore normal sky fog
+      this.updateLighting()
+    }
+  }
+
+  getIsUnderwater(): boolean {
+    return this.isUnderwater
+  }
+
   updateLighting(): void {
     // 1. Calculate Sun Times for current date
     const date = this.timeCycle.getDate()
@@ -93,13 +123,17 @@ export class ThreeSkyAdapter {
     const skyColor = this.calculateSkyColor()
     const ambientIntensity = this.calculateAmbientIntensity()
 
-    // 3. Apply to Scene
-    this.scene.background = skyColor
-    
-    if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
-      this.scene.fog.color = skyColor
-    } else {
-      this.scene.fog = new THREE.Fog(skyColor, 1, 400)
+    // 3. Apply to Scene (skip if underwater - underwater has its own fog)
+    if (!this.isUnderwater) {
+      this.scene.background = skyColor
+
+      if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
+        this.scene.fog.color = skyColor
+        this.scene.fog.near = this.NORMAL_FOG_NEAR
+        this.scene.fog.far = this.NORMAL_FOG_FAR
+      } else {
+        this.scene.fog = new THREE.Fog(skyColor, this.NORMAL_FOG_NEAR, this.NORMAL_FOG_FAR)
+      }
     }
 
     // Update Hemisphere Light

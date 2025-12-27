@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { RaycastResult } from '../domain/RaycastResult'
 import { WorldService } from '../../world/application/WorldService'
+import { blockRegistry } from '../../blocks'
 
 export class BlockPicker {
   private raycaster = new THREE.Raycaster()
@@ -68,14 +69,21 @@ export class BlockPicker {
       const blockType = this.world.getBlockType(this.voxel.x, this.voxel.y, this.voxel.z)
       // Skip Air (0) and Void (-1)
       if (blockType !== -1 && blockType !== 0) {
-        // Clone only on hit (rare compared to misses) - necessary for caller
-        const hitBlock = this.voxel.clone()
-        const adjacentBlock = hitBlock.clone().add(this.faceNormal)
-        return {
-          hit: true,
-          hitBlock,
-          adjacentBlock,
-          normal: this.faceNormal.clone()
+        const blockDef = blockRegistry.get(blockType)
+        // Skip transparent blocks (water, glass) - can't select them
+        // Also skip unknown blocks (not in registry) to prevent false positives
+        if (!blockDef || blockDef.transparent) {
+          // Continue raycasting through transparent/unknown blocks
+        } else {
+          // Clone only on hit (rare compared to misses) - necessary for caller
+          const hitBlock = this.voxel.clone()
+          const adjacentBlock = hitBlock.clone().add(this.faceNormal)
+          return {
+            hit: true,
+            hitBlock,
+            adjacentBlock,
+            normal: this.faceNormal.clone()
+          }
         }
       }
 

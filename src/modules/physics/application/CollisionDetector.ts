@@ -7,6 +7,11 @@ interface SweepResult {
   collided: boolean
 }
 
+// Extended voxel query interface that includes water detection
+interface IExtendedVoxelQuery extends IVoxelQuery {
+  isBlockWater?(worldX: number, worldY: number, worldZ: number): boolean
+}
+
 export class CollisionDetector implements ICollisionQuery {
   private playerRadius = 0.4
   private playerHeight = 1.8
@@ -18,7 +23,36 @@ export class CollisionDetector implements ICollisionQuery {
   private readonly testPosition = new THREE.Vector3()
   private readonly resultPosition = new THREE.Vector3()
 
-  constructor(private voxels: IVoxelQuery) {}
+  constructor(private voxels: IExtendedVoxelQuery) {}
+
+  /**
+   * Check if player is submerged in water (body is in water)
+   * Returns depth: 0 = not in water, 1 = feet in water, 2 = fully submerged
+   */
+  getWaterDepth(position: THREE.Vector3): number {
+    if (!this.voxels.isBlockWater) return 0
+
+    const feetY = this.getFeetY(position)
+    const headY = position.y
+
+    // Check at feet level
+    const feetInWater = this.voxels.isBlockWater(
+      Math.floor(position.x),
+      Math.floor(feetY),
+      Math.floor(position.z)
+    )
+
+    // Check at head level
+    const headInWater = this.voxels.isBlockWater(
+      Math.floor(position.x),
+      Math.floor(headY),
+      Math.floor(position.z)
+    )
+
+    if (headInWater) return 2  // Fully submerged
+    if (feetInWater) return 1  // Wading
+    return 0                    // Not in water
+  }
 
   moveWithCollisions(position: THREE.Vector3, delta: THREE.Vector3): THREE.Vector3 {
     this.workingPosition.copy(position)
