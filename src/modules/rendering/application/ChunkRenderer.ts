@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../shared/domain/ChunkCoordinate'
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { MaterialSystem } from './MaterialSystem'
 
 // Two-VBO approach: separate opaque and transparent mesh groups per chunk

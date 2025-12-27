@@ -1,5 +1,5 @@
 // src/modules/persistence/application/AutoSaveManager.ts
-import { CommandBus } from '../../game/infrastructure/CommandBus'
+import { CommandBus } from '../../../shared/infrastructure/CommandBus'
 import { SaveGameCommand } from '../domain/commands/SaveGameCommand'
 
 /**

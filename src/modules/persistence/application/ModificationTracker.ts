@@ -1,5 +1,5 @@
 // src/modules/persistence/application/ModificationTracker.ts
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 
 /**
  * Tracks block modifications (placements/removals) for save/load persistence.

@@ -1,4 +1,4 @@
-// src/modules/terrain/domain/commands/Command.ts
+// src/shared/domain/Command.ts
 export interface Command {
   readonly type: string
   readonly timestamp: number

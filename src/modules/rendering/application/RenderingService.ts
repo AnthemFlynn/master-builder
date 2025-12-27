@@ -1,6 +1,6 @@
 // src/modules/rendering/application/RenderingService.ts
 import * as THREE from 'three'
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { ChunkRenderer } from './ChunkRenderer'
 import { MaterialSystem } from './MaterialSystem'
 

@@ -1,5 +1,5 @@
 // src/modules/persistence/application/handlers/LoadGameHandler.ts
-import { CommandHandler } from '../../../game/domain/commands/Command'
+import { CommandHandler } from '../../../../shared/domain/Command'
 import { LoadGameCommand } from '../../domain/commands/LoadGameCommand'
 import { PersistenceService } from '../PersistenceService'
 import { PlayerService } from '../../../player/application/PlayerService'
@@ -7,7 +7,7 @@ import { InteractionService } from '../../../interaction/application/Interaction
 import { EnvironmentService } from '../../../environment/application/EnvironmentService'
 import { ModificationTracker } from '../ModificationTracker'
 import { WorldService } from '../../../world/application/WorldService'
-import { EventBus } from '../../../game/infrastructure/EventBus'
+import { EventBus } from '../../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 
 /**

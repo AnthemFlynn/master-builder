@@ -1,5 +1,5 @@
-// src/modules/terrain/application/EventBus.ts
-import { DomainEvent } from '../domain/events/DomainEvent'
+// src/shared/infrastructure/EventBus.ts
+import { DomainEvent } from '../domain/DomainEvent'
 
 export type EventCategory = 'world' | 'lighting' | 'meshing' | 'rendering' | 'time' | 'player' | 'input' | 'ui' | 'interaction' | 'persistence'
 
