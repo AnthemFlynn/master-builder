@@ -1,7 +1,7 @@
-import { CommandHandler } from '../../domain/commands/Command'
+import { CommandHandler } from '../../../../shared/domain/Command'
 import { PlaceBlockCommand } from '../../domain/commands/PlaceBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'
-import { EventBus } from '../../infrastructure/EventBus'
+import { EventBus } from '../../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 import { PlayerService } from '../../../player/application/PlayerService' // Import PlayerService
 

@@ -1,8 +1,8 @@
 // src/modules/game/application/handlers/RemoveBlockHandler.ts
-import { CommandHandler } from '../../domain/commands/Command'
+import { CommandHandler } from '../../../../shared/domain/Command'
 import { RemoveBlockCommand } from '../../domain/commands/RemoveBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'
-import { EventBus } from '../../infrastructure/EventBus'
+import { EventBus } from '../../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 
 export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {

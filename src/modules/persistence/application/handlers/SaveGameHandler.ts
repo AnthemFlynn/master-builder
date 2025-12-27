@@ -1,12 +1,12 @@
 // src/modules/persistence/application/handlers/SaveGameHandler.ts
-import { CommandHandler } from '../../../game/domain/commands/Command'
+import { CommandHandler } from '../../../../shared/domain/Command'
 import { SaveGameCommand } from '../../domain/commands/SaveGameCommand'
 import { PersistenceService } from '../PersistenceService'
 import { PlayerService } from '../../../player/application/PlayerService'
 import { InteractionService } from '../../../interaction/application/InteractionService'
 import { EnvironmentService } from '../../../environment/application/EnvironmentService'
 import { ModificationTracker } from '../ModificationTracker'
-import { EventBus } from '../../../game/infrastructure/EventBus'
+import { EventBus } from '../../../../shared/infrastructure/EventBus'
 
 /**
  * Handler for SaveGameCommand

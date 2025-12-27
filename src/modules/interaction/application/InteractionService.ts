@@ -1,5 +1,5 @@
-import { CommandBus } from '../../game/infrastructure/CommandBus'
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { CommandBus } from '../../../shared/infrastructure/CommandBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { PlaceBlockCommand } from '../../game/domain/commands/PlaceBlockCommand'
 import { RemoveBlockCommand } from '../../game/domain/commands/RemoveBlockCommand'
 import { BlockPicker } from './BlockPicker'
