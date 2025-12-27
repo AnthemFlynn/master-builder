@@ -1,8 +1,6 @@
 import Core from './core'
 import { GameOrchestrator } from './modules/game'
 import { PlayerMode } from './modules/player/domain/PlayerMode'
-import { getWorldPreset } from './modules/world/domain/WorldPreset'
-import { DEFAULT_WORLD_PRESET_ID } from './modules/world/domain/WorldConfig'
 import { SaveGameCommand } from './modules/persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from './modules/persistence/domain/commands/LoadGameCommand'
 
@@ -15,7 +13,6 @@ const core = new Core()
 const camera = core.camera
 const scene = core.scene
 const renderer = core.renderer
-const activePreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
 // Initialize game (all modules)
 const game = new GameOrchestrator(scene, camera)
@@ -40,7 +37,6 @@ if (typeof window !== 'undefined') {
     setPlayerMode: (mode: PlayerMode) => game.getPlayerService().setMode(mode),
     getPlayerPosition: () => game.getPlayerService().getPosition().clone(),
     setHour: (hour: number) => game.getEnvironmentService().setHour(hour),
-    getWorldPreset: () => activePreset,
     save: (slotName = 'manual-save') => game.commandBus.send(new SaveGameCommand(slotName, slotName, false)),
     load: (slotName = 'manual-save') => game.commandBus.send(new LoadGameCommand(slotName)),
     listSaves: async () => await game.getPersistenceService().listSaveSlots()

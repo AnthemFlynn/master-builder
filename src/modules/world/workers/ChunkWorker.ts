@@ -6,7 +6,6 @@ import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
 import { WaterPass } from '../generation/passes/WaterPass'
 import { CavePass } from '../generation/passes/CavePass'
-import { InterIslandCavePass } from '../generation/passes/InterIslandCavePass'
 import { BiomePass } from '../generation/passes/BiomePass'
 import { TreePass } from '../generation/passes/TreePass'
 import { DecorationPass } from '../generation/passes/DecorationPass'
@@ -31,8 +30,6 @@ async function initializeOrchestrator() {
   // 5. BiomePass - Apply surface materials based on climate
   // 6. TreePass - Place trees based on biome
   // 7. DecorationPass - Place grass, flowers, mushrooms, cacti
-  // 8. InterIslandCavePass - LAST: Carve tunnel network connecting islands (after all surface work)
-  // TEMPORARILY DISABLED InterIslandCavePass to debug basic caves
   orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
     new WaterPass(),
@@ -41,11 +38,10 @@ async function initializeOrchestrator() {
     new BiomePass(),
     new TreePass(),
     new DecorationPass()
-    // new InterIslandCavePass()  // DISABLED FOR DEBUGGING
   ])
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Generation pipeline: Terrain → Water → Caves → Ores → Biomes → Trees → Decorations (InterIslandCaves DISABLED)`)
+  console.log(`🌍 Generation pipeline: Terrain → Water → Caves → Ores → Biomes → Trees → Decorations`)
 }
 
 // Initialize on worker start

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ChunkCoordinate } from '../../shared/domain/ChunkCoordinate'
+import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { MaterialSystem } from './MaterialSystem'
 

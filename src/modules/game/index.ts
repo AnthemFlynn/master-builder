@@ -9,3 +9,4 @@ export { CommandBus } from '../../shared/infrastructure/CommandBus'
 // Commands (for external use)
 export { GenerateChunkCommand } from './domain/commands/GenerateChunkCommand'
 export { PlaceBlockCommand } from './domain/commands/PlaceBlockCommand'
+export { RemoveBlockCommand } from './domain/commands/RemoveBlockCommand'
