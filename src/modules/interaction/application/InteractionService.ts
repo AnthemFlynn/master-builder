@@ -41,10 +41,13 @@ export class InteractionService implements IInteractionHandler {
       transparent: true,
       opacity: 0.35,
       side: THREE.DoubleSide,
-      depthWrite: false
+      depthWrite: false,
+      depthTest: true
     })
     const mesh = new THREE.Mesh(this.highlightGeometry, this.highlightMaterial)
     mesh.visible = false
+    // Render after transparent blocks (water=1) to prevent z-fighting
+    mesh.renderOrder = 10
     this.scene.add(mesh)
     return mesh
   }

@@ -17,7 +17,7 @@ export default class Core {
   initCamera = () => {
     this.camera.fov = 50
     this.camera.aspect = window.innerWidth / window.innerHeight
-    this.camera.near = 0.01
+    this.camera.near = 0.1  // Increased from 0.01 to fix Z-fighting (depth buffer precision)
     this.camera.far = 500
     this.camera.updateProjectionMatrix()
     // Spawn higher to be above new terrain generation (terrain ~35-60, trees can reach ~65)
