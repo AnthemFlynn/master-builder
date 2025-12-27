@@ -6,10 +6,14 @@ export class CreativeModalManager {
   private paletteGrid: HTMLDivElement
   private bankGrid: HTMLDivElement
   private tabsContainer: HTMLDivElement
-  
+
   private activeTab = 'all'
+  private static stylesInjected = false
 
   constructor(private inventory: InventoryService, private onClose: () => void) {
+    // Remove any existing modal to prevent duplicates
+    document.querySelector('.creative-modal')?.remove()
+
     this.container = document.createElement('div')
     this.container.className = 'creative-modal hidden'
     this.container.innerHTML = `
@@ -202,21 +206,31 @@ export class CreativeModalManager {
   }
 
   private setupStyles(): void {
+    // Only inject styles once
+    if (CreativeModalManager.stylesInjected) return
+    CreativeModalManager.stylesInjected = true
+
     const style = document.createElement('style')
+    style.id = 'creative-modal-styles'
     style.textContent = `
       .creative-modal {
         position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.8);
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0,0,0,0.8) !important;
         z-index: 2000;
         display: flex;
         justify-content: center;
         align-items: center;
         color: white;
       }
-      .creative-modal.hidden { display: none; }
-      
-      .modal-content {
+      .creative-modal.hidden { display: none !important; }
+
+      .creative-modal .modal-content {
         width: 1000px;
         max-width: 95vw;
         height: 600px;
@@ -227,8 +241,8 @@ export class CreativeModalManager {
         position: relative;
         box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       }
-      
-      .close-btn {
+
+      .creative-modal .close-btn {
         position: absolute;
         top: 10px;
         right: 10px;
@@ -240,16 +254,16 @@ export class CreativeModalManager {
         z-index: 10;
         line-height: 1;
       }
-      .close-btn:hover { color: white; }
-      
-      .sidebar {
+      .creative-modal .close-btn:hover { color: white; }
+
+      .creative-modal .sidebar {
         width: 150px;
         background: #222;
         padding: 10px;
         border-right: 1px solid #444;
       }
-      
-      .sidebar button {
+
+      .creative-modal .sidebar button {
         display: block;
         width: 100%;
         padding: 8px;
@@ -259,42 +273,42 @@ export class CreativeModalManager {
         color: white;
         cursor: pointer;
       }
-      
-      .sidebar button:hover { background: #555; }
-      
-      .main-panel {
+
+      .creative-modal .sidebar button:hover { background: #555; }
+
+      .creative-modal .main-panel {
         flex: 1;
         padding: 20px;
         display: flex;
         flex-direction: column;
       }
-      
-      .palette-area {
+
+      .creative-modal .palette-area {
         flex: 1;
         overflow-y: auto;
         margin-bottom: 20px;
       }
-      
-      .palette-grid {
+
+      .creative-modal .palette-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
         gap: 8px;
       }
-      
-      .bank-area {
+
+      .creative-modal .bank-area {
         height: 150px;
         background: #2a2a2a;
         padding: 10px;
         border-top: 1px solid #555;
       }
-      
-      .bank-grid {
+
+      .creative-modal .bank-grid {
         display: grid;
         grid-template-columns: repeat(10, 1fr);
         gap: 8px;
       }
-      
-      .inventory-slot {
+
+      .creative-modal .inventory-slot {
         aspect-ratio: 1;
         background: #444;
         border: 2px solid #555;
@@ -308,8 +322,8 @@ export class CreativeModalManager {
         padding: 2px;
         position: relative;
       }
-      
-      .slot-number {
+
+      .creative-modal .slot-number {
         position: absolute;
         top: 2px;
         left: 4px;
@@ -319,13 +333,13 @@ export class CreativeModalManager {
         text-shadow: 1px 1px 0 #000;
         pointer-events: none;
       }
-      
-      .inventory-slot:hover {
+
+      .creative-modal .inventory-slot:hover {
         border-color: white;
         background: #555;
       }
-      
-      .inventory-slot.empty {
+
+      .creative-modal .inventory-slot.empty {
         color: #777;
         font-style: italic;
       }
