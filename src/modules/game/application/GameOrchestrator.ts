@@ -16,6 +16,9 @@ import { PlayerMode } from '../../player/domain/PlayerMode'
 import { GameState } from '../../input/domain/InputState'
 import { UIState } from '../../ui/domain/UIState'
 import { generateSpiralOrder } from '../../world/infrastructure/ChunkPriorityQueue'
+import { SessionState } from '../../ui/domain/Session'
+import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
+import { LoadGameCommand } from '../../persistence/domain/commands/LoadGameCommand'
 
 export class GameOrchestrator {
   // Infrastructure (public for external access)
@@ -56,7 +59,30 @@ export class GameOrchestrator {
       requestPointerLock: () => this.services.cameraControls.lock(),
       exitPointerLock: () => this.services.cameraControls.unlock(),
       getPlayerPosition: () => this.services.playerService.getPosition(),
-      onStartNewGame: () => this.startNewGame()
+      onStartNewGame: () => this.startNewGame(),
+      onResumeGame: () => this.resumeGame(),
+      onExitToMenu: () => this.exitToMenu(),
+      sessionCallbacks: {
+        lockPointer: () => this.services.cameraControls.lock(),
+        unlockPointer: () => this.services.cameraControls.unlock(),
+        isPointerLocked: () => !!document.pointerLockElement,
+        saveToSlot: async (slotId: string) => {
+          this.services.commandBus.send(new SaveGameCommand(slotId, slotId, false))
+        },
+        loadFromSlot: async (slotId: string) => {
+          this.services.commandBus.send(new LoadGameCommand(slotId))
+        },
+        clearWorld: () => {
+          this.services.worldService.clearAllChunks()
+          this.services.modificationTracker.clear()
+        },
+        generateChunksAround: (x: number, z: number) => {
+          const centerChunk = new ChunkCoordinate(Math.floor(x / 24), Math.floor(z / 24))
+          this.generateChunksInRenderDistance(centerChunk)
+        },
+        hasLoadedChunks: () => this.services.worldService.getLoadedChunkCount() > 0,
+        getCurrentWorldId: () => 'default' // TODO: Multi-world support in Phase 2
+      }
     })
 
     // Expose buses for external access
@@ -80,6 +106,7 @@ export class GameOrchestrator {
     this.setupInteractionListeners()
     this.setupPointerLockListeners()
     this.setupLoadingListeners()
+    this.setupSessionListeners()
 
     // Initialize async services (persistence)
     initializeAsyncServices(this.services).catch((error) => {
@@ -101,7 +128,10 @@ export class GameOrchestrator {
   startNewGame(): void {
     console.log('Starting new game...')
 
-    // Clear any existing state
+    // Start session (this handles the state management)
+    this.services.sessionManager.startNewSession('default')
+
+    // Clear any existing state (also done by session, but explicit here)
     this.services.worldService.clearAllChunks()
     this.services.modificationTracker.clear()
     this.hasFoundGround = false
@@ -122,6 +152,41 @@ export class GameOrchestrator {
     )
 
     this.startLoadingMode(centerChunk, 'Generating world...')
+  }
+
+  /**
+   * Resume from pause - NO chunk regeneration, instant resume
+   * This is the key fix for the clunky menu experience
+   */
+  resumeGame(): void {
+    if (!this.services.sessionManager.hasActiveSession()) {
+      console.warn('Cannot resume - no active session')
+      return
+    }
+
+    console.log('Resuming game (no regeneration)...')
+
+    // SessionManager handles the state transition and pointer lock
+    this.services.sessionManager.resumeSession()
+    this.services.uiService.onPlay()
+  }
+
+  /**
+   * Exit to main menu - ends the current session
+   * Shows main menu instead of pause menu
+   */
+  async exitToMenu(): Promise<void> {
+    console.log('Exiting to main menu...')
+
+    // End session (auto-saves if there are unsaved changes)
+    await this.services.sessionManager.endSession()
+
+    // Clear world and modifications
+    this.services.worldService.clearAllChunks()
+    this.services.modificationTracker.clear()
+
+    // Show main menu
+    this.services.uiService.onMenu()
   }
 
   update(skipHeavyProcessing = false): void {
@@ -362,6 +427,9 @@ export class GameOrchestrator {
 
     console.log('World loaded: ' + this.loadingChunksReady.size + '/' + this.loadingChunksTarget + ' chunks')
 
+    // Notify SessionManager that loading is complete
+    this.services.sessionManager.onLoadingComplete()
+
     this.services.uiService.collapsePortal(() => {
       if (!document.pointerLockElement) {
         this.services.cameraControls.lock()
@@ -517,8 +585,34 @@ export class GameOrchestrator {
         return
       }
 
-      if (this.services.uiService.isPlaying()) {
+      // Use SessionManager for pause if we have an active session
+      if (this.services.sessionManager.isPlaying()) {
+        this.services.sessionManager.pauseSession()
         this.services.uiService.onPause()
+      } else if (this.services.uiService.isPlaying()) {
+        // Fallback for legacy flow
+        this.services.uiService.onPause()
+      }
+    })
+  }
+
+  private setupSessionListeners(): void {
+    // Listen for block changes to mark unsaved
+    this.services.eventBus.on('world', 'BlockPlacedEvent', () => {
+      this.services.sessionManager.markUnsavedChanges()
+    })
+    this.services.eventBus.on('world', 'BlockRemovedEvent', () => {
+      this.services.sessionManager.markUnsavedChanges()
+    })
+
+    // Listen for session state changes
+    this.services.eventBus.on('session', 'SessionStateChangedEvent', (event: any) => {
+      if (event.newState === SessionState.PLAYING) {
+        this.services.inputService.setState(GameState.PLAYING)
+      } else if (event.newState === SessionState.PAUSED) {
+        this.services.inputService.setState(GameState.PAUSE)
+      } else if (event.newState === SessionState.NO_SESSION) {
+        this.services.inputService.setState(GameState.MENU)
       }
     })
   }
@@ -534,6 +628,7 @@ export class GameOrchestrator {
   getEnvironmentService() { return this.services.environmentService }
   getInventoryService() { return this.services.inventoryService }
   getPersistenceService() { return this.services.persistenceService }
+  getSessionManager() { return this.services.sessionManager }
 
   // Debug methods
   enableEventTracing(): void { this.services.eventBus.enableTracing() }

@@ -8,15 +8,19 @@ export interface SaveLoadModalCallbacks {
   listSlots: () => Promise<SaveSlot[]>
 }
 
+export type SaveLoadMode = 'save' | 'load' | 'both'
+
 export class SaveLoadModal {
   private element: HTMLElement | null = null
   private isOpen = false
+  private mode: SaveLoadMode = 'both'
 
   constructor(private callbacks: SaveLoadModalCallbacks) {}
 
-  async open(): Promise<void> {
+  async open(mode: SaveLoadMode = 'both'): Promise<void> {
     if (this.isOpen) return
     this.isOpen = true
+    this.mode = mode
 
     const slots = await this.callbacks.listSlots()
     this.render(slots)
@@ -33,6 +37,14 @@ export class SaveLoadModal {
     this.callbacks.onClose()
   }
 
+  private getTitle(): string {
+    switch (this.mode) {
+      case 'save': return 'Save Game'
+      case 'load': return 'Load Game'
+      default: return 'Save / Load Game'
+    }
+  }
+
   private render(slots: SaveSlot[]): void {
     // Create modal container
     this.element = document.createElement('div')
@@ -41,7 +53,7 @@ export class SaveLoadModal {
       <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Save / Load Game</h2>
+          <h2>${this.getTitle()}</h2>
           <button class="close-btn">&times;</button>
         </div>
         <div class="modal-body">
@@ -96,13 +108,18 @@ export class SaveLoadModal {
   private renderSlotCard(config: { id: string, name: string, isAuto: boolean }, slot?: SaveSlot): string {
     const isEmpty = !slot
     const icon = config.isAuto ? '* ' : ''
+    const showSave = this.mode === 'save' || this.mode === 'both'
+    const showLoad = this.mode === 'load' || this.mode === 'both'
 
     let details = ''
     let buttons = ''
 
     if (isEmpty) {
       details = '<div class="slot-empty">Empty</div>'
-      buttons = config.isAuto ? '' : `<button class="save-btn" data-slot="${config.id}">Save</button>`
+      // Can only save to empty non-auto slots
+      if (showSave && !config.isAuto) {
+        buttons = `<button class="save-btn" data-slot="${config.id}">Save</button>`
+      }
     } else {
       const date = new Date(slot.timestamp).toLocaleString()
       const playtime = this.formatPlaytime(slot.playTime)
@@ -114,10 +131,9 @@ export class SaveLoadModal {
           <span>${playtime}</span>
         </div>
       `
-      buttons = `
-        <button class="load-btn" data-slot="${config.id}">Load</button>
-        ${config.isAuto ? '' : `<button class="save-btn" data-slot="${config.id}">Save</button>`}
-      `
+      const loadBtn = showLoad ? `<button class="load-btn" data-slot="${config.id}">Load</button>` : ''
+      const saveBtn = showSave && !config.isAuto ? `<button class="save-btn" data-slot="${config.id}">Overwrite</button>` : ''
+      buttons = `${loadBtn}${saveBtn}`
     }
 
     return `

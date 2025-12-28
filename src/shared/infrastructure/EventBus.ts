@@ -1,7 +1,7 @@
 // src/shared/infrastructure/EventBus.ts
 import { DomainEvent } from '../domain/DomainEvent'
 
-export type EventCategory = 'world' | 'lighting' | 'meshing' | 'rendering' | 'time' | 'player' | 'input' | 'ui' | 'interaction' | 'persistence'
+export type EventCategory = 'world' | 'lighting' | 'meshing' | 'rendering' | 'time' | 'player' | 'input' | 'ui' | 'interaction' | 'persistence' | 'session'
 
 type EventHandler = (event: DomainEvent) => void
 
