@@ -20,7 +20,7 @@ interface WorkerPlayerState {
 }
 
 export class MovementController {
-  private gravity = 25
+  private gravity = 32          // Faster fall for snappier feel (Minecraft-like)
   private terminalVelocity = -78 // Max fall speed (blocks/sec) - prevents tunneling through terrain
   private waterGravity = 2       // Reduced gravity in water (buoyancy)
   private waterDrag = 0.85       // Water slows you down
