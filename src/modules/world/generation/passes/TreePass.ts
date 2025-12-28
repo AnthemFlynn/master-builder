@@ -100,41 +100,145 @@ export class TreePass implements GenerationPass {
   }
 
   private placeTree(context: GenerationContext, x: number, baseY: number, z: number, rng: SeededRandom): void {
-    // Normal tree size: 4-7 blocks height (variation 2-9)
+    // Select tree variant (4 types for variety)
+    const variant = Math.floor(rng.next() * 4)
+
+    switch (variant) {
+      case 0:
+        this.placeStandardTree(context, x, baseY, z, rng)
+        break
+      case 1:
+        this.placeTallTree(context, x, baseY, z, rng)
+        break
+      case 2:
+        this.placeBushyTree(context, x, baseY, z, rng)
+        break
+      case 3:
+        this.placeSparseTree(context, x, baseY, z, rng)
+        break
+    }
+
+    // Mark placement to prevent nearby trees
+    context.markFeature(x, z, 'tree')
+  }
+
+  // Standard tree: medium height, spherical canopy
+  private placeStandardTree(context: GenerationContext, x: number, baseY: number, z: number, rng: SeededRandom): void {
     const height = Math.floor(rng.clampedGaussian(5.5, 1.5, 4, 7))
 
-    // Trunk: single block width
+    // Trunk
     for (let y = baseY + 1; y <= baseY + height; y++) {
       context.setBlock(x, y, z, BlockType.tree)
     }
 
-    // Canopy: 2-3 block radius, starts 2 blocks from top
+    // Spherical canopy
     const canopyStartY = baseY + height - 2
     const canopyRadius = rng.next() > 0.5 ? 2 : 3
 
-    // Create leafy canopy (roughly spherical)
     for (let dy = 0; dy <= 3; dy++) {
       const y = canopyStartY + dy
-      // Radius varies by height (smaller at top)
       const layerRadius = dy === 3 ? 1 : (dy === 0 ? canopyRadius - 1 : canopyRadius)
 
       for (let dx = -layerRadius; dx <= layerRadius; dx++) {
         for (let dz = -layerRadius; dz <= layerRadius; dz++) {
-          // Skip corners for rounder shape
           if (Math.abs(dx) === layerRadius && Math.abs(dz) === layerRadius) continue
-
           const px = x + dx
           const pz = z + dz
-
-          // Only place if air (don't overwrite trunk)
           if (context.getBlock(px, y, pz) === BlockType.air) {
             context.setBlock(px, y, pz, BlockType.leaf)
           }
         }
       }
     }
+  }
 
-    // Mark placement to prevent nearby trees
-    context.markFeature(x, z, 'tree')
+  // Tall tree: taller trunk, smaller canopy (like birch)
+  private placeTallTree(context: GenerationContext, x: number, baseY: number, z: number, rng: SeededRandom): void {
+    const height = Math.floor(rng.clampedGaussian(8, 1.5, 6, 10))
+
+    // Tall trunk
+    for (let y = baseY + 1; y <= baseY + height; y++) {
+      context.setBlock(x, y, z, BlockType.tree)
+    }
+
+    // Narrow canopy (radius 1-2)
+    const canopyStartY = baseY + height - 3
+    for (let dy = 0; dy <= 4; dy++) {
+      const y = canopyStartY + dy
+      const layerRadius = dy <= 1 ? 2 : 1
+
+      for (let dx = -layerRadius; dx <= layerRadius; dx++) {
+        for (let dz = -layerRadius; dz <= layerRadius; dz++) {
+          if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue
+          const px = x + dx
+          const pz = z + dz
+          if (context.getBlock(px, y, pz) === BlockType.air) {
+            context.setBlock(px, y, pz, BlockType.leaf)
+          }
+        }
+      }
+    }
+  }
+
+  // Bushy tree: short trunk, wide canopy
+  private placeBushyTree(context: GenerationContext, x: number, baseY: number, z: number, rng: SeededRandom): void {
+    const height = Math.floor(rng.clampedGaussian(4, 0.5, 3, 5))
+
+    // Short trunk
+    for (let y = baseY + 1; y <= baseY + height; y++) {
+      context.setBlock(x, y, z, BlockType.tree)
+    }
+
+    // Wide canopy (radius 3-4)
+    const canopyStartY = baseY + height - 1
+    for (let dy = 0; dy <= 3; dy++) {
+      const y = canopyStartY + dy
+      const layerRadius = dy === 3 ? 2 : (dy === 0 ? 3 : 4)
+
+      for (let dx = -layerRadius; dx <= layerRadius; dx++) {
+        for (let dz = -layerRadius; dz <= layerRadius; dz++) {
+          // Round corners more aggressively
+          const dist = Math.abs(dx) + Math.abs(dz)
+          if (dist > layerRadius + 1) continue
+          const px = x + dx
+          const pz = z + dz
+          if (context.getBlock(px, y, pz) === BlockType.air) {
+            context.setBlock(px, y, pz, BlockType.leaf)
+          }
+        }
+      }
+    }
+  }
+
+  // Sparse tree: random leaf placement for a scraggly look
+  private placeSparseTree(context: GenerationContext, x: number, baseY: number, z: number, rng: SeededRandom): void {
+    const height = Math.floor(rng.clampedGaussian(6, 1, 5, 8))
+
+    // Trunk
+    for (let y = baseY + 1; y <= baseY + height; y++) {
+      context.setBlock(x, y, z, BlockType.tree)
+    }
+
+    // Sparse canopy with random gaps
+    const canopyStartY = baseY + height - 3
+    const canopyRadius = 2
+
+    for (let dy = 0; dy <= 4; dy++) {
+      const y = canopyStartY + dy
+      const layerRadius = dy >= 3 ? 1 : canopyRadius
+
+      for (let dx = -layerRadius; dx <= layerRadius; dx++) {
+        for (let dz = -layerRadius; dz <= layerRadius; dz++) {
+          if (Math.abs(dx) === layerRadius && Math.abs(dz) === layerRadius) continue
+          // 30% chance to skip leaf placement for sparse look
+          if (rng.next() < 0.3) continue
+          const px = x + dx
+          const pz = z + dz
+          if (context.getBlock(px, y, pz) === BlockType.air) {
+            context.setBlock(px, y, pz, BlockType.leaf)
+          }
+        }
+      }
+    }
   }
 }
