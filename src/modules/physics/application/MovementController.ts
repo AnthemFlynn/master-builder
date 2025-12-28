@@ -43,6 +43,7 @@ export class MovementController {
   // Pre-allocated vectors for movement calculations
   private readonly tempPosition = new THREE.Vector3()
   private readonly tempVelocity = new THREE.Vector3()
+  private readonly actualDelta = new THREE.Vector3()  // For wall collision detection
 
   constructor(
     private collision: ICollisionQuery,
@@ -105,9 +106,10 @@ export class MovementController {
       this.horizontalVelocity.x += accelX
       this.horizontalVelocity.y += accelZ
     } else {
-      // Apply friction when no input
-      this.horizontalVelocity.x *= this.FLY_FRICTION
-      this.horizontalVelocity.y *= this.FLY_FRICTION
+      // Apply friction when no input (frame-rate independent)
+      const flyFriction = Math.pow(this.FLY_FRICTION, deltaTime * 60)
+      this.horizontalVelocity.x *= flyFriction
+      this.horizontalVelocity.y *= flyFriction
 
       if (Math.abs(this.horizontalVelocity.x) < 0.01) this.horizontalVelocity.x = 0
       if (Math.abs(this.horizontalVelocity.y) < 0.01) this.horizontalVelocity.y = 0
@@ -187,9 +189,10 @@ export class MovementController {
       this.horizontalVelocity.x += accelX
       this.horizontalVelocity.y += accelZ
     } else {
-      // No input - apply friction to slow down
-      this.horizontalVelocity.x *= friction
-      this.horizontalVelocity.y *= friction
+      // No input - apply friction to slow down (frame-rate independent)
+      const frictionFactor = Math.pow(friction, deltaTime * 60)
+      this.horizontalVelocity.x *= frictionFactor
+      this.horizontalVelocity.y *= frictionFactor
 
       // Stop completely if very slow (prevents drifting)
       if (Math.abs(this.horizontalVelocity.x) < 0.01) this.horizontalVelocity.x = 0
@@ -212,11 +215,11 @@ export class MovementController {
       const moved = this.collision.moveWithCollisions(position, this.horizontal)
 
       // If we hit a wall, reduce velocity in that direction
-      const actualDelta = moved.clone().sub(position)
-      if (Math.abs(actualDelta.x) < Math.abs(this.horizontal.x) * 0.5) {
+      this.actualDelta.copy(moved).sub(position)
+      if (Math.abs(this.actualDelta.x) < Math.abs(this.horizontal.x) * 0.5) {
         this.horizontalVelocity.x *= 0.3  // Hit wall on X axis
       }
-      if (Math.abs(actualDelta.z) < Math.abs(this.horizontal.z) * 0.5) {
+      if (Math.abs(this.actualDelta.z) < Math.abs(this.horizontal.z) * 0.5) {
         this.horizontalVelocity.y *= 0.3  // Hit wall on Z axis
       }
 
