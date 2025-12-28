@@ -215,16 +215,34 @@ export class MovementController {
       )
       const moved = this.collision.moveWithCollisions(position, this.horizontal)
 
-      // If we hit a wall, reduce velocity in that direction
-      this.actualDelta.copy(moved).sub(position)
-      if (Math.abs(this.actualDelta.x) < Math.abs(this.horizontal.x) * 0.5) {
-        this.horizontalVelocity.x *= 0.3  // Hit wall on X axis
+      // Sneak edge prevention: don't walk off edges while sneaking
+      if (movement.sneak && isGrounded) {
+        if (!this.collision.isGrounded(moved)) {
+          // Would fall off edge - cancel movement and stop velocity
+          this.horizontalVelocity.set(0, 0)
+          // Don't update position - stay at current position
+        } else {
+          // Safe to move
+          this.actualDelta.copy(moved).sub(position)
+          if (Math.abs(this.actualDelta.x) < Math.abs(this.horizontal.x) * 0.5) {
+            this.horizontalVelocity.x *= 0.3
+          }
+          if (Math.abs(this.actualDelta.z) < Math.abs(this.horizontal.z) * 0.5) {
+            this.horizontalVelocity.y *= 0.3
+          }
+          position.copy(moved)
+        }
+      } else {
+        // Normal movement - apply wall collision reduction
+        this.actualDelta.copy(moved).sub(position)
+        if (Math.abs(this.actualDelta.x) < Math.abs(this.horizontal.x) * 0.5) {
+          this.horizontalVelocity.x *= 0.3  // Hit wall on X axis
+        }
+        if (Math.abs(this.actualDelta.z) < Math.abs(this.horizontal.z) * 0.5) {
+          this.horizontalVelocity.y *= 0.3  // Hit wall on Z axis
+        }
+        position.copy(moved)
       }
-      if (Math.abs(this.actualDelta.z) < Math.abs(this.horizontal.z) * 0.5) {
-        this.horizontalVelocity.y *= 0.3  // Hit wall on Z axis
-      }
-
-      position.copy(moved)
     }
 
     // Jump handling
