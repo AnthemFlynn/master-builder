@@ -21,6 +21,7 @@ interface WorkerPlayerState {
 
 export class MovementController {
   private gravity = 25
+  private terminalVelocity = -78 // Max fall speed (blocks/sec) - prevents tunneling through terrain
   private waterGravity = 2       // Reduced gravity in water (buoyancy)
   private waterDrag = 0.85       // Water slows you down
   private swimSpeed = 0.4        // Swimming is slower than walking
@@ -231,8 +232,11 @@ export class MovementController {
       velocity.y = this.player.getJumpVelocity()
     }
 
-    // Apply gravity
+    // Apply gravity with terminal velocity cap
     velocity.y -= this.gravity * deltaTime
+    if (velocity.y < this.terminalVelocity) {
+      velocity.y = this.terminalVelocity
+    }
 
     // Apply vertical movement
     const verticalResult = this.collision.moveVertical(position, velocity.y * deltaTime)
