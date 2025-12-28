@@ -24,6 +24,7 @@ export class CollisionDetector implements ICollisionQuery {
   private readonly testPosition = new THREE.Vector3()
   private readonly resultPosition = new THREE.Vector3()
   private readonly stepUpPosition = new THREE.Vector3()
+  private readonly settlePosition = new THREE.Vector3()
 
   constructor(private voxels: IExtendedVoxelQuery) {}
 
@@ -66,8 +67,9 @@ export class CollisionDetector implements ICollisionQuery {
     const sweepZ = this.sweepAxis(this.workingPosition, delta.z, 'z')
     this.workingPosition.z = sweepZ.value
 
-    // If we hit something, try step-up (Minecraft-style auto-climb)
-    if (sweepX.collided || sweepZ.collided) {
+    // If we hit something while grounded, try step-up (Minecraft-style auto-climb)
+    // Only step up when grounded - prevents mid-air wall-climbing exploits
+    if ((sweepX.collided || sweepZ.collided) && this.isGrounded(position)) {
       // Check if we can step up to clear the obstacle
       const stepUpHeight = this.findStepUpHeight(position, delta)
 
@@ -240,10 +242,10 @@ export class CollisionDetector implements ICollisionQuery {
 
   /**
    * Move position down until it rests on solid ground (or maxDrop distance).
+   * Returns a pre-allocated vector - caller should copy if storing.
    */
   private settleToGround(position: THREE.Vector3): THREE.Vector3 {
     const maxDrop = this.maxStepUp + 0.1
-    const feetY = this.getFeetY(position)
 
     // Step down incrementally until we hit ground
     for (let drop = 0; drop < maxDrop; drop += this.stepSize) {
@@ -252,8 +254,9 @@ export class CollisionDetector implements ICollisionQuery {
 
       if (this.intersectsWorld(this.testPosition)) {
         // Went too far, back up one step
-        this.testPosition.y += this.stepSize
-        return this.testPosition.clone()
+        this.settlePosition.copy(this.testPosition)
+        this.settlePosition.y += this.stepSize
+        return this.settlePosition
       }
 
       // Check if we're now grounded
@@ -267,13 +270,15 @@ export class CollisionDetector implements ICollisionQuery {
       for (let x = minX; x <= maxX; x++) {
         for (let z = minZ; z <= maxZ; z++) {
           if (this.voxels.isBlockSolid(x, sampleY, z)) {
-            return this.testPosition.clone()
+            this.settlePosition.copy(this.testPosition)
+            return this.settlePosition
           }
         }
       }
     }
 
-    // Couldn't settle, return original
-    return position.clone()
+    // Couldn't settle, return original position
+    this.settlePosition.copy(position)
+    return this.settlePosition
   }
 }
