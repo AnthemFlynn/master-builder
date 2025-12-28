@@ -17,7 +17,7 @@ export class CavePass implements GenerationPass {
   readonly name = 'CavePass'
 
   // ========== MASTER TOGGLE ==========
-  private readonly ENABLED = false  // Set to true to enable caves
+  private readonly ENABLED = true  // Caves enabled
   // ===================================
 
   private readonly SEA_LEVEL = 63
