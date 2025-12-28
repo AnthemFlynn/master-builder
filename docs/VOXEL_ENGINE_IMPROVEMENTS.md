@@ -169,16 +169,16 @@
 
 | # | Branch | Status | PR | Merged |
 |---|--------|--------|-----|--------|
-| 1 | `fix/glass-light-transparency` | Pending | - | - |
-| 2 | `feature/enable-caves` | Pending | - | - |
-| 3 | `feature/movement-acceleration` | Pending | - | - |
-| 4 | `feature/step-up-climbing` | Pending | - | - |
-| 5 | `feature/smooth-lighting` | Pending | - | - |
-| 6 | `feature/ambient-minimum-light` | Pending | - | - |
-| 7 | `fix/terminal-velocity` | Pending | - | - |
-| 8 | `fix/jump-height-tuning` | Pending | - | - |
-| 9 | `feature/sneak-edge-prevention` | Pending | - | - |
-| 10 | `feature/cave-lighting` | Pending | - | - |
+| 1 | `fix/glass-light-transparency` | Done | #9 | Yes |
+| 2 | `feature/enable-caves` | Done | #10 | Yes |
+| 3 | `feature/movement-acceleration` | Done | #11 | Yes |
+| 4 | `feature/step-up-climbing` | Done | #12 | Yes |
+| 5 | `feature/smooth-lighting` | Done | #13 | Yes |
+| 6 | `feature/ambient-minimum-light` | Done | #14 | Yes |
+| 7 | `fix/terminal-velocity` | Done | #15 | Yes |
+| 8 | `fix/jump-height-tuning` | Done | #16 | Yes |
+| 9 | `feature/sneak-edge-prevention` | Done | #17 | Yes |
+| 10 | `feature/cave-lighting` | Done | (included in #10) | Yes |
 | 11 | `feature/water-depth-effects` | Pending | - | - |
 | 12 | `feature/tree-variety` | Pending | - | - |
 | 13 | `feature/block-animations` | Pending | - | - |
