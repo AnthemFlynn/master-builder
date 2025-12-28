@@ -17,11 +17,13 @@ export class CollisionDetector implements ICollisionQuery {
   private playerHeight = 1.8
   private eyeOffset = 1.6
   private stepSize = 0.1
+  private maxStepUp = 0.6  // Max height player can auto-climb (Minecraft-like)
 
   // Pre-allocated vectors to avoid GC pressure in physics loop
   private readonly workingPosition = new THREE.Vector3()
   private readonly testPosition = new THREE.Vector3()
   private readonly resultPosition = new THREE.Vector3()
+  private readonly stepUpPosition = new THREE.Vector3()
 
   constructor(private voxels: IExtendedVoxelQuery) {}
 
@@ -57,11 +59,44 @@ export class CollisionDetector implements ICollisionQuery {
   moveWithCollisions(position: THREE.Vector3, delta: THREE.Vector3): THREE.Vector3 {
     this.workingPosition.copy(position)
 
+    // First, try normal horizontal movement
     const sweepX = this.sweepAxis(this.workingPosition, delta.x, 'x')
     this.workingPosition.x = sweepX.value
 
     const sweepZ = this.sweepAxis(this.workingPosition, delta.z, 'z')
     this.workingPosition.z = sweepZ.value
+
+    // If we hit something, try step-up (Minecraft-style auto-climb)
+    if (sweepX.collided || sweepZ.collided) {
+      // Check if we can step up to clear the obstacle
+      const stepUpHeight = this.findStepUpHeight(position, delta)
+
+      if (stepUpHeight > 0 && stepUpHeight <= this.maxStepUp) {
+        // Try movement from stepped-up position
+        this.stepUpPosition.copy(position)
+        this.stepUpPosition.y += stepUpHeight + 0.01  // Small buffer
+
+        // Check if stepped-up position is clear
+        if (!this.intersectsWorld(this.stepUpPosition)) {
+          // Try horizontal movement from stepped-up position
+          const steppedSweepX = this.sweepAxis(this.stepUpPosition, delta.x, 'x')
+          this.stepUpPosition.x = steppedSweepX.value
+
+          const steppedSweepZ = this.sweepAxis(this.stepUpPosition, delta.z, 'z')
+          this.stepUpPosition.z = steppedSweepZ.value
+
+          // If we made more progress with step-up, use that position
+          const originalProgress = Math.abs(this.workingPosition.x - position.x) + Math.abs(this.workingPosition.z - position.z)
+          const steppedProgress = Math.abs(this.stepUpPosition.x - position.x) + Math.abs(this.stepUpPosition.z - position.z)
+
+          if (steppedProgress > originalProgress) {
+            // Step up was successful - settle back down to ground
+            const settleResult = this.settleToGround(this.stepUpPosition)
+            this.workingPosition.copy(settleResult)
+          }
+        }
+      }
+    }
 
     // Return a copy since caller may store the result
     return this.resultPosition.copy(this.workingPosition)
@@ -160,5 +195,85 @@ export class CollisionDetector implements ICollisionQuery {
 
   private getFeetY(position: THREE.Vector3): number {
     return position.y - this.eyeOffset
+  }
+
+  /**
+   * Find the height needed to step up over an obstacle in the given direction.
+   * Returns 0 if no step-up is possible (too high, or no obstacle).
+   */
+  private findStepUpHeight(position: THREE.Vector3, delta: THREE.Vector3): number {
+    const feetY = this.getFeetY(position)
+    const feetBlock = Math.floor(feetY)
+
+    // Check blocks in the direction of movement at feet level
+    const checkX = position.x + Math.sign(delta.x) * (this.playerRadius + 0.1)
+    const checkZ = position.z + Math.sign(delta.z) * (this.playerRadius + 0.1)
+
+    // Find the highest solid block at feet level in our path
+    let maxBlockTop = 0
+
+    // Check along X direction
+    if (delta.x !== 0) {
+      const blockX = Math.floor(checkX)
+      for (let z = Math.floor(position.z - this.playerRadius); z <= Math.floor(position.z + this.playerRadius); z++) {
+        if (this.voxels.isBlockSolid(blockX, feetBlock, z)) {
+          // This block is solid at feet level - need to step over it
+          const blockTop = feetBlock + 1 - feetY
+          maxBlockTop = Math.max(maxBlockTop, blockTop)
+        }
+      }
+    }
+
+    // Check along Z direction
+    if (delta.z !== 0) {
+      const blockZ = Math.floor(checkZ)
+      for (let x = Math.floor(position.x - this.playerRadius); x <= Math.floor(position.x + this.playerRadius); x++) {
+        if (this.voxels.isBlockSolid(x, feetBlock, blockZ)) {
+          const blockTop = feetBlock + 1 - feetY
+          maxBlockTop = Math.max(maxBlockTop, blockTop)
+        }
+      }
+    }
+
+    return maxBlockTop
+  }
+
+  /**
+   * Move position down until it rests on solid ground (or maxDrop distance).
+   */
+  private settleToGround(position: THREE.Vector3): THREE.Vector3 {
+    const maxDrop = this.maxStepUp + 0.1
+    const feetY = this.getFeetY(position)
+
+    // Step down incrementally until we hit ground
+    for (let drop = 0; drop < maxDrop; drop += this.stepSize) {
+      this.testPosition.copy(position)
+      this.testPosition.y -= drop
+
+      if (this.intersectsWorld(this.testPosition)) {
+        // Went too far, back up one step
+        this.testPosition.y += this.stepSize
+        return this.testPosition.clone()
+      }
+
+      // Check if we're now grounded
+      const testFeetY = this.getFeetY(this.testPosition) - 0.05
+      const sampleY = Math.floor(testFeetY)
+      const minX = Math.floor(position.x - this.playerRadius)
+      const maxX = Math.floor(position.x + this.playerRadius)
+      const minZ = Math.floor(position.z - this.playerRadius)
+      const maxZ = Math.floor(position.z + this.playerRadius)
+
+      for (let x = minX; x <= maxX; x++) {
+        for (let z = minZ; z <= maxZ; z++) {
+          if (this.voxels.isBlockSolid(x, sampleY, z)) {
+            return this.testPosition.clone()
+          }
+        }
+      }
+    }
+
+    // Couldn't settle, return original
+    return position.clone()
   }
 }
