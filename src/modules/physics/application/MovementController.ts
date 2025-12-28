@@ -28,6 +28,18 @@ export class MovementController {
   private right = new THREE.Vector3()
   private horizontal = new THREE.Vector3()
 
+  // Movement acceleration constants (Minecraft-like feel)
+  private readonly GROUND_ACCELERATION = 45   // blocks/sec² - quick response on ground
+  private readonly AIR_ACCELERATION = 4       // blocks/sec² - reduced air control
+  private readonly GROUND_FRICTION = 0.88     // velocity decay on ground (per frame at 60fps)
+  private readonly AIR_FRICTION = 0.98        // less friction in air (momentum preserved)
+  private readonly FLY_ACCELERATION = 30      // blocks/sec² - responsive flying
+  private readonly FLY_FRICTION = 0.90        // moderate friction while flying
+
+  // Horizontal velocity tracking (x, z components)
+  private horizontalVelocity = new THREE.Vector2(0, 0)
+  private readonly targetVelocity = new THREE.Vector2(0, 0)
+
   // Pre-allocated vectors for movement calculations
   private readonly tempPosition = new THREE.Vector3()
   private readonly tempVelocity = new THREE.Vector3()
@@ -66,14 +78,14 @@ export class MovementController {
     velocity: THREE.Vector3,
     deltaTime: number
   ): THREE.Vector3 {
-    const speed = this.player.getSpeed()
-    
+    const maxSpeed = this.player.getSpeed()
+
     // Calculate basis vectors from quaternion
     this.forward.set(0, 0, -1).applyQuaternion(cameraQuaternion)
     this.right.set(1, 0, 0).applyQuaternion(cameraQuaternion)
 
+    // Calculate target direction
     this.horizontal.set(0, 0, 0)
-
     if (movement.forward !== 0) {
       this.horizontal.addScaledVector(this.forward, movement.forward)
     }
@@ -81,19 +93,51 @@ export class MovementController {
       this.horizontal.addScaledVector(this.right, movement.strafe)
     }
 
+    // Handle horizontal movement with acceleration
     if (this.horizontal.lengthSq() > 0) {
-      this.horizontal.normalize().multiplyScalar(speed * deltaTime)
+      this.horizontal.normalize()
+      this.targetVelocity.set(this.horizontal.x * maxSpeed, this.horizontal.z * maxSpeed)
+
+      // Accelerate toward target
+      const accelX = (this.targetVelocity.x - this.horizontalVelocity.x) * this.FLY_ACCELERATION * deltaTime
+      const accelZ = (this.targetVelocity.y - this.horizontalVelocity.y) * this.FLY_ACCELERATION * deltaTime
+
+      this.horizontalVelocity.x += accelX
+      this.horizontalVelocity.y += accelZ
+    } else {
+      // Apply friction when no input
+      this.horizontalVelocity.x *= this.FLY_FRICTION
+      this.horizontalVelocity.y *= this.FLY_FRICTION
+
+      if (Math.abs(this.horizontalVelocity.x) < 0.01) this.horizontalVelocity.x = 0
+      if (Math.abs(this.horizontalVelocity.y) < 0.01) this.horizontalVelocity.y = 0
+    }
+
+    // Clamp to max speed
+    const currentSpeed = this.horizontalVelocity.length()
+    if (currentSpeed > maxSpeed) {
+      this.horizontalVelocity.multiplyScalar(maxSpeed / currentSpeed)
+    }
+
+    // Apply horizontal movement
+    if (this.horizontalVelocity.lengthSq() > 0.0001) {
+      this.horizontal.set(
+        this.horizontalVelocity.x * deltaTime,
+        0,
+        this.horizontalVelocity.y * deltaTime
+      )
       const moved = this.collision.moveWithCollisions(position, this.horizontal)
       position.copy(moved)
     }
 
+    // Vertical movement (direct for flying - feels more responsive)
     if (movement.vertical !== 0) {
-      const verticalDelta = movement.vertical * speed * deltaTime
+      const verticalDelta = movement.vertical * maxSpeed * deltaTime
       const verticalResult = this.collision.moveVertical(position, verticalDelta)
       position.copy(verticalResult.position)
     }
 
-    // Update player state (velocity is not used in flying mode)
+    // Update player state
     this.player.updatePosition(position)
     this.player.setVelocity(velocity)
     return position
@@ -107,7 +151,8 @@ export class MovementController {
     deltaTime: number
   ): THREE.Vector3 {
     const baseSpeed = this.player.getSpeed()
-    const speed = movement.sneak ? baseSpeed * 0.4 : baseSpeed
+    const maxSpeed = movement.sneak ? baseSpeed * 0.4 : baseSpeed
+    const isGrounded = this.collision.isGrounded(position)
 
     // Calculate basis vectors from quaternion (horizontal only)
     this.forward.set(0, 0, -1).applyQuaternion(cameraQuaternion)
@@ -117,8 +162,8 @@ export class MovementController {
     this.right.y = 0
     this.right.normalize()
 
+    // Calculate target velocity direction
     this.horizontal.set(0, 0, 0)
-
     if (movement.forward !== 0) {
       this.horizontal.addScaledVector(this.forward, movement.forward)
     }
@@ -126,17 +171,67 @@ export class MovementController {
       this.horizontal.addScaledVector(this.right, movement.strafe)
     }
 
+    // Determine acceleration and friction based on grounded state
+    const acceleration = isGrounded ? this.GROUND_ACCELERATION : this.AIR_ACCELERATION
+    const friction = isGrounded ? this.GROUND_FRICTION : this.AIR_FRICTION
+
     if (this.horizontal.lengthSq() > 0) {
-      this.horizontal.normalize().multiplyScalar(speed * deltaTime)
+      // Player is providing input - accelerate toward target velocity
+      this.horizontal.normalize()
+      this.targetVelocity.set(this.horizontal.x * maxSpeed, this.horizontal.z * maxSpeed)
+
+      // Accelerate toward target velocity
+      const accelX = (this.targetVelocity.x - this.horizontalVelocity.x) * acceleration * deltaTime
+      const accelZ = (this.targetVelocity.y - this.horizontalVelocity.y) * acceleration * deltaTime
+
+      this.horizontalVelocity.x += accelX
+      this.horizontalVelocity.y += accelZ
+    } else {
+      // No input - apply friction to slow down
+      this.horizontalVelocity.x *= friction
+      this.horizontalVelocity.y *= friction
+
+      // Stop completely if very slow (prevents drifting)
+      if (Math.abs(this.horizontalVelocity.x) < 0.01) this.horizontalVelocity.x = 0
+      if (Math.abs(this.horizontalVelocity.y) < 0.01) this.horizontalVelocity.y = 0
+    }
+
+    // Clamp horizontal velocity to max speed
+    const currentSpeed = this.horizontalVelocity.length()
+    if (currentSpeed > maxSpeed) {
+      this.horizontalVelocity.multiplyScalar(maxSpeed / currentSpeed)
+    }
+
+    // Apply horizontal movement with collision
+    if (this.horizontalVelocity.lengthSq() > 0.0001) {
+      this.horizontal.set(
+        this.horizontalVelocity.x * deltaTime,
+        0,
+        this.horizontalVelocity.y * deltaTime
+      )
       const moved = this.collision.moveWithCollisions(position, this.horizontal)
+
+      // If we hit a wall, reduce velocity in that direction
+      const actualDelta = moved.clone().sub(position)
+      if (Math.abs(actualDelta.x) < Math.abs(this.horizontal.x) * 0.5) {
+        this.horizontalVelocity.x *= 0.3  // Hit wall on X axis
+      }
+      if (Math.abs(actualDelta.z) < Math.abs(this.horizontal.z) * 0.5) {
+        this.horizontalVelocity.y *= 0.3  // Hit wall on Z axis
+      }
+
       position.copy(moved)
     }
 
-    if (movement.jump && this.collision.isGrounded(position)) {
-      velocity.y = this.player.getJumpVelocity() // Use player's jump velocity
+    // Jump handling
+    if (movement.jump && isGrounded) {
+      velocity.y = this.player.getJumpVelocity()
     }
 
+    // Apply gravity
     velocity.y -= this.gravity * deltaTime
+
+    // Apply vertical movement
     const verticalResult = this.collision.moveVertical(position, velocity.y * deltaTime)
     position.copy(verticalResult.position)
 
@@ -144,8 +239,7 @@ export class MovementController {
       velocity.y = 0
       this.player.setFalling(false)
     } else {
-        // Only set falling if actually falling downwards
-        this.player.setFalling(velocity.y < 0)
+      this.player.setFalling(velocity.y < 0)
     }
 
     // Update player state
