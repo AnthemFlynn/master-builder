@@ -153,19 +153,8 @@ export class VertexBuilder {
       const worldY = Math.floor(v.y)
       const worldZ = Math.floor(v.z + this.worldOffsetZ)
 
-      // Read lighting from lighting module using WORLD coordinates
-      // Adjust light sampling position by normal to sample from the air block adjacent to the face
-      let lightSampleX = worldX
-      let lightSampleY = worldY
-      let lightSampleZ = worldZ
-
-      if (normal.x < 0) lightSampleX -= 1 // For -X normal, sample from X-1
-      if (normal.y < 0) lightSampleY -= 1 // For -Y normal, sample from Y-1
-      if (normal.z < 0) lightSampleZ -= 1 // For -Z normal, sample from Z-1
-      
-      const lightValue = this.lighting.getLight(lightSampleX, lightSampleY, lightSampleZ)
-      const combined = combineLightChannels(lightValue)
-      const light = normalizeLightToColor(combined)
+      // Smooth lighting: average 2×2 light samples around vertex for gradual transitions
+      const light = this.getSmoothLight(worldX, worldY, worldZ, normal)
 
       // Calculate AO using world coordinates
       const aoRaw = this.getVertexAO(worldX, worldY, worldZ, normal)
@@ -329,6 +318,84 @@ export class VertexBuilder {
     }
   
     return 3 - (side1 ? 1 : 0) - (side2 ? 1 : 0) - (corner ? 1 : 0);
+  }
+
+  /**
+   * Smooth lighting: Average 2×2 light samples around vertex position for gradual transitions.
+   * Samples in the plane perpendicular to the face normal.
+   */
+  private getSmoothLight(
+    worldX: number, worldY: number, worldZ: number,
+    normal: { x: number, y: number, z: number }
+  ): RGB {
+    // Offset into the air block adjacent to the face
+    let baseX = worldX
+    let baseY = worldY
+    let baseZ = worldZ
+
+    if (normal.x < 0) baseX -= 1
+    if (normal.y < 0) baseY -= 1
+    if (normal.z < 0) baseZ -= 1
+
+    // Sample 2×2 grid perpendicular to face normal
+    // This creates smooth light transitions at edges where light levels differ
+    let totalR = 0, totalG = 0, totalB = 0
+    let sampleCount = 0
+
+    // Determine which axes to sample (perpendicular to normal)
+    const sampleOffsets = this.getSampleOffsets(normal)
+
+    for (const offset of sampleOffsets) {
+      const sampleX = baseX + offset.x
+      const sampleY = baseY + offset.y
+      const sampleZ = baseZ + offset.z
+
+      const lightValue = this.lighting.getLight(sampleX, sampleY, sampleZ)
+      const combined = combineLightChannels(lightValue)
+      const light = normalizeLightToColor(combined)
+
+      totalR += light.r
+      totalG += light.g
+      totalB += light.b
+      sampleCount++
+    }
+
+    return {
+      r: totalR / sampleCount,
+      g: totalG / sampleCount,
+      b: totalB / sampleCount
+    }
+  }
+
+  /**
+   * Get 2×2 sample offsets perpendicular to the face normal.
+   */
+  private getSampleOffsets(normal: { x: number, y: number, z: number }): Array<{ x: number, y: number, z: number }> {
+    if (normal.y !== 0) {
+      // Horizontal face (top/bottom): sample in X-Z plane
+      return [
+        { x: 0, y: 0, z: 0 },
+        { x: -1, y: 0, z: 0 },
+        { x: 0, y: 0, z: -1 },
+        { x: -1, y: 0, z: -1 }
+      ]
+    } else if (normal.x !== 0) {
+      // X-facing face: sample in Y-Z plane
+      return [
+        { x: 0, y: 0, z: 0 },
+        { x: 0, y: -1, z: 0 },
+        { x: 0, y: 0, z: -1 },
+        { x: 0, y: -1, z: -1 }
+      ]
+    } else {
+      // Z-facing face: sample in X-Y plane
+      return [
+        { x: 0, y: 0, z: 0 },
+        { x: -1, y: 0, z: 0 },
+        { x: 0, y: -1, z: 0 },
+        { x: -1, y: -1, z: 0 }
+      ]
+    }
   }
 
   private getFaceTint(
