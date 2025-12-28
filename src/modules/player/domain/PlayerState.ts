@@ -16,7 +16,7 @@ export class PlayerState {
     this.mode = PlayerMode.Walking  // Default to walking so collisions apply
     this.speed = 5
     this.falling = false
-    this.jumpVelocity = 10  // Jump strength (blocks/second upward velocity)
+    this.jumpVelocity = 8   // Jump strength - clears 1 block at gravity=32
   }
 
   setMode(mode: PlayerMode): void {
