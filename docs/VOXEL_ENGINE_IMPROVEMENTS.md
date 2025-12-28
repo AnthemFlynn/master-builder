@@ -179,12 +179,12 @@
 | 8 | `fix/jump-height-tuning` | Done | #16 | Yes |
 | 9 | `feature/sneak-edge-prevention` | Done | #17 | Yes |
 | 10 | `feature/cave-lighting` | Done | (included in #10) | Yes |
-| 11 | `feature/water-depth-effects` | Pending | - | - |
-| 12 | `feature/tree-variety` | Pending | - | - |
-| 13 | `feature/block-animations` | Pending | - | - |
-| 14 | `feature/structures` | Pending | - | - |
-| 15 | `feature/mesh-lod` | Pending | - | - |
-| 16 | `feature/frustum-priority-meshing` | Pending | - | - |
+| 11 | `feature/water-depth-effects` | Done | #18 | Yes |
+| 12 | `feature/tree-variety` | Done | #19 | Yes |
+| 13 | `feature/block-animations` | Deferred | - | - |
+| 14 | `feature/structures` | Deferred | - | - |
+| 15 | `feature/mesh-lod` | Deferred | - | - |
+| 16 | `feature/frustum-priority-meshing` | Deferred | - | - |
 
 ---
 
