@@ -38,6 +38,7 @@ import { PlaceBlockHandler } from './application/handlers/PlaceBlockHandler'
 import { RemoveBlockHandler } from './application/handlers/RemoveBlockHandler'
 import { SaveGameHandler } from '../persistence/application/handlers/SaveGameHandler'
 import { LoadGameHandler } from '../persistence/application/handlers/LoadGameHandler'
+import { SessionManager, SessionManagerCallbacks } from '../ui/application/SessionManager'
 
 /**
  * All services and infrastructure created by the factory
@@ -66,6 +67,9 @@ export interface GameServices {
   persistenceService: PersistenceService
   autoSaveManager: AutoSaveManager
   modificationTracker: ModificationTracker
+
+  // Session management
+  sessionManager: SessionManager
 }
 
 /**
@@ -76,6 +80,10 @@ export interface OrchestratorCallbacks {
   exitPointerLock: () => void
   getPlayerPosition: () => THREE.Vector3
   onStartNewGame: () => void
+  onResumeGame: () => void
+  onExitToMenu: () => void
+  // Session manager callbacks
+  sessionCallbacks: SessionManagerCallbacks
 }
 
 /**
@@ -109,7 +117,9 @@ export function createGameServices(
     requestPointerLock: callbacks.requestPointerLock,
     exitPointerLock: callbacks.exitPointerLock,
     getPlayerPosition: callbacks.getPlayerPosition,
-    onStartNewGame: callbacks.onStartNewGame
+    onStartNewGame: callbacks.onStartNewGame,
+    onResumeGame: callbacks.onResumeGame,
+    onExitToMenu: callbacks.onExitToMenu
   }, inventoryService, performanceMonitor)
 
   const audioService = new AudioService(camera, eventBus)
@@ -132,6 +142,9 @@ export function createGameServices(
   const indexedDBAdapter = new IndexedDBAdapter()
   const persistenceService = new PersistenceService(indexedDBAdapter)
   const autoSaveManager = new AutoSaveManager(commandBus)
+
+  // Create session manager
+  const sessionManager = new SessionManager(eventBus, callbacks.sessionCallbacks)
 
   // Register command handlers
   commandBus.register(
@@ -188,7 +201,8 @@ export function createGameServices(
     inventoryService,
     persistenceService,
     autoSaveManager,
-    modificationTracker
+    modificationTracker,
+    sessionManager
   }
 }
 

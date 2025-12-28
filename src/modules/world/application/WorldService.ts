@@ -279,6 +279,13 @@ export class WorldService implements IVoxelQuery {
     console.log('🗑️ Cleared all chunks')
   }
 
+  /**
+   * Get the number of currently loaded chunks
+   */
+  getLoadedChunkCount(): number {
+    return this.chunks.size
+  }
+
   worldToChunkCoord(worldX: number, worldZ: number): ChunkCoordinate {
     return new ChunkCoordinate(
       Math.floor(worldX / 24),

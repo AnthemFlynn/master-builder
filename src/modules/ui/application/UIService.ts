@@ -27,6 +27,8 @@ export interface UIServiceOptions {
   exitPointerLock?: () => void
   getPlayerPosition?: () => Position
   onStartNewGame?: () => void  // Called when Play button clicked (triggers loading)
+  onResumeGame?: () => void    // Called when Resume button clicked (no loading, preserves chunks)
+  onExitToMenu?: () => void    // Called when Exit to Menu clicked (ends session)
 }
 
 export class UIService implements IUIQuery {
@@ -51,7 +53,7 @@ export class UIService implements IUIQuery {
 
     this.menuManager = new MenuManager(
       () => {
-        // Play button - start new game with loading screen
+        // Play button (New Game) - start new game with loading screen
         if (this.options.onStartNewGame) {
           this.options.onStartNewGame()
         } else {
@@ -59,12 +61,21 @@ export class UIService implements IUIQuery {
         }
       },
       () => {
-        // Resume - no loading needed, chunks already exist
-        this.onPlay()
+        // Resume button - no loading needed, chunks already exist
+        if (this.options.onResumeGame) {
+          this.options.onResumeGame()
+        } else {
+          this.onPlay() // Fallback
+        }
       },
       () => {
-        this.options.exitPointerLock?.()
-        this.onMenu()
+        // Exit to Menu button - end session and return to main menu
+        if (this.options.onExitToMenu) {
+          this.options.onExitToMenu()
+        } else {
+          this.options.exitPointerLock?.()
+          this.onMenu()
+        }
       },
       {
         requestPointerLock: this.options.requestPointerLock,
@@ -96,15 +107,28 @@ export class UIService implements IUIQuery {
   }
 
   private setupSaveLoadButton(): void {
-    const saveButton = document.querySelector('#save')
-    saveButton?.addEventListener('click', () => {
-      this.openSaveLoadModal()
+    // Main menu: Load Game button
+    const loadButton = document.querySelector('#save')
+    loadButton?.addEventListener('click', () => {
+      this.openSaveLoadModal('load')
+    })
+
+    // Pause menu: Save Game button
+    const pauseSaveButton = document.querySelector('#pause-save')
+    pauseSaveButton?.addEventListener('click', () => {
+      this.openSaveLoadModal('save')
+    })
+
+    // Pause menu: Load Game button
+    const pauseLoadButton = document.querySelector('#pause-load')
+    pauseLoadButton?.addEventListener('click', () => {
+      this.openSaveLoadModal('load')
     })
   }
 
-  openSaveLoadModal(): void {
+  openSaveLoadModal(mode: 'save' | 'load' = 'load'): void {
     if (this.saveLoadModal) {
-      this.saveLoadModal.open()
+      this.saveLoadModal.open(mode)
     }
   }
 
