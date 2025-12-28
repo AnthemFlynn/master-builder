@@ -162,15 +162,18 @@ export class VertexBuilder {
 
       // Apply lighting * AO
       const faceTint = this.getFaceTint(normal, worldX, worldY, worldZ)
-      
+
       // Apply Overlay
       // We need a simple color object, not THREE.Color clone
       const overlay = this.applySideOverlay(blockType, normal, {r: baseColor.r, g: baseColor.g, b: baseColor.b}, v.y - y, height)
 
+      // Apply water depth darkening (block ID 16 = water)
+      const depthFactor = blockType === 16 ? this.getWaterDepthFactor(worldY) : 1.0
+
       buffer.colors.push(
-        light.r * ao * overlay.r * faceTint,
-        light.g * ao * overlay.g * faceTint,
-        light.b * ao * overlay.b * faceTint
+        light.r * ao * overlay.r * faceTint * depthFactor,
+        light.g * ao * overlay.g * faceTint * depthFactor,
+        light.b * ao * overlay.b * faceTint * depthFactor
       )
 
       // UVs
@@ -396,6 +399,26 @@ export class VertexBuilder {
         { x: -1, y: -1, z: 0 }
       ]
     }
+  }
+
+  /**
+   * Calculate water depth darkening factor.
+   * Water gets darker the deeper it is (lower Y value).
+   * Surface water (Y >= 63) is full brightness, deep water is darker.
+   */
+  private getWaterDepthFactor(worldY: number): number {
+    const SEA_LEVEL = 63
+    const MAX_DEPTH = 30  // Depth at which water is at minimum brightness
+
+    if (worldY >= SEA_LEVEL) {
+      return 1.0  // Surface water - full brightness
+    }
+
+    const depth = SEA_LEVEL - worldY
+    const depthRatio = Math.min(depth / MAX_DEPTH, 1.0)
+
+    // Darken from 1.0 (surface) to 0.3 (deep)
+    return 1.0 - (depthRatio * 0.7)
   }
 
   private getFaceTint(
