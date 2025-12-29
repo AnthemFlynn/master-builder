@@ -1,9 +1,8 @@
 // src/modules/rendering/meshing-application/VertexBuilder.ts
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
-import { ILightingQuery } from '../../environment/ports/ILightingQuery'
+import { ILightingQuery } from '../../../shared/ports/ILightingQuery'
 import { blockRegistry } from '../../../modules/world/blocks'
-import { RGB } from '../../../shared/domain/LightValue'
-import { combineLightChannels, normalizeLightToColor } from '../../environment/domain/voxel-lighting/LightValue'
+import { RGB, combineLightChannels, normalizeLightToColor } from '../../../shared/domain/LightValue'
 
 interface BufferData {
   positions: number[]

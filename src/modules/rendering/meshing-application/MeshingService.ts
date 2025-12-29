@@ -2,9 +2,9 @@
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
-import { ILightingQuery } from '../../environment/ports/ILightingQuery'
+import { ILightingQuery } from '../../../shared/ports/ILightingQuery'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
-import { ILightStorage } from '../../environment/ports/ILightStorage'
+import { ILightStorage } from '../../../shared/ports/ILightStorage'
 import { WorkerMessage, MainMessage } from '../workers/types'
 import { MeshingWorkerPool } from '../infrastructure/MeshingWorkerPool'
 
