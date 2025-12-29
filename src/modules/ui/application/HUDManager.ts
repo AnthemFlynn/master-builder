@@ -1,5 +1,5 @@
 import { GameState } from '../../../shared/domain/GameState'
-import { blockRegistry } from '../../blocks'
+import { blockRegistry } from '../../world/blocks'
 import { InventoryBank } from '../../inventory/domain/InventoryState'
 
 export class HUDManager {

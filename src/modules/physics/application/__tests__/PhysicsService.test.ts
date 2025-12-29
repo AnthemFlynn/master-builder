@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, beforeAll } from 'bun:test'
 import { MovementController } from '../MovementController'
 import { CollisionDetector } from '../CollisionDetector'
 import { PlayerMode } from '../../../player/domain/PlayerMode'
-import { initializeBlockRegistry } from '../../../blocks'
+import { initializeBlockRegistry } from '../../../world/blocks'
 
 // Initialize block registry for solid block checks
 beforeAll(() => {

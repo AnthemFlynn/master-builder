@@ -4,7 +4,7 @@ import { IPersistenceQuery } from '../ports/IPersistenceQuery'
 import { GameSnapshot, PlayerSnapshot } from '../domain/GameSnapshot'
 import { SaveSlot } from '../domain/SaveSlot'
 import { PlayerService } from '../../player/application/PlayerService'
-import { InteractionService } from '../../interaction/application/InteractionService'
+import { InteractionService } from '../../building/application/InteractionService'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
 import { ModificationTracker } from './ModificationTracker'
 

@@ -6,7 +6,7 @@ import { WorkerMessage, MainMessage } from './types'
 import { ILightingQuery } from '../../../modules/environment/ports/ILightingQuery'
 import { LightValue } from '../../../modules/environment/domain/voxel-lighting/LightValue'
 import { ILightStorage } from '../../../modules/environment/ports/ILightStorage'
-import { initializeBlockRegistry } from '../../../modules/blocks'
+import { initializeBlockRegistry } from '../../../modules/world/blocks'
 import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
 
 // Initialize block registry

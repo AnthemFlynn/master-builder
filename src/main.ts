@@ -6,7 +6,7 @@ import { SaveGameCommand } from './modules/persistence/domain/commands/SaveGameC
 import { LoadGameCommand } from './modules/persistence/domain/commands/LoadGameCommand'
 
 // Initialize BlockRegistry
-import { initializeBlockRegistry } from './modules/blocks'
+import { initializeBlockRegistry } from './modules/world/blocks'
 initializeBlockRegistry()
 
 // Initialize Three.js core

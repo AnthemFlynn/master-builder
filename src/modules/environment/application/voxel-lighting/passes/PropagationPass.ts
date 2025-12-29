@@ -3,7 +3,7 @@ import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
 import { ILightStorage } from '../../ports/ILightStorage'
-import { blockRegistry } from '../../../../../modules/blocks'
+import { blockRegistry } from '../../../../../modules/world/blocks'
 import { LightValue } from '../../../../../shared/domain/LightValue'
 
 export class PropagationPass implements ILightingPass {

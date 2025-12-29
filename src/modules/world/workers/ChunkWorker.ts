@@ -1,4 +1,4 @@
-import { initializeBlockRegistry } from '../../../modules/blocks'
+import { initializeBlockRegistry } from '../../../modules/world/blocks'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { WorkerMessage, MainMessage } from './types'
 import { WorldLoader } from '../application/WorldLoader'

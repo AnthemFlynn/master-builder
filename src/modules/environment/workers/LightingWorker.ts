@@ -4,7 +4,7 @@ import { WorkerMessage, MainMessage } from './types'
 import { LightingPipeline } from '../application/voxel-lighting/LightingPipeline'
 import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
 import { WorkerLightStorage } from './WorkerLightStorage'
-import { blockRegistry, initializeBlockRegistry } from '../../../modules/blocks'
+import { blockRegistry, initializeBlockRegistry } from '../../../modules/world/blocks'
 
 // Initialize blocks definitions
 initializeBlockRegistry()

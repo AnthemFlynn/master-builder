@@ -2,7 +2,7 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
-import { blockRegistry } from '../../blocks'
+import { blockRegistry } from '../blocks'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
 import { ModificationTracker } from '../../persistence/application/ModificationTracker'

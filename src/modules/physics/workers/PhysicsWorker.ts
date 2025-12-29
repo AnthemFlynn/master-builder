@@ -6,7 +6,7 @@ import { PlayerMode } from '../../player/domain/PlayerMode.ts' // Corrected path
 import { ChunkData } from '../../../shared/domain/ChunkData.ts'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate.ts'
 import { MovementController } from '../application/MovementController.ts'
-import { initializeBlockRegistry } from '../../../modules/blocks/index.ts'
+import { initializeBlockRegistry } from '../../../modules/world/blocks/index.ts'
 
 // Initialize block registry for this worker
 initializeBlockRegistry()

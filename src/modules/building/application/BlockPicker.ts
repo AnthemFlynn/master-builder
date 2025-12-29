@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { RaycastResult } from '../domain/RaycastResult'
 import { WorldService } from '../../world/application/WorldService'
-import { blockRegistry } from '../../blocks'
+import { blockRegistry } from '../../world/blocks'
 
 export class BlockPicker {
   private raycaster = new THREE.Raycaster()

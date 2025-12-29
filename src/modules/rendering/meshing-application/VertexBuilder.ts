@@ -1,7 +1,7 @@
 // src/modules/rendering/meshing-application/VertexBuilder.ts
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../environment/ports/ILightingQuery'
-import { blockRegistry } from '../../../modules/blocks'
+import { blockRegistry } from '../../../modules/world/blocks'
 import { RGB } from '../../../shared/domain/LightValue'
 import { combineLightChannels, normalizeLightToColor } from '../../environment/domain/voxel-lighting/LightValue'
 
