@@ -1,4 +1,4 @@
-// src/modules/game/GameFactory.ts
+// src/modules/core/GameFactory.ts
 /**
  * GameFactory - Composition Root
  *

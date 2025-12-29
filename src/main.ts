@@ -1,6 +1,6 @@
 import Core from './core'
-import { GameOrchestrator } from './modules/game'
-import { initializeAsyncServices } from './modules/game/GameFactory'
+import { GameOrchestrator } from './modules/core'
+import { initializeAsyncServices } from './modules/core/GameFactory'
 import { PlayerMode } from './modules/player/domain/PlayerMode'
 import { SaveGameCommand } from './modules/persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from './modules/persistence/domain/commands/LoadGameCommand'

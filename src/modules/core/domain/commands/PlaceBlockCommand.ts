@@ -1,4 +1,4 @@
-// src/modules/game/domain/commands/PlaceBlockCommand.ts
+// src/modules/core/domain/commands/PlaceBlockCommand.ts
 import { Command } from '../../../../shared/domain/Command'
 
 export class PlaceBlockCommand implements Command {

@@ -1,4 +1,4 @@
-// src/modules/game/domain/commands/RemoveBlockCommand.ts
+// src/modules/core/domain/commands/RemoveBlockCommand.ts
 import { Command } from '../../../../shared/domain/Command'
 
 export class RemoveBlockCommand implements Command {

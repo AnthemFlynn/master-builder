@@ -1,4 +1,4 @@
-// src/modules/game/application/handlers/RemoveBlockHandler.ts
+// src/modules/core/application/handlers/RemoveBlockHandler.ts
 import { CommandHandler } from '../../../../shared/domain/Command'
 import { RemoveBlockCommand } from '../../domain/commands/RemoveBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'

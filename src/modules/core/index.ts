@@ -1,4 +1,4 @@
-// src/modules/game/index.ts
+// src/modules/core/index.ts
 export { GameOrchestrator } from './application/GameOrchestrator'
 
 // Re-export from shared for backward compatibility

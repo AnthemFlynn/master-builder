@@ -1,4 +1,4 @@
-// src/modules/game/application/handlers/GenerateChunkHandler.ts
+// src/modules/core/application/handlers/GenerateChunkHandler.ts
 import { CommandHandler } from '../../../../shared/domain/Command'
 import { GenerateChunkCommand } from '../../domain/commands/GenerateChunkCommand'
 import { WorldService } from '../../../world/application/WorldService'

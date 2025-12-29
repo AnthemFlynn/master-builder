@@ -1,4 +1,4 @@
-// src/modules/game/domain/commands/GenerateChunkCommand.ts
+// src/modules/core/domain/commands/GenerateChunkCommand.ts
 import { Command } from '../../../../shared/domain/Command'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 

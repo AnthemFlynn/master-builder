@@ -1,4 +1,4 @@
-// src/modules/game/application/GameOrchestrator.ts
+// src/modules/core/application/GameOrchestrator.ts
 /**
  * GameOrchestrator - Game Loop & State Management
  *
