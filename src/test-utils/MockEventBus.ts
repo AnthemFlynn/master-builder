@@ -153,4 +153,17 @@ export class MockEventBus {
   disableTracing(): void {
     this.tracingEnabled = false
   }
+
+  /**
+   * Trigger handlers for a specific event type (for testing event subscriptions)
+   */
+  triggerHandler(category: string, eventType: string, event: any): void {
+    const categoryHandlers = this.handlers.get(category)
+    if (!categoryHandlers) return
+
+    const handlers = categoryHandlers.get(eventType)
+    if (handlers) {
+      handlers.forEach(handler => handler(event))
+    }
+  }
 }
