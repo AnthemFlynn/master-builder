@@ -64,23 +64,23 @@ describe('BiomePass', () => {
   it('should determine biomes from climate data', () => {
     const worldDef = {
       meta: { name: "Test", seed: 123, version: "0.1.0" },
-      terrain: { generator: "flat" as const, baseHeight: 40 },
+      terrain: { generator: "flat" as const, baseHeight: 70 },
       features: [],
       biomes: { elevationBased: true, ranges: [] }
     }
 
     const context = new GenerationContext(new ChunkCoordinate(0, 0), worldDef)
 
-    // Set climate and terrain
+    // Set climate and terrain (height above sea level 60 to avoid ocean biomes)
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {
         // Hot and dry = desert
         context.temperature[x][z] = 0.8
         context.humidity[x][z] = -0.5
-        context.heightMap[x][z] = 40
-        context.setBlock(x, 40, z, BlockType.stone)
+        context.heightMap[x][z] = 70
+        context.setBlock(x, 70, z, BlockType.stone)
         context.surfaceMap.set(`${x},${z}`, {
-          y: 40,
+          y: 70,
           blockType: BlockType.stone,
           isCave: false
         })
@@ -91,7 +91,7 @@ describe('BiomePass', () => {
     pass.execute(context)
 
     // Desert biome should have sand surface
-    expect(context.getBlock(0, 40, 0)).toBe(BlockType.sand)
+    expect(context.getBlock(0, 70, 0)).toBe(BlockType.sand)
 
     // Should store biome type
     const biome = context.getBiomeAt(0, 0)

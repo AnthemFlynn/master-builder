@@ -1,5 +1,6 @@
 import Core from './core'
 import { GameOrchestrator } from './modules/game'
+import { initializeAsyncServices } from './modules/game/GameFactory'
 import { PlayerMode } from './modules/player/domain/PlayerMode'
 import { SaveGameCommand } from './modules/persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from './modules/persistence/domain/commands/LoadGameCommand'
@@ -16,6 +17,19 @@ const renderer = core.renderer
 
 // Initialize game (all modules)
 const game = new GameOrchestrator(scene, camera)
+
+// Initialize async services (persistence, world manager, etc.)
+;(async () => {
+  try {
+    await initializeAsyncServices(game.getServices(), renderer)
+    startGame()
+  } catch (error) {
+    console.error('[main.ts] Error during async initialization:', error)
+    throw error
+  }
+})()
+
+function startGame() {
 
 // Expose for debugging
 if (typeof window !== 'undefined') {
@@ -48,6 +62,7 @@ if (typeof window !== 'undefined') {
   console.log('✅ Hexagonal architecture active - 11 modules loaded (persistence added)')
   console.log('🐛 Debug: window.debug.enableTracing()')
   console.log('💾 Debug: window.debug.save() / window.debug.load() / window.debug.listSaves()')
+}
 }
 
 // Animation loop with frame budget enforcement

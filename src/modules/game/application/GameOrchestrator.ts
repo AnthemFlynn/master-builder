@@ -9,12 +9,11 @@ import * as THREE from 'three'
 import { CommandBus } from '../../../shared/infrastructure/CommandBus'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { GameServices, createGameServices, initializeAsyncServices, setupDebugHelpers } from '../GameFactory'
+import { GameServices, createGameServices, setupDebugHelpers } from '../GameFactory'
 import { GenerateChunkCommand } from '../domain/commands/GenerateChunkCommand'
 import { MovementVector } from '../../physics/domain/MovementVector'
 import { PlayerMode } from '../../player/domain/PlayerMode'
-import { GameState } from '../../input/domain/InputState'
-import { UIState } from '../../ui/domain/UIState'
+import { GameState } from '../../../shared/domain/GameState'
 import { generateSpiralOrder } from '../../world/infrastructure/ChunkPriorityQueue'
 import { SessionState } from '../../ui/domain/Session'
 import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
@@ -59,7 +58,7 @@ export class GameOrchestrator {
       requestPointerLock: () => this.services.cameraControls.lock(),
       exitPointerLock: () => this.services.cameraControls.unlock(),
       getPlayerPosition: () => this.services.playerService.getPosition(),
-      onStartNewGame: () => this.startNewGame(),
+      onStartNewGame: (worldId?: string) => this.startNewGame(worldId),
       onResumeGame: () => this.resumeGame(),
       onExitToMenu: () => this.exitToMenu(),
       sessionCallbacks: {
@@ -96,7 +95,7 @@ export class GameOrchestrator {
     this.services.playerService.updatePosition(this.camera.position)
 
     // Keep input service state in sync with UI state
-    this.services.inputService.setState(GameState.MENU)
+    this.services.inputService.setState(GameState.SPLASH)
     this.setupUIStateSync()
 
     // Register input actions
@@ -107,11 +106,6 @@ export class GameOrchestrator {
     this.setupPointerLockListeners()
     this.setupLoadingListeners()
     this.setupSessionListeners()
-
-    // Initialize async services (persistence)
-    initializeAsyncServices(this.services).catch((error) => {
-      console.error('Failed to initialize persistence:', error)
-    })
 
     console.log('GameOrchestrator: All modules initialized')
 
@@ -125,11 +119,12 @@ export class GameOrchestrator {
   /**
    * Called when user clicks Play - enters game immediately with loading overlay
    */
-  startNewGame(): void {
-    console.log('Starting new game...')
+  startNewGame(worldId?: string): void {
+    const targetWorldId = worldId || 'default'
+    console.log(`Starting new game with world: ${targetWorldId}`)
 
     // Start session (this handles the state management)
-    this.services.sessionManager.startNewSession('default')
+    this.services.sessionManager.startNewSession(targetWorldId)
 
     // Clear any existing state (also done by session, but explicit here)
     this.services.worldService.clearAllChunks()
@@ -197,6 +192,13 @@ export class GameOrchestrator {
     const deltaTime = Math.min((now - this.lastUpdateTime) / 1000, 0.1)
     this.lastUpdateTime = now
 
+    // Skip heavy updates when not playing (paused, menu, etc.)
+    const isPlaying = this.services.uiService.isPlaying()
+    if (!isPlaying) {
+      // Still render but skip game logic
+      return
+    }
+
     // Update physics and player movement
     this.updatePlayerMovement(deltaTime)
     this.services.interactionService.updateHighlight(this.camera)
@@ -247,7 +249,7 @@ export class GameOrchestrator {
     this.services.eventBus.on('ui', 'UIStateChangedEvent', (event: any) => {
       const stateMap: Record<string, GameState> = {
         SPLASH: GameState.SPLASH,
-        MENU: GameState.MENU,
+        MAIN_MENU: GameState.MAIN_MENU,
         PLAYING: GameState.PLAYING,
         PAUSE: GameState.PAUSE,
         RADIAL_MENU: GameState.RADIAL_MENU,
@@ -259,11 +261,11 @@ export class GameOrchestrator {
       }
 
       // Manage pointer lock based on state
-      if (event.newState === UIState.PLAYING) {
+      if (event.newState === GameState.PLAYING) {
         if (!document.pointerLockElement) {
           this.services.cameraControls.lock()
         }
-      } else if (event.newState !== UIState.RADIAL_MENU && event.newState !== UIState.CREATIVE_INVENTORY) {
+      } else if (event.newState !== GameState.RADIAL_MENU && event.newState !== GameState.CREATIVE_INVENTORY) {
         this.services.cameraControls.unlock()
       }
     })
@@ -478,22 +480,26 @@ export class GameOrchestrator {
       // Radial Menu (Tab)
       if (event.action === 'open_radial_menu') {
         if (event.eventType === 'pressed' && this.services.uiService.isPlaying()) {
-          this.services.uiService.setState(UIState.RADIAL_MENU)
+          this.services.uiService.setState(GameState.RADIAL_MENU)
           document.exitPointerLock()
-        } else if (event.eventType === 'released' && this.services.uiService.getState() === UIState.RADIAL_MENU) {
+        } else if (event.eventType === 'released' && this.services.uiService.getState() === GameState.RADIAL_MENU) {
+          // Ignore unlock events briefly when closing radial menu
+          this.ignoreUnlockUntil = Date.now() + 500
           this.services.cameraControls.lock()
-          this.services.uiService.setState(UIState.PLAYING)
+          this.services.uiService.setState(GameState.PLAYING)
         }
       }
 
       // Creative Inventory (B)
       if (event.action === 'open_creative_inventory' && event.eventType === 'pressed') {
         if (this.services.uiService.isPlaying()) {
-          this.services.uiService.setState(UIState.CREATIVE_INVENTORY)
+          this.services.uiService.setState(GameState.CREATIVE_INVENTORY)
           document.exitPointerLock()
-        } else if (this.services.uiService.getState() === UIState.CREATIVE_INVENTORY) {
+        } else if (this.services.uiService.getState() === GameState.CREATIVE_INVENTORY) {
+          // Ignore unlock events briefly when closing inventory
+          this.ignoreUnlockUntil = Date.now() + 500
           this.services.cameraControls.lock()
-          this.services.uiService.setState(UIState.PLAYING)
+          this.services.uiService.setState(GameState.PLAYING)
         }
       }
 
@@ -585,6 +591,12 @@ export class GameOrchestrator {
         return
       }
 
+      // Don't pause when in inventory/radial menu states (intentional unlock)
+      const currentState = this.services.uiService.getState()
+      if (currentState === GameState.CREATIVE_INVENTORY || currentState === GameState.RADIAL_MENU) {
+        return
+      }
+
       // Use SessionManager for pause if we have an active session
       if (this.services.sessionManager.isPlaying()) {
         this.services.sessionManager.pauseSession()
@@ -612,7 +624,7 @@ export class GameOrchestrator {
       } else if (event.newState === SessionState.PAUSED) {
         this.services.inputService.setState(GameState.PAUSE)
       } else if (event.newState === SessionState.NO_SESSION) {
-        this.services.inputService.setState(GameState.MENU)
+        this.services.inputService.setState(GameState.MAIN_MENU)
       }
     })
   }
@@ -634,4 +646,17 @@ export class GameOrchestrator {
   enableEventTracing(): void { this.services.eventBus.enableTracing() }
   replayCommands(fromIndex: number): void { this.services.commandBus.replay(fromIndex) }
   getCommandLog(): readonly any[] { return this.services.commandBus.getLog() }
+
+  // Renderer setup for thumbnail capture
+  setRenderer(renderer: THREE.WebGLRenderer): void {
+    this.services.thumbnailCapture.setRenderer(renderer)
+    console.log('✅ ThumbnailCapture renderer set')
+  }
+
+  // World management access
+  getWorldManager() { return this.services.worldManager }
+  getThumbnailCapture() { return this.services.thumbnailCapture }
+
+  // Services access (for async initialization)
+  getServices() { return this.services }
 }

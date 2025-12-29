@@ -1,17 +1,20 @@
-// src/modules/physics/workers/WorkerVoxelQuery.ts
-import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate.ts'
-import { ChunkData } from '../../../shared/domain/ChunkData.ts'
-import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery.ts'
-import { blockRegistry } from '../../../modules/blocks/index.ts'
+// src/shared/workers/WorkerVoxelQuery.ts
+import { ChunkCoordinate } from '../domain/ChunkCoordinate'
+import { ChunkData } from '../domain/ChunkData'
+import { IVoxelQuery } from '../ports/IVoxelQuery'
+import { blockRegistry } from '../../modules/blocks'
 
-// Mock implementation for worker
+/**
+ * WorkerVoxelQuery - IVoxelQuery implementation for use in Web Workers.
+ * Maintains local chunk cache and provides voxel lookups without main thread access.
+ */
 export class WorkerVoxelQuery implements IVoxelQuery {
     private chunks = new Map<string, ChunkData>()
-    
-    addChunk(chunk: ChunkData) {
+
+    addChunk(chunk: ChunkData): void {
         this.chunks.set(chunk.coord.toKey(), chunk)
     }
-    
+
     getBlockType(worldX: number, worldY: number, worldZ: number): number {
         const cx = Math.floor(worldX / 24)
         const cz = Math.floor(worldZ / 24)
@@ -22,7 +25,7 @@ export class WorkerVoxelQuery implements IVoxelQuery {
         const lz = ((worldZ % 24) + 24) % 24
         return chunk.getBlockId(lx, worldY, lz)
     }
-    
+
     isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean {
         // blockType -1 (void) or 0 (air) are not solid.
         const blockType = this.getBlockType(worldX, worldY, worldZ)
@@ -53,7 +56,7 @@ export class WorkerVoxelQuery implements IVoxelQuery {
         }
         return 15 // Opaque blocks fully absorb light
     }
-    
+
     getChunk(coord: ChunkCoordinate): ChunkData | null {
         return this.chunks.get(coord.toKey()) || null
     }
@@ -63,11 +66,10 @@ export class WorkerVoxelQuery implements IVoxelQuery {
     }
 
     /**
-     * Check if a block is water
+     * Check if a block is water (BlockType 16)
      */
     isBlockWater(worldX: number, worldY: number, worldZ: number): boolean {
         const blockType = this.getBlockType(worldX, worldY, worldZ)
-        // Water is BlockType 16
         return blockType === 16
     }
 }

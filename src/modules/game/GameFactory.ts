@@ -38,7 +38,9 @@ import { PlaceBlockHandler } from './application/handlers/PlaceBlockHandler'
 import { RemoveBlockHandler } from './application/handlers/RemoveBlockHandler'
 import { SaveGameHandler } from '../persistence/application/handlers/SaveGameHandler'
 import { LoadGameHandler } from '../persistence/application/handlers/LoadGameHandler'
-import { SessionManager, SessionManagerCallbacks } from '../ui/application/SessionManager'
+import { SessionManager, SessionManagerCallbacks } from '../persistence/application/SessionManager'
+import { WorldManager } from '../persistence/application/WorldManager'
+import { ThumbnailCapture } from '../persistence/application/ThumbnailCapture'
 
 /**
  * All services and infrastructure created by the factory
@@ -67,6 +69,10 @@ export interface GameServices {
   persistenceService: PersistenceService
   autoSaveManager: AutoSaveManager
   modificationTracker: ModificationTracker
+
+  // World management
+  worldManager: WorldManager
+  thumbnailCapture: ThumbnailCapture
 
   // Session management
   sessionManager: SessionManager
@@ -143,6 +149,10 @@ export function createGameServices(
   const persistenceService = new PersistenceService(indexedDBAdapter)
   const autoSaveManager = new AutoSaveManager(commandBus)
 
+  // Create world management (shares DB with persistence)
+  const worldManager = new WorldManager(eventBus, indexedDBAdapter)
+  const thumbnailCapture = new ThumbnailCapture()
+
   // Create session manager
   const sessionManager = new SessionManager(eventBus, callbacks.sessionCallbacks)
 
@@ -167,7 +177,8 @@ export function createGameServices(
       interactionService,
       environmentService,
       modificationTracker,
-      eventBus
+      eventBus,
+      callbacks.sessionCallbacks.getCurrentWorldId
     )
   )
   commandBus.register(
@@ -202,6 +213,8 @@ export function createGameServices(
     persistenceService,
     autoSaveManager,
     modificationTracker,
+    worldManager,
+    thumbnailCapture,
     sessionManager
   }
 }
@@ -210,14 +223,27 @@ export function createGameServices(
  * Initialize async services (call after createGameServices)
  */
 export async function initializeAsyncServices(
-  services: GameServices
+  services: GameServices,
+  renderer?: THREE.WebGLRenderer
 ): Promise<void> {
   // Initialize IndexedDB
   await services.persistenceService.initialize()
   console.log('✅ Persistence module initialized')
 
+  // Initialize WorldManager (uses same DB, handles migration)
+  await services.worldManager.initialize()
+
+  // Set up thumbnail capture with renderer
+  if (renderer) {
+    services.thumbnailCapture.setRenderer(renderer)
+    console.log('✅ ThumbnailCapture initialized')
+  }
+
   // Wire up save/load modal now that persistence is ready
   services.uiService.setPersistence(services.commandBus, services.persistenceService)
+
+  // Wire WorldManager to UIService for new menu system
+  services.uiService.setWorldManager(services.worldManager)
 
   // Start auto-save
   services.autoSaveManager.start()

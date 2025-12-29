@@ -1,7 +1,7 @@
-// src/modules/ui/application/SessionManager.ts
+// src/modules/persistence/application/SessionManager.ts
 
 import { EventBus } from '../../../shared/infrastructure/EventBus'
-import { Session, SessionState, SessionStateChangedEvent, SessionAutoSavedEvent } from '../domain/Session'
+import { Session, SessionState, SessionStateChangedEvent, SessionAutoSavedEvent } from '../../ui/domain/Session'
 
 /**
  * Callbacks for SessionManager to interact with game systems

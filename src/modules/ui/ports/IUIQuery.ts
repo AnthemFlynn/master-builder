@@ -1,7 +1,7 @@
-import { UIState } from '../domain/UIState'
+import { GameState } from '../../../shared/domain/GameState'
 
 export interface IUIQuery {
-  getState(): UIState
+  getState(): GameState
   isPlaying(): boolean
   isPaused(): boolean
 }

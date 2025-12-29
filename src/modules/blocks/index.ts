@@ -33,3 +33,4 @@ export function initializeBlockRegistry(): void {
 // Re-export for convenience
 export { blockRegistry } from './application/BlockRegistry'
 export * from './domain/types'
+export type { IBlockRegistry } from './ports/IBlockRegistry'

@@ -3,55 +3,14 @@ import { ChunkData } from '../../../shared/domain/ChunkData'
 import { ChunkMesher } from '../meshing-application/ChunkMesher'
 import { VertexBuilder } from '../meshing-application/VertexBuilder'
 import { WorkerMessage, MainMessage } from './types'
-import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../../modules/environment/ports/ILightingQuery'
 import { LightValue } from '../../../modules/environment/domain/voxel-lighting/LightValue'
 import { ILightStorage } from '../../../modules/environment/ports/ILightStorage'
-import { initializeBlockRegistry, blockRegistry } from '../../../modules/blocks'
+import { initializeBlockRegistry } from '../../../modules/blocks'
+import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
 
 // Initialize block registry
 initializeBlockRegistry()
-
-// Mock implementation for worker
-class WorkerVoxelQuery implements IVoxelQuery {
-    private chunks = new Map<string, ChunkData>()
-    
-    addChunk(chunk: ChunkData) {
-        this.chunks.set(chunk.coord.toKey(), chunk)
-    }
-    
-    getBlockType(worldX: number, worldY: number, worldZ: number): number {
-        const cx = Math.floor(worldX / 24)
-        const cz = Math.floor(worldZ / 24)
-        const coord = new ChunkCoordinate(cx, cz)
-        const chunk = this.chunks.get(coord.toKey())
-        if (!chunk) return -1
-        const lx = ((worldX % 24) + 24) % 24
-        const lz = ((worldZ % 24) + 24) % 24
-        return chunk.getBlockId(lx, worldY, lz)
-    }
-    
-    isBlockSolid(worldX: number, worldY: number, worldZ: number): boolean {
-        return this.getBlockType(worldX, worldY, worldZ) !== -1
-    }
-
-    getLightAbsorption(worldX: number, worldY: number, worldZ: number): number {
-        const type = this.getBlockType(worldX, worldY, worldZ)
-        if (type === -1 || type === 0) return 0
-        
-        const def = blockRegistry.get(type)
-        if (!def) return 15
-        
-        if (def.transparent) {
-            return def.lightAbsorption ? Math.floor(def.lightAbsorption * 15) : 1
-        }
-        return 15
-    }
-    
-    getChunk(coord: ChunkCoordinate): ChunkData | null {
-        return this.chunks.get(coord.toKey()) || null
-    }
-}
 
 // In unified model, VoxelQuery IS LightStorage
 class WorkerLightStorage implements ILightStorage {

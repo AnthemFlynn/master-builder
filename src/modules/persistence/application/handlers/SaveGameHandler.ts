@@ -19,7 +19,8 @@ export class SaveGameHandler implements CommandHandler<SaveGameCommand> {
     private interactionService: InteractionService,
     private environmentService: EnvironmentService,
     private modificationTracker: ModificationTracker,
-    private eventBus: EventBus
+    private eventBus: EventBus,
+    private getCurrentWorldId: () => string
   ) {}
 
   async execute(command: SaveGameCommand): Promise<void> {
@@ -34,12 +35,16 @@ export class SaveGameHandler implements CommandHandler<SaveGameCommand> {
     })
 
     try {
+      // Get current world ID
+      const worldId = this.getCurrentWorldId()
+
       // Capture full game state
       const snapshot = this.persistenceService.captureGameSnapshot(
         this.playerService,
         this.interactionService,
         this.environmentService,
-        this.modificationTracker
+        this.modificationTracker,
+        worldId
       )
 
       // Save to storage

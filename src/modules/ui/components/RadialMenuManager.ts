@@ -1,5 +1,5 @@
-import { InventoryService } from '../../../inventory/application/InventoryService'
-import { blockRegistry } from '../../../blocks'
+import { InventoryService } from '../../inventory/application/InventoryService'
+import { blockRegistry } from '../../blocks'
 
 export class RadialMenuManager {
   private container: HTMLDivElement
