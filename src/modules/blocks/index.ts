@@ -9,11 +9,19 @@ import { TRANSPARENT_BLOCKS } from './domain/definitions/transparent'
 import { FLUID_BLOCKS } from './domain/definitions/fluids'
 import { DECORATION_BLOCKS } from './domain/definitions/decorations'
 
+let initialized = false
+
 /**
  * Initialize block registry with all block definitions
- * Call this once at application startup
+ * Call this once at application startup.
+ * Safe to call multiple times - will only initialize once.
  */
 export function initializeBlockRegistry(): void {
+  // Skip if already initialized
+  if (initialized) {
+    return
+  }
+
   // Register all block types
   blockRegistry.registerAll([
     ...AIR_BLOCKS,
@@ -27,6 +35,7 @@ export function initializeBlockRegistry(): void {
     ...DECORATION_BLOCKS
   ])
 
+  initialized = true
   console.log(`✅ BlockRegistry initialized with ${blockRegistry.size()} blocks`)
 }
 
