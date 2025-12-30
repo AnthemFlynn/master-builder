@@ -3,7 +3,7 @@ import { CommandHandler } from '../../../../shared/domain/Command'
 import { SaveGameCommand } from '../../domain/commands/SaveGameCommand'
 import { PersistenceService } from '../PersistenceService'
 import { PlayerService } from '../../../player/application/PlayerService'
-import { InteractionService } from '../../../interaction/application/InteractionService'
+import { InteractionService } from '../../../building/application/InteractionService'
 import { EnvironmentService } from '../../../environment/application/EnvironmentService'
 import { ModificationTracker } from '../ModificationTracker'
 import { EventBus } from '../../../../shared/infrastructure/EventBus'
@@ -19,7 +19,8 @@ export class SaveGameHandler implements CommandHandler<SaveGameCommand> {
     private interactionService: InteractionService,
     private environmentService: EnvironmentService,
     private modificationTracker: ModificationTracker,
-    private eventBus: EventBus
+    private eventBus: EventBus,
+    private getCurrentWorldId: () => string
   ) {}
 
   async execute(command: SaveGameCommand): Promise<void> {
@@ -34,12 +35,16 @@ export class SaveGameHandler implements CommandHandler<SaveGameCommand> {
     })
 
     try {
+      // Get current world ID
+      const worldId = this.getCurrentWorldId()
+
       // Capture full game state
       const snapshot = this.persistenceService.captureGameSnapshot(
         this.playerService,
         this.interactionService,
         this.environmentService,
-        this.modificationTracker
+        this.modificationTracker,
+        worldId
       )
 
       // Save to storage

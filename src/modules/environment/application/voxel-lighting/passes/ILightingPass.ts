@@ -1,8 +1,8 @@
-// src/modules/lighting/application/passes/ILightingPass.ts
-import { ChunkData } from '../../../shared/domain/ChunkData'
+// src/modules/environment/application/voxel-lighting/passes/ILightingPass.ts
+import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
-import { ILightStorage } from '../../ports/ILightStorage'
+import { ILightStorage } from '../../../../../shared/ports/ILightStorage'
 
 export interface ILightingPass {
   /**

@@ -11,6 +11,7 @@ export interface PlayerSnapshot {
 
 export interface GameSnapshot {
   version: string                        // "1.0.0"
+  worldId: string                        // Which world this save belongs to
   player: PlayerSnapshot
   // Extended fields for full game state
   selectedHotbarSlot: number

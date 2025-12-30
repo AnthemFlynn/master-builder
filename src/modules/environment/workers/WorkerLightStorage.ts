@@ -1,6 +1,6 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../shared/domain/ChunkData'
-import { ILightStorage } from '../ports/ILightStorage'
+import { ILightStorage } from '../../../shared/ports/ILightStorage'
 import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
 
 // Adapter: LightStorage IS VoxelQuery in the Unified Model

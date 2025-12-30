@@ -4,7 +4,7 @@ import { IPersistenceQuery } from '../ports/IPersistenceQuery'
 import { GameSnapshot, PlayerSnapshot } from '../domain/GameSnapshot'
 import { SaveSlot } from '../domain/SaveSlot'
 import { PlayerService } from '../../player/application/PlayerService'
-import { InteractionService } from '../../interaction/application/InteractionService'
+import { InteractionService } from '../../building/application/InteractionService'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
 import { ModificationTracker } from './ModificationTracker'
 
@@ -29,7 +29,8 @@ export class PersistenceService implements IPersistenceQuery {
     playerService: PlayerService,
     interactionService: InteractionService,
     environmentService: EnvironmentService,
-    modificationTracker: ModificationTracker
+    modificationTracker: ModificationTracker,
+    worldId: string
   ): GameSnapshot {
     const playerState = playerService.getState()
 
@@ -52,6 +53,7 @@ export class PersistenceService implements IPersistenceQuery {
 
     return {
       version: '1.0.0',
+      worldId,
       player: playerSnapshot,
       selectedHotbarSlot: interactionService.getSelectedBlock(),
       timeOfDay: environmentService.getTimeOfDay(),

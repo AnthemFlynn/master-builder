@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { blockRegistry } from '../../../modules/blocks'
+import { blockRegistry } from '../../../modules/world/blocks'
 
 export class MaterialSystem {
   // Separate caches for opaque and transparent materials

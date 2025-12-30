@@ -11,7 +11,7 @@ import { GameSnapshot } from '../domain/GameSnapshot'
 export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery {
   private db: IDBDatabase | null = null
   private readonly dbName = 'kingdom-builder-saves'
-  private readonly version = 1
+  private readonly version = 2  // Bumped to 2 to add worlds store
 
   /**
    * Initialize IndexedDB database with object stores
@@ -33,6 +33,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result
+        const oldVersion = event.oldVersion
+
+        console.log(`[IndexedDBAdapter] Upgrading from v${oldVersion} to v${this.version}`)
 
         // Object Store 1: Save Slots (metadata)
         if (!db.objectStoreNames.contains('save-slots')) {
@@ -40,6 +43,16 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
           slotsStore.createIndex('timestamp', 'timestamp', { unique: false })
           slotsStore.createIndex('worldPresetId', 'worldPresetId', { unique: false })
           console.log('✅ Created object store: save-slots')
+        }
+
+        // Version 2: Add worldId index to save-slots
+        if (oldVersion < 2 && db.objectStoreNames.contains('save-slots')) {
+          const transaction = (event.target as IDBOpenDBRequest).transaction!
+          const slotsStore = transaction.objectStore('save-slots')
+          if (!slotsStore.indexNames.contains('worldId')) {
+            slotsStore.createIndex('worldId', 'worldId', { unique: false })
+            console.log('✅ Added worldId index to save-slots')
+          }
         }
 
         // Object Store 2: World Data (chunk modifications)
@@ -57,6 +70,14 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
           console.log('✅ Created object store: player-data')
         }
 
+        // Object Store 5: Worlds (v2)
+        if (!db.objectStoreNames.contains('worlds')) {
+          const worldsStore = db.createObjectStore('worlds', { keyPath: 'id' })
+          worldsStore.createIndex('lastPlayed', 'lastPlayed', { unique: false })
+          worldsStore.createIndex('createdAt', 'createdAt', { unique: false })
+          console.log('✅ Created object store: worlds')
+        }
+
         // Object Store 4: Inventory Data
         if (!db.objectStoreNames.contains('inventory-data')) {
           db.createObjectStore('inventory-data', { keyPath: 'slotId' })
@@ -70,6 +91,13 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
         }
       }
     })
+  }
+
+  /**
+   * Get the database connection (for sharing with WorldRepository)
+   */
+  getDatabase(): IDBDatabase | null {
+    return this.db
   }
 
   /**
@@ -173,11 +201,13 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
       // Create save slot metadata
       const saveSlot: SaveSlot = {
         id: slotId,
+        worldId: snapshot.worldId || 'default',
         name: slotId,
         timestamp: snapshot.metadata.savedAt,
-        worldPresetId: 'island',
         playerPosition: snapshot.player.position,
-        playTime: snapshot.metadata.playTime
+        playerMode: snapshot.player.mode === 'Flying' ? 'flying' : 'walking',
+        playTime: snapshot.metadata.playTime,
+        thumbnail: null  // Thumbnail captured separately
       }
 
       // Store 1: Save slot metadata

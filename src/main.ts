@@ -1,11 +1,12 @@
 import Core from './core'
-import { GameOrchestrator } from './modules/game'
+import { GameOrchestrator } from './modules/core'
+import { initializeAsyncServices } from './modules/core/GameFactory'
 import { PlayerMode } from './modules/player/domain/PlayerMode'
 import { SaveGameCommand } from './modules/persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from './modules/persistence/domain/commands/LoadGameCommand'
 
 // Initialize BlockRegistry
-import { initializeBlockRegistry } from './modules/blocks'
+import { initializeBlockRegistry } from './modules/world/blocks'
 initializeBlockRegistry()
 
 // Initialize Three.js core
@@ -17,8 +18,21 @@ const renderer = core.renderer
 // Initialize game (all modules)
 const game = new GameOrchestrator(scene, camera)
 
-// Expose for debugging
-if (typeof window !== 'undefined') {
+// Initialize async services and start game
+async function initializeGame() {
+  try {
+    await initializeAsyncServices(game.getServices(), renderer)
+    setupDebugHelpers()
+    console.log('✅ Game initialized - all hexagonal modules operational')
+  } catch (error) {
+    console.error('[main.ts] Error during async initialization:', error)
+    throw error
+  }
+}
+
+function setupDebugHelpers() {
+  if (typeof window === 'undefined') return
+
   const global = window as any
 
   if (typeof global.game === 'function') {
@@ -53,6 +67,9 @@ if (typeof window !== 'undefined') {
   console.log('🐛 Debug: window.debug.enableTracing()')
   console.log('💾 Debug: window.debug.save() / window.debug.load() / window.debug.listSaves()')
 }
+
+// Start initialization
+initializeGame().catch(console.error)
 
 // Animation loop with frame budget enforcement
 const FRAME_BUDGET_MS = 16.67 // 60fps target
@@ -106,5 +123,3 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
 })
-
-console.log('✅ Game initialized - all hexagonal modules operational')

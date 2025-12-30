@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Project**: Kingdom Builder (Minecraft-inspired voxel game)
 **Tech Stack**: TypeScript, Three.js 0.181, Bun (build/serve)
-**Architecture**: Hexagonal (10 modules + infrastructure)
+**Architecture**: Hexagonal (11 modules)
 **Dev Server**: http://localhost:4173
 
 ---
@@ -29,29 +29,33 @@ bun lint         # TypeScript type check (no emit)
 
 ### Hexagonal Architecture (Ports & Adapters)
 
-The codebase follows a strict hexagonal architecture with 10 independent modules:
+The codebase follows a strict hexagonal architecture with 11 independent modules:
 
 ```
 src/modules/
-├── game/           Infrastructure (CommandBus, EventBus, GameOrchestrator)
-├── world/          Voxel data storage (chunks, blocks)
-├── rendering/      Mesh generation (greedy meshing, vertex colors)
+├── core/           Infrastructure (CommandBus, EventBus, GameOrchestrator)
+├── world/          Voxel data, chunks, blocks, terrain generation
+├── meshing/        Mesh generation (greedy meshing, vertex colors)
+├── rendering/      Three.js rendering, materials, chunk display
 ├── environment/    Lighting system (sunlight, block lights, AO)
 ├── physics/        Movement + collision (Web Worker)
 ├── player/         Player state (position, mode, velocity)
 ├── input/          Input system (keyboard, mouse, gamepad-ready)
-├── interaction/    Block placement/removal, raycasting
+├── building/       Block placement/removal, raycasting
 ├── ui/             Game states, HUD, menus
 ├── audio/          Sound effects
-└── blocks/         Block registry and definitions
+├── inventory/      Block selection, hotbar
+└── persistence/    Save/load, IndexedDB storage
 ```
 
 ### Key Architectural Principles
 
-1. **Ports Pattern**: Modules expose interfaces (ports) in `src/modules/*/ports/`
+1. **Ports Pattern**: Modules expose interfaces (ports) in `src/modules/*/ports/` and `src/shared/ports/`
    - `IVoxelQuery` - Read voxel data
    - `IVoxelStorage` - Write voxel data
    - `ILightingQuery` - Read lighting data
+   - `ILightStorage` - Read raw light buffers
+   - `IModificationQuery` - Query block modifications
    - `IPlayerQuery` - Read player state
 
 2. **Web Workers**: Heavy computation offloaded to workers
@@ -71,7 +75,7 @@ src/modules/
 2. Core (Three.js setup)            # Renderer, camera, scene
 3. GameOrchestrator created:
    a. Infrastructure (CommandBus, EventBus)
-   b. Services (10 modules in dependency order)
+   b. Services (11 modules in dependency order)
    c. Register command handlers
    d. Register input actions
    e. Setup event listeners
@@ -469,7 +473,7 @@ commandBus.send(new PlaceBlockCommand(position, blockId))
 
 ### BlockRegistry
 
-All block types are registered in `src/modules/blocks/application/BlockRegistry.ts`:
+All block types are registered in `src/modules/world/blocks/application/BlockRegistry.ts`:
 
 ```typescript
 // Block definition
@@ -491,7 +495,7 @@ const glowstone = BlockRegistry.getBlockByName('glowstone')
 
 ### Block Categories
 
-Defined in `src/modules/blocks/definitions/*.ts`:
+Defined in `src/modules/world/blocks/definitions/*.ts`:
 - `ground.ts` - Grass, dirt, sand, gravel
 - `stone.ts` - Stone, cobblestone, ores
 - `wood.ts` - Oak, birch, spruce planks/logs
@@ -611,17 +615,23 @@ src/modules/<module>/
 ├── domain/           # Entities, value objects, commands, events
 ├── ports/            # Interfaces (dependency inversion)
 ├── workers/          # Web Workers (if applicable)
-└── infrastructure/   # EventBus, CommandBus (only in game/)
+└── infrastructure/   # Worker pools, adapters (only in core/)
+
+src/shared/
+├── domain/           # Cross-module value objects (ChunkData, LightValue)
+├── infrastructure/   # EventBus, CommandBus
+├── ports/            # Cross-module interfaces (IVoxelQuery, ILightingQuery)
+└── workers/          # Shared worker utilities
 ```
 
 ---
 
 ## Current Development State
 
-**Last Updated**: 2025-12-14
+**Last Updated**: 2025-12-29
 
 **Working**:
-- ✅ Hexagonal architecture (10 modules)
+- ✅ Hexagonal architecture (11 modules with proper ports/domain layers)
 - ✅ Physics in Web Worker
 - ✅ Vertex color lighting system
 - ✅ Greedy meshing (90%+ polygon reduction)
@@ -633,12 +643,14 @@ src/modules/<module>/
 - ✅ Frustum culling prioritization
 - ✅ Performance monitoring (F3 debug overlay)
 - ✅ Chunk unloading system
-- ✅ **Phase 4A: Declarative world generation** (JSON-based, 4 feature types)
+- ✅ **Declarative world generation** (JSON-based, 4 feature types)
 - ✅ **Feature generators**: Floating islands, worm caves, giant trees, crystal formations
 - ✅ **5 example worlds**: Sky islands, massive caves, titan forests, glowing crystals, superflat
+- ✅ **255 characterization tests** covering all modules
+- ✅ **Save/load system** with IndexedDB persistence
 
 **Next Steps**:
-- Phase 4B: Decoration pass (small trees, flowers, grass, rocks)
+- Decoration pass (small trees, flowers, grass, rocks)
 - Add texture atlas support
 - Optimize lighting propagation for sunrise/sunset
 - Add gamepad support to input system

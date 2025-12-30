@@ -1,11 +1,11 @@
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { CommandBus } from '../../../shared/infrastructure/CommandBus'
-import { UIState } from '../domain/UIState'
+import { GameState } from '../../../shared/domain/GameState'
 import { IUIQuery } from '../ports/IUIQuery'
 import { HUDManager } from './HUDManager'
-import { MenuManager } from './MenuManager'
-import { RadialMenuManager } from './components/RadialMenuManager'
-import { CreativeModalManager } from './components/CreativeModalManager'
+import { MenuUIManager, MenuUICallbacks } from './MenuUIManager'
+import { RadialMenuManager } from '../components/RadialMenuManager'
+import { CreativeModalManager } from '../components/CreativeModalManager'
 import { SaveLoadModal } from '../components/SaveLoadModal'
 import { PortalOverlay } from '../components/PortalOverlay'
 import { InventoryService } from '../../inventory/application/InventoryService'
@@ -13,6 +13,7 @@ import { InventoryBank } from '../../inventory/domain/InventoryState'
 import { DebugOverlay } from './DebugOverlay'
 import { PerformanceMonitor } from '../../game/infrastructure/PerformanceMonitor'
 import { IPersistenceQuery } from '../../persistence/ports/IPersistenceQuery'
+import { WorldManager } from '../../persistence/application/WorldManager'
 import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from '../../persistence/domain/commands/LoadGameCommand'
 
@@ -26,13 +27,17 @@ export interface UIServiceOptions {
   requestPointerLock?: () => void
   exitPointerLock?: () => void
   getPlayerPosition?: () => Position
-  onStartNewGame?: () => void  // Called when Play button clicked (triggers loading)
+  onStartNewGame?: (worldId?: string) => void  // Called when Play button clicked (triggers loading)
+  onResumeGame?: () => void    // Called when Resume button clicked (no loading, preserves chunks)
+  onExitToMenu?: () => void    // Called when Exit to Menu clicked (ends session)
+  onSaveGame?: (slotId: string) => void  // Called when save requested
+  onLoadGame?: (worldId: string, slotId: string) => void  // Called when load requested
 }
 
 export class UIService implements IUIQuery {
-  private state: UIState = UIState.SPLASH
+  private state: GameState = GameState.SPLASH
   private hudManager: HUDManager
-  private menuManager: MenuManager
+  private menuUIManager: MenuUIManager
   private radialMenuManager: RadialMenuManager
   private creativeModalManager: CreativeModalManager
   private saveLoadModal: SaveLoadModal | null = null
@@ -49,28 +54,41 @@ export class UIService implements IUIQuery {
     // Initialize hotbar with current inventory
     this.hudManager.updateHotbar(this.inventory.getActiveBank())
 
-    this.menuManager = new MenuManager(
-      () => {
-        // Play button - start new game with loading screen
+    // Initialize component-based menu system
+    const callbacks: MenuUICallbacks = {
+      onStartNewGame: (worldId) => {
         if (this.options.onStartNewGame) {
-          this.options.onStartNewGame()
+          this.options.onStartNewGame(worldId)
         } else {
-          this.onPlay() // Fallback if no callback provided
+          this.onPlay()
         }
       },
-      () => {
-        // Resume - no loading needed, chunks already exist
-        this.onPlay()
+      onResume: () => {
+        if (this.options.onResumeGame) {
+          this.options.onResumeGame()
+        } else {
+          this.onPlay()
+        }
       },
-      () => {
-        this.options.exitPointerLock?.()
-        this.onMenu()
+      onSave: (slotId) => {
+        this.options.onSaveGame?.(slotId)
       },
-      {
-        requestPointerLock: this.options.requestPointerLock,
-        exitPointerLock: this.options.exitPointerLock
+      onLoad: (worldId, slotId) => {
+        this.options.onLoadGame?.(worldId, slotId)
+      },
+      onExitToMenu: () => {
+        if (this.options.onExitToMenu) {
+          this.options.onExitToMenu()
+        } else {
+          this.options.exitPointerLock?.()
+          this.onMenu()
+        }
       }
-    )
+    }
+    this.menuUIManager = new MenuUIManager(eventBus, callbacks)
+
+    // Hide old HTML menu elements (legacy system)
+    this.hideOldMenuElements()
 
     this.radialMenuManager = new RadialMenuManager(inventory)
     this.creativeModalManager = new CreativeModalManager(inventory, () => {
@@ -86,25 +104,38 @@ export class UIService implements IUIQuery {
 
     // Listen for mouse movements for the radial menu
     this.eventBus.on('input', 'InputMouseMoveEvent', (e: any) => {
-        if (this.state === UIState.RADIAL_MENU) {
+        if (this.state === GameState.RADIAL_MENU) {
             this.radialMenuManager.updateMouse(e.x, e.y)
         }
     })
 
     // Start in splash state (HTML shows splash by default)
-    this.setState(UIState.SPLASH)
+    this.setState(GameState.SPLASH)
   }
 
   private setupSaveLoadButton(): void {
-    const saveButton = document.querySelector('#save')
-    saveButton?.addEventListener('click', () => {
-      this.openSaveLoadModal()
+    // Main menu: Load Game button
+    const loadButton = document.querySelector('#save')
+    loadButton?.addEventListener('click', () => {
+      this.openSaveLoadModal('load')
+    })
+
+    // Pause menu: Save Game button
+    const pauseSaveButton = document.querySelector('#pause-save')
+    pauseSaveButton?.addEventListener('click', () => {
+      this.openSaveLoadModal('save')
+    })
+
+    // Pause menu: Load Game button
+    const pauseLoadButton = document.querySelector('#pause-load')
+    pauseLoadButton?.addEventListener('click', () => {
+      this.openSaveLoadModal('load')
     })
   }
 
-  openSaveLoadModal(): void {
+  openSaveLoadModal(mode: 'save' | 'load' = 'load'): void {
     if (this.saveLoadModal) {
-      this.saveLoadModal.open()
+      this.saveLoadModal.open(mode)
     }
   }
 
@@ -128,23 +159,23 @@ export class UIService implements IUIQuery {
     })
   }
 
-  setState(newState: UIState): void {
+  setState(newState: GameState): void {
     const oldState = this.state
     this.state = newState
 
     // Update UI components
     this.hudManager.updateState(newState)
-    this.menuManager.updateState(newState)
+    this.updateMenuUIManager(newState)
 
     // Radial Menu Control
-    if (newState === UIState.RADIAL_MENU) {
+    if (newState === GameState.RADIAL_MENU) {
         this.radialMenuManager.show()
     } else {
         this.radialMenuManager.hide()
     }
 
     // Creative Modal Control
-    if (newState === UIState.CREATIVE_INVENTORY) {
+    if (newState === GameState.CREATIVE_INVENTORY) {
         this.creativeModalManager.show()
     } else {
         this.creativeModalManager.hide()
@@ -163,33 +194,33 @@ export class UIService implements IUIQuery {
 
   // ... (rest of the file)
 
-  getState(): UIState {
+  getState(): GameState {
     return this.state
   }
 
   isPlaying(): boolean {
-    return this.state === UIState.PLAYING
+    return this.state === GameState.PLAYING
   }
 
   isPaused(): boolean {
-    return this.state === UIState.PAUSE
+    return this.state === GameState.PAUSE
   }
 
   // State transition methods
   onPlay(): void {
-    this.setState(UIState.PLAYING)
+    this.setState(GameState.PLAYING)
   }
 
   onPause(): void {
-    this.setState(UIState.PAUSE)
+    this.setState(GameState.PAUSE)
   }
 
   onMenu(): void {
-    this.setState(UIState.MENU)
+    this.setState(GameState.MAIN_MENU)
   }
 
   onSplash(): void {
-    this.setState(UIState.SPLASH)
+    this.setState(GameState.SPLASH)
   }
 
   setSelectedSlot(index: number): void {
@@ -230,5 +261,62 @@ export class UIService implements IUIQuery {
 
   isLoading(): boolean {
     return this.portalOverlay.getIsVisible()
+  }
+
+  // === Menu System Methods ===
+
+  /**
+   * Set WorldManager for menu system
+   */
+  setWorldManager(worldManager: WorldManager): void {
+    this.menuUIManager.setWorldManager(worldManager)
+  }
+
+  /**
+   * Get MenuUIManager (for direct access when needed)
+   */
+  getMenuUIManager(): MenuUIManager {
+    return this.menuUIManager
+  }
+
+  /**
+   * Map GameState to menu screens
+   */
+  private updateMenuUIManager(state: GameState): void {
+    switch (state) {
+      case GameState.SPLASH:
+        this.menuUIManager.showSplash()
+        break
+      case GameState.MAIN_MENU:
+        this.menuUIManager.showMainMenu()
+        break
+      case GameState.PLAYING:
+        this.menuUIManager.enterPlaying()
+        break
+      case GameState.PAUSE:
+        this.menuUIManager.showPause()
+        break
+      // Other states (RADIAL_MENU, CREATIVE_INVENTORY) don't affect menu screens
+    }
+  }
+
+  /**
+   * Hide old HTML menu elements when new menu system is active
+   */
+  private hideOldMenuElements(): void {
+    const selectors = [
+      '#splash',
+      '.main-menu',
+      '.pause-menu',
+      '.features',
+      '.settings'
+    ]
+
+    selectors.forEach(selector => {
+      const element = document.querySelector(selector) as HTMLElement
+      if (element) {
+        element.style.display = 'none'
+      }
+    })
   }
 }
