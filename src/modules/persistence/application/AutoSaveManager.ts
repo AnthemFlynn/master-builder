@@ -2,18 +2,29 @@
 import { CommandBus } from '../../game/infrastructure/CommandBus'
 import { SaveGameCommand } from '../domain/commands/SaveGameCommand'
 
+export interface AutoSaveManagerOptions {
+  /** Auto-save interval in milliseconds (default: 5 minutes) */
+  intervalMs?: number
+  /** Slot ID for auto-saves (default: 'autosave') */
+  slotId?: string
+}
+
 /**
  * Manages automatic saving at regular intervals
  * Saves to a dedicated "autosave" slot
  */
 export class AutoSaveManager {
   private timerId: number | null = null
-  private readonly interval: number = 5 * 60 * 1000  // 5 minutes
-  private readonly slotId = 'autosave'
+  private readonly intervalMs: number
+  private readonly slotId: string
 
   constructor(
-    private commandBus: CommandBus
-  ) {}
+    private commandBus: CommandBus,
+    options: AutoSaveManagerOptions = {}
+  ) {
+    this.intervalMs = options.intervalMs ?? 5 * 60 * 1000  // Default: 5 minutes
+    this.slotId = options.slotId ?? 'autosave'
+  }
 
   /**
    * Start auto-save timer
@@ -26,9 +37,9 @@ export class AutoSaveManager {
 
     this.timerId = window.setInterval(() => {
       this.triggerAutoSave()
-    }, this.interval)
+    }, this.intervalMs)
 
-    console.log(`⏰ Auto-save started (every ${this.interval / 1000}s)`)
+    console.log(`⏰ Auto-save started (every ${this.intervalMs / 1000}s)`)
   }
 
   /**

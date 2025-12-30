@@ -10,8 +10,27 @@ import { GameSnapshot } from '../domain/GameSnapshot'
  */
 export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery {
   private db: IDBDatabase | null = null
+  private initPromise: Promise<void> | null = null
   private readonly dbName = 'kingdom-builder-saves'
   private readonly version = 1
+
+  /**
+   * Check if database is initialized
+   */
+  isInitialized(): boolean {
+    return this.db !== null
+  }
+
+  /**
+   * Ensure database is initialized before operations
+   * Safe to call multiple times - will return existing promise if initializing
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.db) return
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.initialize()
+    return this.initPromise
+  }
 
   /**
    * Initialize IndexedDB database with object stores
@@ -76,11 +95,19 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
    * Save complete game state to a slot
    */
   async saveGame(slotId: string, snapshot: GameSnapshot): Promise<SaveSlot> {
-    if (!this.db) {
-      throw new Error('[IndexedDBAdapter] Database not initialized')
+    await this.ensureInitialized()
+
+    // Create save slot metadata first (before transaction)
+    const saveSlot: SaveSlot = {
+      id: slotId,
+      name: slotId, // Will be improved in Phase 6
+      timestamp: snapshot.metadata.savedAt,
+      worldPresetId: 'island', // TODO: Will be added in Phase 3
+      playerPosition: snapshot.player.position,
+      playTime: snapshot.metadata.playTime
     }
 
-    const transaction = this.db.transaction(
+    const transaction = this.db!.transaction(
       ['save-slots', 'player-data'],
       'readwrite'
     )
@@ -94,16 +121,6 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
       transaction.oncomplete = () => {
         console.log(`💾 Save complete: ${slotId}`)
         resolve(saveSlot)
-      }
-
-      // Create save slot metadata
-      const saveSlot: SaveSlot = {
-        id: slotId,
-        name: slotId, // Will be improved in Phase 6
-        timestamp: snapshot.metadata.savedAt,
-        worldPresetId: 'island', // Will be added in Phase 3
-        playerPosition: snapshot.player.position,
-        playTime: snapshot.metadata.playTime
       }
 
       // Store 1: Save slot metadata
@@ -123,11 +140,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
    * Load game state from a slot
    */
   async loadGame(slotId: string): Promise<GameSnapshot> {
-    if (!this.db) {
-      throw new Error('[IndexedDBAdapter] Database not initialized')
-    }
+    await this.ensureInitialized()
 
-    const transaction = this.db.transaction(['player-data'], 'readonly')
+    const transaction = this.db!.transaction(['player-data'], 'readonly')
 
     return new Promise((resolve, reject) => {
       const playerStore = transaction.objectStore('player-data')
@@ -173,11 +188,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
    * List all available save slots
    */
   async listSaveSlots(): Promise<SaveSlot[]> {
-    if (!this.db) {
-      throw new Error('[IndexedDBAdapter] Database not initialized')
-    }
+    await this.ensureInitialized()
 
-    const transaction = this.db.transaction(['save-slots'], 'readonly')
+    const transaction = this.db!.transaction(['save-slots'], 'readonly')
     const store = transaction.objectStore('save-slots')
     const index = store.index('timestamp')
 
@@ -206,11 +219,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
    * Check if a save slot exists
    */
   async saveSlotExists(slotId: string): Promise<boolean> {
-    if (!this.db) {
-      throw new Error('[IndexedDBAdapter] Database not initialized')
-    }
+    await this.ensureInitialized()
 
-    const transaction = this.db.transaction(['save-slots'], 'readonly')
+    const transaction = this.db!.transaction(['save-slots'], 'readonly')
     const store = transaction.objectStore('save-slots')
 
     return new Promise((resolve, reject) => {
@@ -231,11 +242,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
    * Get save slot metadata without loading full game
    */
   async getSaveSlotMetadata(slotId: string): Promise<SaveSlot | null> {
-    if (!this.db) {
-      throw new Error('[IndexedDBAdapter] Database not initialized')
-    }
+    await this.ensureInitialized()
 
-    const transaction = this.db.transaction(['save-slots'], 'readonly')
+    const transaction = this.db!.transaction(['save-slots'], 'readonly')
     const store = transaction.objectStore('save-slots')
 
     return new Promise((resolve, reject) => {
@@ -256,11 +265,9 @@ export class IndexedDBAdapter implements IPersistenceStorage, IPersistenceQuery 
    * Delete a save slot and all associated data
    */
   async deleteSaveSlot(slotId: string): Promise<void> {
-    if (!this.db) {
-      throw new Error('[IndexedDBAdapter] Database not initialized')
-    }
+    await this.ensureInitialized()
 
-    const transaction = this.db.transaction(
+    const transaction = this.db!.transaction(
       ['save-slots', 'player-data', 'world-data', 'inventory-data', 'environment-data'],
       'readwrite'
     )
