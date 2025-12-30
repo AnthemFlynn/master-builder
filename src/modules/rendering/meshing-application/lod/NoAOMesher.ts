@@ -1,10 +1,10 @@
 // src/modules/rendering/meshing-application/lod/NoAOMesher.ts
-import { ChunkMesher } from '../ChunkMesher'
+import { ChunkMesher } from '../../../meshing/application/ChunkMesher'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
-import { ILightingQuery } from '../../../environment/ports/ILightingQuery'
-import { VertexBuilder } from '../VertexBuilder'
+import { ILightingQuery } from '../../../../shared/ports/ILightingQuery'
+import { VertexBuilder } from '../../../meshing/application/VertexBuilder'
 import { ChunkVoxelQuery } from './adapters/ChunkVoxelQuery'
 import { ChunkLightingQuery } from './adapters/ChunkLightingQuery'
 
@@ -37,7 +37,7 @@ export class NoAOMesher {
     const mesher = new ChunkMesher(voxels, lighting, coord)
     mesher.buildMesh(vertexBuilder)
 
-    const allBuffers = vertexBuilder.getBuffers()
+    const { opaque, transparent } = vertexBuilder.getBuffers()
 
     // Combine all buffers into one
     // VertexBuilder creates separate buffers per material (blockType:faceIndex)
@@ -48,19 +48,22 @@ export class NoAOMesher {
     const indices: number[] = []
     let vertexOffset = 0
 
-    for (const buffer of allBuffers.values()) {
-      // Append vertex data
-      positions.push(...buffer.positions)
-      colors.push(...buffer.colors)
-      uvs.push(...buffer.uvs)
+    // Process both opaque and transparent buffers
+    for (const bufferMap of [opaque, transparent]) {
+      for (const buffer of bufferMap.values()) {
+        // Append vertex data
+        positions.push(...buffer.positions)
+        colors.push(...buffer.colors)
+        uvs.push(...buffer.uvs)
 
-      // Adjust indices by current vertex offset
-      for (let i = 0; i < buffer.indices.length; i++) {
-        indices.push(buffer.indices[i] + vertexOffset)
+        // Adjust indices by current vertex offset
+        for (let i = 0; i < buffer.indices.length; i++) {
+          indices.push(buffer.indices[i] + vertexOffset)
+        }
+
+        // Update vertex offset for next buffer
+        vertexOffset += buffer.positions.length / 3
       }
-
-      // Update vertex offset for next buffer
-      vertexOffset += buffer.positions.length / 3
     }
 
     return {

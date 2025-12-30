@@ -20,6 +20,12 @@ export class VertexBuilder {
   private worldOffsetZ: number
   // Cache for hash values to avoid recalculating per-vertex
   private hashCache = new Map<string, number>()
+  // Skip AO calculation for LOD meshers (performance optimization)
+  private skipAO = false
+
+  setSkipAO(skip: boolean): void {
+    this.skipAO = skip
+  }
 
   constructor(
     private voxels: IVoxelQuery,
@@ -155,9 +161,8 @@ export class VertexBuilder {
       // Smooth lighting: average 2×2 light samples around vertex for gradual transitions
       const light = this.getSmoothLight(worldX, worldY, worldZ, normal)
 
-      // Calculate AO using world coordinates
-      const aoRaw = this.getVertexAO(worldX, worldY, worldZ, normal)
-      const ao = 0.7 + (aoRaw / 6)
+      // Calculate AO using world coordinates (skip for LOD meshers)
+      const ao = this.skipAO ? 1.0 : 0.7 + (this.getVertexAO(worldX, worldY, worldZ, normal) / 6)
 
       // Apply lighting * AO
       const faceTint = this.getFaceTint(normal, worldX, worldY, worldZ)

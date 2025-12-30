@@ -1,5 +1,5 @@
 import { ChunkData } from '../../../../../shared/domain/ChunkData'
-import { ILightingQuery } from '../../../../environment/ports/ILightingQuery'
+import { ILightingQuery } from '../../../../../shared/ports/ILightingQuery'
 
 /**
  * Adapter that wraps a single ChunkData to implement ILightingQuery interface.

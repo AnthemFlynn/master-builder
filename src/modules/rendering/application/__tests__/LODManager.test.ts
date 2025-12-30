@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { LODManager } from '../LODManager'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
-import { PerformanceConfig } from '../../../game/infrastructure/PerformanceConfig'
+import { PerformanceConfig } from '../../../core/infrastructure/PerformanceConfig'
 import * as THREE from 'three'
 
 // Mock localStorage for Node.js test environment

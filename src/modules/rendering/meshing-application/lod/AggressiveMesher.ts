@@ -1,7 +1,7 @@
 // src/modules/rendering/meshing-application/lod/AggressiveMesher.ts
 import { ChunkData } from '../../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
-import { ILightingQuery } from '../../../environment/ports/ILightingQuery'
+import { ILightingQuery } from '../../../../shared/ports/ILightingQuery'
 
 /**
  * Level 2 LOD Mesher: Aggressive greedy meshing with 2×2 block merging

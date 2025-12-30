@@ -1,7 +1,7 @@
 // src/modules/rendering/meshing-application/lod/OuterShellMesher.ts
 import { ChunkData } from '../../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../../shared/ports/IVoxelQuery'
-import { ILightingQuery } from '../../../environment/ports/ILightingQuery'
+import { ILightingQuery } from '../../../../shared/ports/ILightingQuery'
 
 /**
  * Level 3 LOD Mesher: Renders only exposed surface blocks

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { PerformanceConfig } from '../../game/infrastructure/PerformanceConfig'
-import { LODMeshCache } from '../infrastructure/LODMeshCache'
+import { PerformanceConfig } from '../../core/infrastructure/PerformanceConfig'
+import { LODMeshCache } from '../../meshing/infrastructure/LODMeshCache'
 
 interface LODTransition {
   coord: ChunkCoordinate

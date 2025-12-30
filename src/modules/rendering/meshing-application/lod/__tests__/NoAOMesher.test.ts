@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll } from 'bun:test'
 import { NoAOMesher } from '../NoAOMesher'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../../../shared/domain/ChunkData'
-import { initializeBlockRegistry } from '../../../../blocks'
+import { initializeBlockRegistry } from '../../../../world/blocks'
 
 describe('NoAOMesher', () => {
   beforeAll(() => {
