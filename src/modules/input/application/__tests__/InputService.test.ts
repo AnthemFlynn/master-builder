@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test'
-import { GameState } from '../../../../shared/domain/GameState'
+import { GameState } from '../../domain/InputState'
 import { MockEventBus } from '../../../../test-utils'
 
 // Mock document for InputService (DOM API not available in Bun tests)
