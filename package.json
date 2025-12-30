@@ -8,7 +8,9 @@
     "dev": "bun build.ts && bun serve.ts",
     "preview": "bun build.ts && bun serve.ts",
     "serve": "bun serve.ts",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test src",
+    "test:watch": "bun test --watch src"
   },
   "dependencies": {
     "simplex-noise": "^4.0.3",

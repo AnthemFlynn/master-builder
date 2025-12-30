@@ -6,7 +6,7 @@ describe('WorldLoader', () => {
     const loader = new WorldLoader()
     const world = await loader.load('/worlds/default.json')
 
-    expect(world.meta.name).toBe('Sky Islands Test World')
+    expect(world.meta.name).toBe('Archipelago World')
     expect(world.meta.seed).toBe(42069)
     expect(world.features.length).toBeGreaterThan(0)
   })
