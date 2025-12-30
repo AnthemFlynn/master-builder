@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <link rel="icon" href="/src/static/mc.ico" />
+        <link rel="icon" href="/favicon.ico" />
         <link rel="stylesheet" href="/debug-overlay.css">
         <meta
             name="viewport"
@@ -16,13 +16,28 @@
     </head>
     <body>
         <script type="module" src="./src/main.ts"></script>
-        <div class="menu start">
-            <button id="play" class="button">Play</button>
+        <div id="splash" class="splash-screen">
+            <h1>Kingdom Builder</h1>
+            <p class="splash-subtitle">Click anywhere to continue</p>
+        </div>
+        <!-- Main Menu (no active session) -->
+        <div class="menu main-menu hidden">
+            <h2 class="menu-title">Kingdom Builder</h2>
+            <button id="play" class="button">New Game</button>
             <button id="save" class="button">Load Game</button>
-            <button id="setting" class="button">Setting</button>
-            <button id="feature" class="button">Guide</button>
-            <button id="exit" class="button">Exit</button>
+            <button id="setting" class="button">Settings</button>
+            <button id="feature" class="button">Controls</button>
             <footer class="footer">© 2025 Anthem Flynn</footer>
+        </div>
+
+        <!-- Pause Menu (active session exists) -->
+        <div class="menu pause-menu hidden">
+            <h2 class="menu-title">Paused</h2>
+            <button id="resume" class="button button-primary">Resume</button>
+            <button id="pause-save" class="button">Save Game</button>
+            <button id="pause-load" class="button">Load Game</button>
+            <button id="pause-setting" class="button">Settings</button>
+            <button id="exit-to-menu" class="button button-danger">Exit to Menu</button>
         </div>
 
         <div class="features hidden">
@@ -121,5 +136,8 @@
 
         <div class="save-modal hidden">Game Saved!</div>
         <div class="load-modal hidden">Game Loaded!</div>
+
+        <!-- New Menu System Container -->
+        <div id="kb-menu-root"></div>
     </body>
 </html>

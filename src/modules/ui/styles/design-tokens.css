@@ -1,0 +1,109 @@
+/* Kingdom Builder Design Tokens
+ * Medieval fantasy theme with wood, stone, and parchment textures
+ */
+
+:root {
+  /* Wood tones */
+  --wood-dark: #5D4037;
+  --wood-medium: #8D6E63;
+  --wood-light: #A1887F;
+  --wood-grain: linear-gradient(90deg, #5D4037 0%, #6D4C41 50%, #5D4037 100%);
+
+  /* Accent colors */
+  --parchment: #F5E6D3;
+  --parchment-dark: #E8D5BE;
+  --ribbon-red: #C62828;
+  --ribbon-red-dark: #8E0000;
+  --button-green: #4CAF50;
+  --button-green-dark: #2E7D32;
+  --button-purple: #7B5EAD;
+  --button-purple-dark: #5E4490;
+  --stone-blue: #78909C;
+  --stone-blue-dark: #546E7A;
+  --danger-red: #D32F2F;
+  --danger-red-dark: #B71C1C;
+
+  /* Text */
+  --text-light: #FFFFFF;
+  --text-dark: #3E2723;
+  --text-muted: #8D6E63;
+  --text-on-red: #FFEBEE;
+
+  /* Effects */
+  --glow-gold: 0 0 20px rgba(255, 193, 7, 0.5);
+  --glow-green: 0 0 20px rgba(76, 175, 80, 0.5);
+  --glow-purple: 0 0 20px rgba(123, 94, 173, 0.5);
+  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-button: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.3);
+
+  /* Borders */
+  --border-wood: 4px solid var(--wood-dark);
+  --border-wood-thick: 8px solid var(--wood-dark);
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+
+  /* Typography */
+  --font-family: 'Minecraft', 'Courier New', monospace;
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 32px;
+  --font-size-title: 48px;
+
+  /* Animation */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* Z-Index layers */
+  --z-base: 1;
+  --z-panel: 10;
+  --z-dropdown: 20;
+  --z-modal-backdrop: 100;
+  --z-modal: 110;
+  --z-loading: 200;
+  --z-toast: 300;
+}
+
+/* Animation keyframes */
+@keyframes kb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes kb-glow-pulse {
+  0%, 100% { box-shadow: var(--glow-gold); }
+  50% { box-shadow: 0 0 30px rgba(255, 193, 7, 0.8); }
+}
+
+@keyframes kb-slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes kb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes kb-scale-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes kb-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

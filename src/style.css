@@ -15,6 +15,45 @@ body {
   font-display: swap;
 }
 
+/* Splash Screen */
+.splash-screen {
+  z-index: 100;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  cursor: pointer;
+  user-select: none;
+}
+
+.splash-screen h1 {
+  font-size: 4rem;
+  color: #e94560;
+  text-shadow: 0 0 30px rgba(233, 69, 96, 0.5);
+  margin-bottom: 20px;
+}
+
+.splash-screen .splash-subtitle {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.7);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.splash-screen.hidden {
+  display: none;
+}
+
 .start {
   /* background-image: url('/master-builder-splash.png'); Missing */
   background-repeat: no-repeat;
@@ -71,6 +110,50 @@ body {
   border-bottom: 2px solid #004e00;
   border-right: 2px solid #004e00;
   box-shadow: 0 0 0 2px white;
+}
+
+/* Primary Button (Resume, Enter) */
+.button.button-primary {
+  background-color: #218306;
+  border-left: 2px solid #17cd07;
+  border-top: 2px solid #17cd07;
+  border-bottom: 2px solid #004e00;
+  border-right: 2px solid #004e00;
+}
+
+.button.button-primary:hover {
+  background-color: #2aad08;
+  border-left: 2px solid #33ff22;
+  border-top: 2px solid #33ff22;
+  border-bottom: 2px solid #006f00;
+  border-right: 2px solid #006f00;
+  box-shadow: 0 0 0 2px white;
+}
+
+/* Danger Button (Exit) */
+.button.button-danger {
+  background-color: #8b0000;
+  border-left: 2px solid #cc3333;
+  border-top: 2px solid #cc3333;
+  border-bottom: 2px solid #4e0000;
+  border-right: 2px solid #4e0000;
+}
+
+.button.button-danger:hover {
+  background-color: #a00000;
+  border-left: 2px solid #ff4444;
+  border-top: 2px solid #ff4444;
+  border-bottom: 2px solid #600000;
+  border-right: 2px solid #600000;
+  box-shadow: 0 0 0 2px white;
+}
+
+/* Menu Title */
+.menu-title {
+  color: #e94560;
+  font-size: 2rem;
+  margin-bottom: 30px;
+  text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
 }
 
 .footer {
