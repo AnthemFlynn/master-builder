@@ -29,9 +29,6 @@ export class GenerationOrchestrator {
     const minY = Math.max(0, context.minY)
     const maxY = Math.min(255, context.maxY)
 
-    // DIAGNOSTIC: Count block types
-    const blockCounts = new Map<number, number>()
-
     // Copy blocks to chunk using accessor methods (only non-empty Y range)
     for (let x = 0; x < 24; x++) {
       for (let y = minY; y <= maxY; y++) {
@@ -39,17 +36,9 @@ export class GenerationOrchestrator {
           const blockType = context.getBlock(x, y, z)
           if (blockType !== 0) {  // Skip air for efficiency
             chunk.setBlockId(x, y, z, blockType)
-            blockCounts.set(blockType, (blockCounts.get(blockType) || 0) + 1)
           }
         }
       }
-    }
-
-    // CRITICAL: Log if ANY glass blocks are generated
-    const glassCount = blockCounts.get(12) || 0  // BlockType.glass = 12
-    if (glassCount > 0) {
-      console.error(`🚨 GLASS BLOCKS GENERATED in chunk (${context.chunkCoord.x}, ${context.chunkCoord.z}): ${glassCount} blocks`)
-      console.error(`  All block types:`, Array.from(blockCounts.entries()).map(([type, count]) => `Type${type}:${count}`).join(', '))
     }
 
     return chunk

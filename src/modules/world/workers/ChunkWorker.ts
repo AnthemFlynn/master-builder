@@ -14,10 +14,17 @@ import { OrePass } from '../generation/passes/OrePass'
 // Initialize blocks definitions
 initializeBlockRegistry()
 
-// Initialize world loader and orchestrator
-let orchestrator: GenerationOrchestrator | null = null
+// Initialize world loader and orchestrator using promise for proper async handling
+let orchestratorPromise: Promise<GenerationOrchestrator> | null = null
 
-async function initializeOrchestrator() {
+function getOrchestrator(): Promise<GenerationOrchestrator> {
+  if (!orchestratorPromise) {
+    orchestratorPromise = initializeOrchestrator()
+  }
+  return orchestratorPromise
+}
+
+async function initializeOrchestrator(): Promise<GenerationOrchestrator> {
   const loader = new WorldLoader()
   const worldDef = await loader.load('/worlds/default.json')
 
@@ -30,7 +37,7 @@ async function initializeOrchestrator() {
   // 5. BiomePass - Apply surface materials based on climate
   // 6. TreePass - Place trees based on biome
   // 7. DecorationPass - Place grass, flowers, mushrooms, cacti
-  orchestrator = new GenerationOrchestrator(worldDef, [
+  const orchestrator = new GenerationOrchestrator(worldDef, [
     new TerrainPass(),
     new WaterPass(),
     new CavePass(),
@@ -42,10 +49,12 @@ async function initializeOrchestrator() {
 
   console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
   console.log(`🌍 Generation pipeline: Terrain → Water → Caves → Ores → Biomes → Trees → Decorations`)
+
+  return orchestrator
 }
 
-// Initialize on worker start
-initializeOrchestrator()
+// Start initialization immediately
+getOrchestrator()
 
 self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   try {
@@ -54,15 +63,8 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
     if (msg.type === 'GENERATE_CHUNK') {
       const startTime = performance.now()
 
-      // Wait for orchestrator if still initializing (with timeout)
-      const MAX_WAIT_MS = 5000
-      const waitStart = Date.now()
-      while (!orchestrator) {
-        if (Date.now() - waitStart > MAX_WAIT_MS) {
-          throw new Error('Orchestrator initialization timeout (5s)')
-        }
-        await new Promise(resolve => setTimeout(resolve, 10))
-      }
+      // Wait for orchestrator initialization (proper promise-based, no polling)
+      const orchestrator = await getOrchestrator()
 
       const { x, z, renderDistance } = msg
       const coord = new ChunkCoordinate(x, z)
