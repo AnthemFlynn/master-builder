@@ -2,7 +2,7 @@ import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { WorkerMessage, MainMessage } from './types'
 import { LightingPipeline } from '../application/voxel-lighting/LightingPipeline'
-import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
+import { WorkerVoxelQuery } from './WorkerVoxelQuery'
 import { WorkerLightStorage } from './WorkerLightStorage'
 import { blockRegistry, initializeBlockRegistry } from '../../../modules/blocks'
 
