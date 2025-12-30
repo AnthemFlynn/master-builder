@@ -25,11 +25,13 @@ import { DEFAULT_WORLD_PRESET_ID } from '../../world/domain/WorldConfig'
 import { getWorldPreset } from '../../world/domain/WorldPreset'
 import { GameState } from '../../input/domain/InputState'
 import { UIState } from '../../ui/domain/UIState'
+import { PerformanceMonitor } from '../infrastructure/PerformanceMonitor'
 
 export class GameOrchestrator {
   // Infrastructure
   public commandBus: CommandBus
   public eventBus: EventBus
+  private performanceMonitor: PerformanceMonitor
 
   // Services (all 10 hexagonal modules)
   private worldService: WorldService
@@ -47,9 +49,20 @@ export class GameOrchestrator {
 
   private currentChunk = new ChunkCoordinate(0, 0)
   private previousChunk = new ChunkCoordinate(0, 0)
-  private renderDistance = 3
+  private renderDistance = 5
   private lastUpdateTime = performance.now()
+  private lastChunkUnloadTime = performance.now()
+  private chunkUnloadInterval = 5000 // Unload chunks every 5 seconds
   private cameraControls: PointerLockControls
+
+  // Chunk prioritization weights
+  private readonly PRIORITY_DISTANCE_MULTIPLIER = 10
+  private readonly PRIORITY_VISIBLE_BONUS = -50
+  private readonly PRIORITY_FORWARD_BONUS = -20
+
+  // FPS smoothing
+  private frameTimeHistory: number[] = []
+  private readonly FPS_SAMPLE_SIZE = 60
 
   constructor(
     private scene: THREE.Scene,
@@ -61,6 +74,14 @@ export class GameOrchestrator {
     // Create infrastructure
     this.commandBus = new CommandBus()
     this.eventBus = new EventBus()
+    this.performanceMonitor = new PerformanceMonitor()
+
+    // Make it available on window.debug
+    ;(window as any).debug = {
+      ...(window as any).debug,
+      getMetrics: () => this.performanceMonitor.getFrameMetrics(),
+      getLastChunk: () => this.performanceMonitor.getLastChunkMetrics()
+    }
 
     // Create all services (in dependency order)
     this.worldService = new WorldService(this.eventBus)
@@ -72,7 +93,7 @@ export class GameOrchestrator {
     this.uiService = new UIService(this.eventBus, {
       requestPointerLock: () => this.cameraControls.lock(),
       exitPointerLock: () => this.cameraControls.unlock()
-    }, this.inventoryService)
+    }, this.inventoryService, this.performanceMonitor)
     this.audioService = new AudioService(camera, this.eventBus)
     this.interactionService = new InteractionService(this.commandBus, this.eventBus, scene, this.worldService)
     this.environmentService = new EnvironmentService(scene, camera, this.eventBus)
@@ -150,6 +171,8 @@ export class GameOrchestrator {
   }
 
   update(): void {
+    const frameStart = performance.now()
+
     // Calculate delta time
     const now = performance.now()
     const deltaTime = Math.min((now - this.lastUpdateTime) / 1000, 0.1) // Cap at 100ms
@@ -171,8 +194,53 @@ export class GameOrchestrator {
       this.previousChunk = newChunk
     }
 
+    // Periodically unload chunks that are outside render distance
+    if (now - this.lastChunkUnloadTime > this.chunkUnloadInterval) {
+      const unloadedCount = this.worldService.unloadChunksOutsideRadius(newChunk, this.renderDistance)
+      if (unloadedCount > 0) {
+        console.log(`🗑️ Unloaded ${unloadedCount} chunks outside render distance`)
+      }
+      this.lastChunkUnloadTime = now
+    }
+
     // Process meshing queue
-    this.meshingService.processDirtyQueue()
+    const meshingResult = this.meshingService.processDirtyQueue()
+
+    // Record frame metrics with rolling average for FPS
+    const frameEnd = performance.now()
+    const frameTime = frameEnd - frameStart
+
+    // Update rolling average
+    this.frameTimeHistory.push(frameTime)
+    if (this.frameTimeHistory.length > this.FPS_SAMPLE_SIZE) {
+      this.frameTimeHistory.shift()
+    }
+
+    // Calculate average FPS from recent frames
+    const avgFrameTime = this.frameTimeHistory.reduce((sum, ft) => sum + ft, 0) / this.frameTimeHistory.length
+    const fps = 1000 / avgFrameTime
+
+    this.performanceMonitor.recordFrameMetrics({
+      fps,
+      frameTimeMs: avgFrameTime,
+      chunksProcessed: meshingResult.chunksProcessed,
+      budgetUsedMs: meshingResult.budgetUsedMs
+    })
+
+    this.performanceMonitor.setQueueDepth('meshing', this.meshingService.getQueueDepth())
+    this.performanceMonitor.setWorkerUtilization(
+      'lighting',
+      this.environmentService.getWorkerUtilization().busy,
+      this.environmentService.getWorkerUtilization().total
+    )
+    this.performanceMonitor.setWorkerUtilization(
+      'meshing',
+      this.meshingService.getWorkerUtilization().busy,
+      this.meshingService.getWorkerUtilization().total
+    )
+
+    // Update UI (including debug overlay)
+    this.uiService.update()
   }
 
   private updatePlayerMovement(deltaTime: number): void {
@@ -221,22 +289,100 @@ export class GameOrchestrator {
     const distance = this.renderDistance
     const chunksToLoad: ChunkCoordinate[] = []
 
+    // Generate grid of chunks
     for (let x = -distance; x <= distance; x++) {
       for (let z = -distance; z <= distance; z++) {
         chunksToLoad.push(new ChunkCoordinate(centerChunk.x + x, centerChunk.z + z))
       }
     }
 
-    // Sort by distance from center (Radial Loading)
-    chunksToLoad.sort((a, b) => {
-        const distA = Math.pow(a.x - centerChunk.x, 2) + Math.pow(a.z - centerChunk.z, 2)
-        const distB = Math.pow(b.x - centerChunk.x, 2) + Math.pow(b.z - centerChunk.z, 2)
-        return distA - distB
-    })
+    // Prioritize by visibility and distance
+    const prioritized = this.prioritizeChunks(chunksToLoad, this.camera)
 
-    for (const coord of chunksToLoad) {
-        this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
+    // Send commands in priority order
+    for (const coord of prioritized) {
+      this.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
     }
+  }
+
+  private prioritizeChunks(chunks: ChunkCoordinate[], camera: THREE.Camera): ChunkCoordinate[] {
+    // Create frustum from camera
+    const frustum = new THREE.Frustum()
+    const projScreenMatrix = new THREE.Matrix4()
+    projScreenMatrix.multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse
+    )
+    frustum.setFromProjectionMatrix(projScreenMatrix)
+
+    // Sort by priority score
+    return chunks.sort((a, b) => {
+      const scoreA = this.calculatePriority(a, camera, frustum)
+      const scoreB = this.calculatePriority(b, camera, frustum)
+      return scoreA - scoreB
+    })
+  }
+
+  private calculatePriority(
+    coord: ChunkCoordinate,
+    camera: THREE.Camera,
+    frustum: THREE.Frustum
+  ): number {
+    // Factor 1: Distance (0-100)
+    const centerChunk = this.worldService.worldToChunkCoord(
+      camera.position.x,
+      camera.position.z
+    )
+    const dx = coord.x - centerChunk.x
+    const dz = coord.z - centerChunk.z
+    const distanceScore = Math.sqrt(dx * dx + dz * dz) * this.PRIORITY_DISTANCE_MULTIPLIER
+
+    // Factor 2: Frustum visibility (negative bonus if visible)
+    const chunkBox = this.getChunkBoundingBox(coord)
+    const visibilityScore = frustum.intersectsBox(chunkBox) ? this.PRIORITY_VISIBLE_BONUS : 0
+
+    // Factor 3: Movement direction (negative bonus if ahead)
+    const forwardScore = this.isInMovementDirection(coord, camera) ? this.PRIORITY_FORWARD_BONUS : 0
+
+    return distanceScore + visibilityScore + forwardScore
+  }
+
+  private getChunkBoundingBox(coord: ChunkCoordinate): THREE.Box3 {
+    const chunkSize = 24
+    const chunkHeight = 256
+    const worldX = coord.x * chunkSize
+    const worldZ = coord.z * chunkSize
+
+    return new THREE.Box3(
+      new THREE.Vector3(worldX, 0, worldZ),
+      new THREE.Vector3(worldX + chunkSize, chunkHeight, worldZ + chunkSize)
+    )
+  }
+
+  private isInMovementDirection(coord: ChunkCoordinate, camera: THREE.Camera): boolean {
+    const chunkSize = 24
+    const centerChunk = this.worldService.worldToChunkCoord(
+      camera.position.x,
+      camera.position.z
+    )
+
+    // Get camera forward direction (horizontal plane only)
+    const forward = new THREE.Vector3(0, 0, -1)
+    forward.applyQuaternion(camera.quaternion)
+    forward.y = 0
+    forward.normalize()
+
+    // Get direction to chunk center
+    const chunkCenter = new THREE.Vector3(
+      coord.x * chunkSize + chunkSize / 2,
+      0,
+      coord.z * chunkSize + chunkSize / 2
+    )
+    const cameraPos = new THREE.Vector3(camera.position.x, 0, camera.position.z)
+    const toChunk = chunkCenter.sub(cameraPos).normalize()
+
+    // Check if chunk is in forward direction (dot product > 0.5 = ~60 degrees)
+    return forward.dot(toChunk) > 0.5
   }
 
   private setupInteractionListeners(): void {
