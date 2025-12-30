@@ -1,12 +1,18 @@
 import * as THREE from 'three'
 import { blockRegistry } from '../../../modules/blocks'
 
+export interface MaterialSystemOptions {
+  /** Maximum number of face materials to cache (default: 100) */
+  maxCacheSize?: number
+}
+
 export class MaterialSystem {
   private materials = new Map<string, THREE.Material>()
   private faceMaterials = new Map<string, THREE.Material>()
-  private readonly maxCacheSize = 100 // LRU cache limit
+  private readonly maxCacheSize: number
 
-  constructor() {
+  constructor(options: MaterialSystemOptions = {}) {
+    this.maxCacheSize = options.maxCacheSize ?? 100
     this.materials.set('chunk', new THREE.MeshStandardMaterial({
       color: 0xffffff,
       vertexColors: true,
