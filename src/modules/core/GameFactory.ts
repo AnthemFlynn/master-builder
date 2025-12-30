@@ -14,7 +14,7 @@ import { EventBus } from '../../shared/infrastructure/EventBus'
 
 // Services (all hexagonal modules)
 import { WorldService } from '../world/application/WorldService'
-import { MeshingService } from '../rendering/meshing-application/MeshingService'
+import { MeshingService } from '../meshing/application/MeshingService'
 import { RenderingService } from '../rendering/application/RenderingService'
 import { PlayerService } from '../player/application/PlayerService'
 import { PhysicsService } from '../physics/application/PhysicsService'

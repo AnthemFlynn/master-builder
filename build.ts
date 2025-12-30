@@ -12,7 +12,7 @@ try {
 const workerEntrypoints = [
   "./src/modules/world/workers/ChunkWorker.ts",
   "./src/modules/environment/workers/LightingWorker.ts",
-  "./src/modules/rendering/workers/MeshingWorker.ts",
+  "./src/modules/meshing/workers/MeshingWorker.ts",
   "./src/modules/physics/workers/PhysicsWorker.ts",
 ];
 
