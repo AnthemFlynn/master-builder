@@ -80,7 +80,7 @@ export class GameOrchestrator {
           this.generateChunksInRenderDistance(centerChunk)
         },
         hasLoadedChunks: () => this.services.worldService.getLoadedChunkCount() > 0,
-        getCurrentWorldId: () => 'default' // TODO: Multi-world support in Phase 2
+        getCurrentWorldId: () => 'default' // See #33 for multi-world support
       }
     })
 

@@ -18,21 +18,21 @@ const renderer = core.renderer
 // Initialize game (all modules)
 const game = new GameOrchestrator(scene, camera)
 
-// Initialize async services (persistence, world manager, etc.)
-;(async () => {
+// Initialize async services and start game
+async function initializeGame() {
   try {
     await initializeAsyncServices(game.getServices(), renderer)
-    startGame()
+    setupDebugHelpers()
+    console.log('✅ Game initialized - all hexagonal modules operational')
   } catch (error) {
     console.error('[main.ts] Error during async initialization:', error)
     throw error
   }
-})()
+}
 
-function startGame() {
+function setupDebugHelpers() {
+  if (typeof window === 'undefined') return
 
-// Expose for debugging
-if (typeof window !== 'undefined') {
   const global = window as any
 
   if (typeof global.game === 'function') {
@@ -67,7 +67,9 @@ if (typeof window !== 'undefined') {
   console.log('🐛 Debug: window.debug.enableTracing()')
   console.log('💾 Debug: window.debug.save() / window.debug.load() / window.debug.listSaves()')
 }
-}
+
+// Start initialization
+initializeGame().catch(console.error)
 
 // Animation loop with frame budget enforcement
 const FRAME_BUDGET_MS = 16.67 // 60fps target
@@ -121,5 +123,3 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
 })
-
-console.log('✅ Game initialized - all hexagonal modules operational')
