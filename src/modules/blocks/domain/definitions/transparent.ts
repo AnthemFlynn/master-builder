@@ -2,7 +2,7 @@ import { BlockDefinition, BlockCategory } from '../types'
 
 export const TRANSPARENT_BLOCKS: BlockDefinition[] = [
   {
-    id: 10,  // BlockType.glass
+    id: 12,  // BlockType.glass
     name: 'Glass',
     category: BlockCategory.TRANSPARENT,
     textures: 'glass.png',

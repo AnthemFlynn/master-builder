@@ -1,26 +1,28 @@
-export type MeshingRequest =
+export type MeshingRequest = 
   | {
       type: 'GEN_MESH'
       x: number
       z: number
-      lodLevel: 0 | 1 | 2 | 3
-      priority: number
       neighborVoxels: Record<string, ArrayBuffer>
       neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
     }
+
+// Geometry buffer structure for a single material
+export type GeometryBuffers = {
+  positions: ArrayBuffer
+  colors: ArrayBuffer
+  uvs: ArrayBuffer
+  indices: ArrayBuffer
+}
 
 export type MeshingResponse =
   | {
       type: 'MESH_GENERATED'
       x: number
       z: number
-      lodLevel: 0 | 1 | 2 | 3
-      geometry: Record<string, {
-        positions: ArrayBuffer
-        colors: ArrayBuffer
-        uvs: ArrayBuffer
-        indices: ArrayBuffer
-      }>
+      // Separate opaque and transparent geometry for two-pass rendering
+      opaqueGeometry: Record<string, GeometryBuffers>
+      transparentGeometry: Record<string, GeometryBuffers>
       timingMs: number
     }
 

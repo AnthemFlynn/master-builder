@@ -7,7 +7,15 @@ export class ThreeSkyAdapter {
   private sunLight: THREE.DirectionalLight
   private sunMesh: THREE.Mesh
   private lastUpdate = 0
-  
+  private isUnderwater = false
+
+  // Underwater fog settings
+  private readonly UNDERWATER_FOG_COLOR = 0x1a5f7a  // Teal blue
+  private readonly UNDERWATER_FOG_NEAR = 0.5
+  private readonly UNDERWATER_FOG_FAR = 30  // Very short visibility underwater
+  private readonly NORMAL_FOG_NEAR = 1
+  private readonly NORMAL_FOG_FAR = 400
+
   // Location (Default: San Francisco)
   latitude: number = 37.7749
   longitude: number = -122.4194
@@ -17,6 +25,25 @@ export class ThreeSkyAdapter {
   sunsetTod: number = 18
   goldenHourMorning: number = 7
   goldenHourEvening: number = 17
+
+  // Pre-allocated colors to avoid GC pressure (reused every frame)
+  private readonly skyColorResult = new THREE.Color()
+  private readonly sunColorResult = new THREE.Color()
+  private readonly groundColorResult = new THREE.Color()
+  private readonly lerpColorA = new THREE.Color()
+  private readonly lerpColorB = new THREE.Color()
+
+  // Pre-defined color constants (avoid creating on each call)
+  private readonly COLOR_NIGHT = 0x0a1929
+  private readonly COLOR_DAY = 0x99ddff
+  private readonly COLOR_GOLDEN_MORNING_START = 0xff9d6e
+  private readonly COLOR_GOLDEN_MORNING_END = 0xffc896
+  private readonly COLOR_SUNSET_START = 0xff6b35
+  private readonly COLOR_SUNSET_END = 0xcc4125
+  private readonly COLOR_GROUND_NIGHT = 0x111111
+  private readonly COLOR_GROUND_DAY = 0x554433
+  private readonly COLOR_SUN_LOW = 0xffaa66
+  private readonly COLOR_SUN_HIGH = 0xffffff
 
   constructor(
     private scene: THREE.Scene, 
@@ -65,6 +92,28 @@ export class ThreeSkyAdapter {
     this.updateLighting()
   }
 
+  /**
+   * Set underwater mode - changes fog to blue tint with short visibility
+   */
+  setUnderwater(underwater: boolean): void {
+    if (this.isUnderwater === underwater) return
+    this.isUnderwater = underwater
+
+    if (underwater) {
+      // Switch to underwater fog
+      const underwaterColor = new THREE.Color(this.UNDERWATER_FOG_COLOR)
+      this.scene.fog = new THREE.Fog(underwaterColor, this.UNDERWATER_FOG_NEAR, this.UNDERWATER_FOG_FAR)
+      this.scene.background = underwaterColor
+    } else {
+      // Restore normal sky fog
+      this.updateLighting()
+    }
+  }
+
+  getIsUnderwater(): boolean {
+    return this.isUnderwater
+  }
+
   updateLighting(): void {
     // 1. Calculate Sun Times for current date
     const date = this.timeCycle.getDate()
@@ -74,28 +123,36 @@ export class ThreeSkyAdapter {
     const skyColor = this.calculateSkyColor()
     const ambientIntensity = this.calculateAmbientIntensity()
 
-    // 3. Apply to Scene
-    this.scene.background = skyColor
-    
-    if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
-      this.scene.fog.color = skyColor
-    } else {
-      this.scene.fog = new THREE.Fog(skyColor, 1, 400)
+    // 3. Apply to Scene (skip if underwater - underwater has its own fog)
+    if (!this.isUnderwater) {
+      this.scene.background = skyColor
+
+      if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
+        this.scene.fog.color = skyColor
+        this.scene.fog.near = this.NORMAL_FOG_NEAR
+        this.scene.fog.far = this.NORMAL_FOG_FAR
+      } else {
+        this.scene.fog = new THREE.Fog(skyColor, this.NORMAL_FOG_NEAR, this.NORMAL_FOG_FAR)
+      }
     }
 
     // Update Hemisphere Light
     const hemiLight = this.scene.children.find(c => c instanceof THREE.HemisphereLight) as THREE.HemisphereLight
     if (hemiLight) {
         hemiLight.intensity = ambientIntensity
-        hemiLight.color = skyColor // Sky color comes from above
-        
+        hemiLight.color.copy(skyColor) // Sky color comes from above
+
         // Ground color: Darker version of sky or earthy tone?
         // Simple heuristic: Mix sky with ground tone
         // Night: Black/Dark Blue. Day: Brown/Green.
         const isNight = ambientIntensity < 0.3
-        hemiLight.groundColor = isNight 
-            ? new THREE.Color(0x111111) 
-            : new THREE.Color(0x554433).lerp(skyColor, 0.5) // Stronger sky tint, brighter earth
+        if (isNight) {
+            hemiLight.groundColor.setHex(this.COLOR_GROUND_NIGHT)
+        } else {
+            // Reuse pre-allocated color for lerp
+            this.groundColorResult.setHex(this.COLOR_GROUND_DAY)
+            hemiLight.groundColor.copy(this.groundColorResult.lerp(skyColor, 0.5))
+        }
     }
 
     // Point lights (fill)
@@ -137,32 +194,44 @@ export class ThreeSkyAdapter {
     const sunsetEnd = this.sunsetTod + 1
 
     // Night
-    if (time < sunriseStart || time >= sunsetEnd) return new THREE.Color(0x0a1929)
+    if (time < sunriseStart || time >= sunsetEnd) {
+      return this.skyColorResult.setHex(this.COLOR_NIGHT)
+    }
 
     // Sunrise
     if (time >= sunriseStart && time < sunriseEnd) {
       const t = (time - sunriseStart) / (sunriseEnd - sunriseStart)
       // Golden Hour check
       if (time >= this.goldenHourMorning && time < this.sunriseTod + 0.5) {
-         return new THREE.Color().lerpColors(new THREE.Color(0xff9d6e), new THREE.Color(0xffc896), t)
+        this.lerpColorA.setHex(this.COLOR_GOLDEN_MORNING_START)
+        this.lerpColorB.setHex(this.COLOR_GOLDEN_MORNING_END)
+        return this.skyColorResult.lerpColors(this.lerpColorA, this.lerpColorB, t)
       }
-      return new THREE.Color().lerpColors(new THREE.Color(0x0a1929), new THREE.Color(0x99ddff), t)
+      this.lerpColorA.setHex(this.COLOR_NIGHT)
+      this.lerpColorB.setHex(this.COLOR_DAY)
+      return this.skyColorResult.lerpColors(this.lerpColorA, this.lerpColorB, t)
     }
 
     // Day
-    if (time >= sunriseEnd && time < sunsetStart) return new THREE.Color(0x99ddff) // Brighter Sky
+    if (time >= sunriseEnd && time < sunsetStart) {
+      return this.skyColorResult.setHex(this.COLOR_DAY)
+    }
 
     // Sunset
     if (time >= sunsetStart && time < sunsetEnd) {
       const t = (time - sunsetStart) / (sunsetEnd - sunsetStart)
       // Golden Hour check
       if (time >= this.sunsetTod - 0.5 && time < this.goldenHourEvening) {
-         return new THREE.Color().lerpColors(new THREE.Color(0xff6b35), new THREE.Color(0xcc4125), t)
+        this.lerpColorA.setHex(this.COLOR_SUNSET_START)
+        this.lerpColorB.setHex(this.COLOR_SUNSET_END)
+        return this.skyColorResult.lerpColors(this.lerpColorA, this.lerpColorB, t)
       }
-      return new THREE.Color().lerpColors(new THREE.Color(0x99ddff), new THREE.Color(0x0a1929), t)
+      this.lerpColorA.setHex(this.COLOR_DAY)
+      this.lerpColorB.setHex(this.COLOR_NIGHT)
+      return this.skyColorResult.lerpColors(this.lerpColorA, this.lerpColorB, t)
     }
 
-    return new THREE.Color(0x99ddff)
+    return this.skyColorResult.setHex(this.COLOR_DAY)
   }
 
   private calculateAmbientIntensity(): number {
@@ -231,10 +300,14 @@ export class ThreeSkyAdapter {
 
   private getSunColor(altitude: number): THREE.Color {
     const deg = altitude * 180 / Math.PI
-    if (deg <= 0) return new THREE.Color(0xffffff)
-    if (deg < 15) {
-      return new THREE.Color().lerpColors(new THREE.Color(0xffaa66), new THREE.Color(0xffffff), deg / 15)
+    if (deg <= 0) {
+      return this.sunColorResult.setHex(this.COLOR_SUN_HIGH)
     }
-    return new THREE.Color(0xffffff)
+    if (deg < 15) {
+      this.lerpColorA.setHex(this.COLOR_SUN_LOW)
+      this.lerpColorB.setHex(this.COLOR_SUN_HIGH)
+      return this.sunColorResult.lerpColors(this.lerpColorA, this.lerpColorB, deg / 15)
+    }
+    return this.sunColorResult.setHex(this.COLOR_SUN_HIGH)
   }
 }

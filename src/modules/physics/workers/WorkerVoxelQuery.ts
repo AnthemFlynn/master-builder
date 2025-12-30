@@ -40,11 +40,18 @@ export class WorkerVoxelQuery implements IVoxelQuery {
         const def = blockRegistry.get(type)
         if (!def) return 15 // Unknown = Opaque
 
-        // Use collidable flag: non-collidable blocks (glass, leaves) let light through
-        if (!def.collidable) {
-            return def.lightAbsorption ? Math.floor(def.lightAbsorption * 15) : 1
+        // Use transparent property to determine light transmission
+        // Glass (lightAbsorption: 0.0) lets all light through
+        // Leaves (lightAbsorption: 0.2) let most light through
+        // Water (lightAbsorption: 0.15) slightly absorbs light
+        if (def.transparent) {
+            // Convert 0.0-1.0 absorption to 0-15 scale
+            // lightAbsorption: 0.0 = fully transparent (returns 0)
+            // lightAbsorption: 1.0 = fully opaque (returns 15)
+            const absorption = def.lightAbsorption ?? 0.1 // Default slight absorption
+            return Math.floor(absorption * 15)
         }
-        return 15
+        return 15 // Opaque blocks fully absorb light
     }
     
     getChunk(coord: ChunkCoordinate): ChunkData | null {
@@ -53,5 +60,14 @@ export class WorkerVoxelQuery implements IVoxelQuery {
 
     clear(): void {
         this.chunks.clear()
+    }
+
+    /**
+     * Check if a block is water
+     */
+    isBlockWater(worldX: number, worldY: number, worldZ: number): boolean {
+        const blockType = this.getBlockType(worldX, worldY, worldZ)
+        // Water is BlockType 16
+        return blockType === 16
     }
 }

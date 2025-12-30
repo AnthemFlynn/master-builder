@@ -2,96 +2,94 @@ import * as THREE from 'three'
 import { blockRegistry } from '../../../modules/blocks'
 
 export class MaterialSystem {
-  private materials = new Map<string, THREE.Material>()
-  private faceMaterials = new Map<string, THREE.Material>()
-  private readonly maxCacheSize = 100 // LRU cache limit
+  // Separate caches for opaque and transparent materials
+  private opaqueMaterials = new Map<string, THREE.Material>()
+  private transparentMaterials = new Map<string, THREE.Material>()
+  private readonly maxCacheSize = 500
 
-  constructor() {
-    this.materials.set('chunk', new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      vertexColors: true,
-      flatShading: true,
-      side: THREE.DoubleSide
-    }))
-  }
+  constructor() {}
 
-  private createChunkMaterial(): THREE.Material {
-    const material = blockRegistry.createMaterial(0)
-    material.vertexColors = true
-    material.side = THREE.DoubleSide
-    return material
-  }
-
-  getChunkMaterial(): THREE.Material {
-    return this.materials.get('chunk')!
-  }
-
-  getChunkMaterialWithOpacity(opacity: number = 1.0): THREE.Material {
-    const baseMaterial = this.materials.get('chunk')!
-    const material = baseMaterial.clone()
-
-    if (opacity < 1.0) {
-      material.transparent = true
-      material.opacity = opacity
-      material.depthWrite = false  // Don't write depth for transparent objects
-    }
-
-    return material
-  }
-
-  setMaterialOpacity(material: THREE.Material, opacity: number): void {
-    material.opacity = opacity
-    material.transparent = opacity < 1.0
-    material.depthWrite = opacity === 1.0
-    material.needsUpdate = true
-  }
-
-  disposeMaterial(material: THREE.Material): void {
-    material.dispose()
-  }
-
-  getMaterial(materialKey: string): THREE.Material {
-    let mat = this.faceMaterials.get(materialKey)
-
+  /**
+   * Get material for OPAQUE geometry (solid blocks)
+   */
+  getOpaqueMaterial(materialKey: string): THREE.Material {
+    let mat = this.opaqueMaterials.get(materialKey)
     if (mat) {
-      // LRU: Move to end of Map (most recently used)
-      this.faceMaterials.delete(materialKey)
-      this.faceMaterials.set(materialKey, mat)
+      // LRU: Move to end
+      this.opaqueMaterials.delete(materialKey)
+      this.opaqueMaterials.set(materialKey, mat)
       return mat
     }
 
-    // Material not in cache, create new one
     const [blockTypeStr, faceIndexStr] = materialKey.split(':')
     const blockType = Number(blockTypeStr)
     const faceIndex = Number(faceIndexStr)
+
     mat = blockRegistry.createMaterialForFace(blockType, faceIndex)
     mat.vertexColors = true
     mat.side = THREE.FrontSide
+    mat.transparent = false
+    mat.depthWrite = true
 
-    // LRU eviction: Remove oldest entry if cache is full
-    if (this.faceMaterials.size >= this.maxCacheSize) {
-      const oldestKey = this.faceMaterials.keys().next().value
-      const oldestMaterial = this.faceMaterials.get(oldestKey)
-
-      if (oldestMaterial) {
-        oldestMaterial.dispose()
-        this.faceMaterials.delete(oldestKey)
-      }
-    }
-
-    this.faceMaterials.set(materialKey, mat)
+    this.evictOldest(this.opaqueMaterials)
+    this.opaqueMaterials.set(materialKey, mat)
     return mat
   }
 
+  /**
+   * Get material for TRANSPARENT geometry (water, glass, vegetation)
+   */
+  getTransparentMaterial(materialKey: string): THREE.Material {
+    let mat = this.transparentMaterials.get(materialKey)
+    if (mat) {
+      // LRU: Move to end
+      this.transparentMaterials.delete(materialKey)
+      this.transparentMaterials.set(materialKey, mat)
+      return mat
+    }
+
+    const [blockTypeStr, faceIndexStr] = materialKey.split(':')
+    const blockType = Number(blockTypeStr)
+
+    // Cross-billboard (vegetation)
+    if (faceIndexStr === 'cross') {
+      mat = blockRegistry.createMaterialForFace(blockType, 0)
+      mat.vertexColors = true
+      mat.side = THREE.FrontSide
+      mat.transparent = true
+      mat.alphaTest = 0.5  // Cutout transparency for vegetation
+      mat.depthWrite = true  // Vegetation uses alpha test, can write depth
+    } else {
+      // Water, glass, ice - true alpha blending
+      const faceIndex = Number(faceIndexStr)
+      mat = blockRegistry.createMaterialForFace(blockType, faceIndex)
+      mat.vertexColors = true
+      mat.side = THREE.FrontSide  // Only front faces - prevents self Z-fighting from DoubleSide
+      mat.transparent = true
+      mat.opacity = 0.7  // Semi-transparent
+      mat.depthWrite = false  // Don't write to depth buffer (allows seeing through)
+    }
+
+    this.evictOldest(this.transparentMaterials)
+    this.transparentMaterials.set(materialKey, mat)
+    return mat
+  }
+
+  private evictOldest(cache: Map<string, THREE.Material>): void {
+    if (cache.size >= this.maxCacheSize) {
+      const oldestKey = cache.keys().next().value
+      const oldestMaterial = cache.get(oldestKey)
+      if (oldestMaterial) {
+        oldestMaterial.dispose()
+        cache.delete(oldestKey)
+      }
+    }
+  }
+
   dispose(): void {
-    // Dispose all materials
-    for (const material of this.materials.values()) {
-      material.dispose()
-    }
-    for (const material of this.faceMaterials.values()) {
-      material.dispose()
-    }
-    this.materials.clear()
-    this.faceMaterials.clear()
+    for (const mat of this.opaqueMaterials.values()) mat.dispose()
+    for (const mat of this.transparentMaterials.values()) mat.dispose()
+    this.opaqueMaterials.clear()
+    this.transparentMaterials.clear()
   }
 }

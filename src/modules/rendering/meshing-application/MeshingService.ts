@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../environment/ports/ILightingQuery'
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { ILightStorage } from '../../environment/ports/ILightStorage'
 import { WorkerMessage, MainMessage } from '../workers/types'
 import { MeshingWorkerPool } from '../infrastructure/MeshingWorkerPool'
@@ -12,7 +12,14 @@ export class MeshingService {
   private dirtyQueue = new Map<string, 'block' | 'light' | 'global'>()
   private rebuildBudgetMs = 3
   private meshingWorkerPool: MeshingWorkerPool
-  private chunkLODLevels = new Map<string, 0 | 1 | 2 | 3>()
+  // Backpressure: track in-flight mesh builds to prevent overwhelming GPU
+  private inFlightMeshes = new Set<string>()
+  private maxConcurrentMeshes = 4  // Limit concurrent builds (can be boosted for startup)
+
+  // Startup boost: allow more concurrent builds during initial load
+  private boostMode = true
+  private readonly BOOST_CONCURRENT = 12  // Higher concurrency during startup
+  private readonly NORMAL_CONCURRENT = 4  // Normal concurrency after startup
 
   constructor(
     private voxels: IVoxelQuery & { getChunk: any }, // Need getChunk for buffers
@@ -23,21 +30,13 @@ export class MeshingService {
     this.setupEventListeners()
   }
 
-  setChunkLODLevel(coord: ChunkCoordinate, level: 0 | 1 | 2 | 3): void {
-    this.chunkLODLevels.set(coord.toKey(), level)
-  }
-
-  getChunkLODLevel(coord: ChunkCoordinate): 0 | 1 | 2 | 3 {
-    return this.chunkLODLevels.get(coord.toKey()) ?? 0
-  }
-
   private setupEventListeners(): void {
     // Listen for lighting ready
     this.eventBus.on('lighting', 'LightingCalculatedEvent', (e: any) => {
       this.markDirty(e.chunkCoord, 'global')
 
-      // Also mark neighbors dirty because their faces might be revealed/hidden
-      // by changes in this chunk (border culling).
+      // Also mark neighbors dirty because their border faces need matching lighting
+      // values at chunk boundaries for seamless rendering.
       const { x, z } = e.chunkCoord
       this.markDirty(new ChunkCoordinate(x + 1, z), 'global')
       this.markDirty(new ChunkCoordinate(x - 1, z), 'global')
@@ -52,7 +51,7 @@ export class MeshingService {
     })
   }
 
-  async buildMesh(coord: ChunkCoordinate, lodLevel: 0 | 1 | 2 | 3 = 0): Promise<void> {
+  async buildMesh(coord: ChunkCoordinate): Promise<void> {
     // Collect Neighbor Light Data (Light is now inside ChunkData)
     // We only need to check if the center chunk data is available to proceed
     const centerChunk = this.voxels.getChunk(coord)
@@ -74,36 +73,40 @@ export class MeshingService {
         }
     }
 
-    // Send to worker pool with LOD level and priority
+    // Send to worker pool
     const result = await this.meshingWorkerPool.generateMesh(
       coord,
       neighborVoxels,
-      {}, // neighborLight is empty as it's now in neighborVoxels
-      lodLevel,
-      lodLevel // priority = lodLevel (0 is highest priority)
+      {} // neighborLight is empty as it's now in neighborVoxels
     )
 
-    const { x, z, geometry } = result
+    const { x, z, opaqueGeometry, transparentGeometry } = result
     const resultCoord = new ChunkCoordinate(x, z)
 
-    const geometryMap = new Map<string, THREE.BufferGeometry>()
-
-    for (const [key, buffers] of Object.entries(geometry as Record<string, any>)) {
+    // Helper to convert buffer records to BufferGeometry maps
+    const createGeometryMap = (geometryRecord: Record<string, any>) => {
+      const map = new Map<string, THREE.BufferGeometry>()
+      for (const [key, buffers] of Object.entries(geometryRecord)) {
         const geo = new THREE.BufferGeometry()
         geo.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
         geo.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
         geo.setIndex(new THREE.Uint16BufferAttribute(buffers.indices, 1))
         geo.computeVertexNormals()
-        geometryMap.set(key, geo)
+        map.set(key, geo)
+      }
+      return map
     }
+
+    const opaqueGeometryMap = createGeometryMap(opaqueGeometry)
+    const transparentGeometryMap = createGeometryMap(transparentGeometry)
 
     this.eventBus.emit('meshing', {
         type: 'ChunkMeshBuiltEvent',
         timestamp: Date.now(),
         chunkCoord: resultCoord,
-        geometryMap,
-        lodLevel
+        opaqueGeometryMap,
+        transparentGeometryMap
     })
   }
 
@@ -117,11 +120,24 @@ export class MeshingService {
     this.dirtyQueue.set(key, reason)
   }
 
-  processDirtyQueue(): { budgetUsedMs: number; chunksProcessed: number } {
+  processDirtyQueue(budgetOverrideMs?: number): { budgetUsedMs: number; chunksProcessed: number } {
     const startTime = performance.now()
     let chunksProcessed = 0
 
+    // During boost mode: higher budget (10ms) and more concurrent builds
+    const effectiveBudgetMs = budgetOverrideMs ?? (this.boostMode ? 10 : this.rebuildBudgetMs)
+    const effectiveMaxConcurrent = this.boostMode ? this.BOOST_CONCURRENT : this.maxConcurrentMeshes
+
     if (this.dirtyQueue.size === 0) {
+      // Auto-disable boost when queue is empty (initial load complete)
+      if (this.boostMode && this.inFlightMeshes.size === 0) {
+        this.disableBoostMode()
+      }
+      return { budgetUsedMs: 0, chunksProcessed: 0 }
+    }
+
+    // Backpressure: don't start new builds if we're at capacity
+    if (this.inFlightMeshes.size >= effectiveMaxConcurrent) {
       return { budgetUsedMs: 0, chunksProcessed: 0 }
     }
 
@@ -130,18 +146,37 @@ export class MeshingService {
     for (const [key, reason] of entries) {
       const elapsed = performance.now() - startTime
 
-      // Enforce budget
-      if (elapsed >= this.rebuildBudgetMs) {
+      // Enforce budget (higher during boost mode)
+      if (elapsed >= effectiveBudgetMs) {
         break
       }
 
+      // Backpressure: stop if we've hit max concurrent builds
+      if (this.inFlightMeshes.size >= effectiveMaxConcurrent) {
+        break
+      }
+
+      // Skip if this chunk is already being built
+      if (this.inFlightMeshes.has(key)) {
+        continue
+      }
+
       const coord = ChunkCoordinate.fromKey(key)
-      const lodLevel = this.getChunkLODLevel(coord)
-      this.buildMesh(coord, lodLevel).catch((error) => {
-        console.error(`[MeshingService] Failed to build mesh for chunk (${coord.x}, ${coord.z}):`, error)
-        // Re-queue chunk for retry
-        this.markDirty(coord, reason)
-      })
+
+      // Track in-flight mesh
+      this.inFlightMeshes.add(key)
+
+      this.buildMesh(coord)
+        .catch((error) => {
+          console.error(`[MeshingService] Failed to build mesh for chunk (${coord.x}, ${coord.z}):`, error)
+          // Re-queue chunk for retry
+          this.markDirty(coord, reason)
+        })
+        .finally(() => {
+          // Remove from in-flight when done (success or failure)
+          this.inFlightMeshes.delete(key)
+        })
+
       this.dirtyQueue.delete(key)
       chunksProcessed++
     }
@@ -159,5 +194,23 @@ export class MeshingService {
 
   getWorkerUtilization(): { busy: number; total: number } {
     return this.meshingWorkerPool.getUtilization()
+  }
+
+  /**
+   * Disable startup boost mode (call after initial chunks are rendered)
+   */
+  disableBoostMode(): void {
+    if (this.boostMode) {
+      this.boostMode = false
+      this.maxConcurrentMeshes = this.NORMAL_CONCURRENT
+      console.log('🚀 Startup boost disabled, switching to normal meshing rate')
+    }
+  }
+
+  /**
+   * Check if boost mode is active
+   */
+  isBoostMode(): boolean {
+    return this.boostMode
   }
 }

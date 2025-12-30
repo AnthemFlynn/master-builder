@@ -22,6 +22,12 @@ export class MenuManager {
   }
 
   private setupButtonListeners(): void {
+    // Splash screen click - transition to menu
+    this.splashElement?.addEventListener('click', () => {
+      console.log('MenuManager: Splash clicked, showing menu')
+      this.showMenu()
+    })
+
     // Play button - matches HTML id="play"
     const playButton = document.querySelector('#play')
     playButton?.addEventListener('click', () => {
@@ -45,8 +51,8 @@ export class MenuManager {
   }
 
   showMenu(): void {
-    this.menuElement?.classList.remove('hidden')
     this.splashElement?.classList.add('hidden')
+    this.menuElement?.classList.remove('hidden')
   }
 
   hideAll(): void {

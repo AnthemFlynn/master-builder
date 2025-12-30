@@ -1,9 +1,12 @@
 // src/modules/persistence/application/handlers/SaveGameHandler.ts
-import { CommandHandler } from '../../../game/domain/commands/Command'
+import { CommandHandler } from '../../../../shared/domain/Command'
 import { SaveGameCommand } from '../../domain/commands/SaveGameCommand'
 import { PersistenceService } from '../PersistenceService'
 import { PlayerService } from '../../../player/application/PlayerService'
-import { EventBus } from '../../../game/infrastructure/EventBus'
+import { InteractionService } from '../../../interaction/application/InteractionService'
+import { EnvironmentService } from '../../../environment/application/EnvironmentService'
+import { ModificationTracker } from '../ModificationTracker'
+import { EventBus } from '../../../../shared/infrastructure/EventBus'
 
 /**
  * Handler for SaveGameCommand
@@ -13,6 +16,9 @@ export class SaveGameHandler implements CommandHandler<SaveGameCommand> {
   constructor(
     private persistenceService: PersistenceService,
     private playerService: PlayerService,
+    private interactionService: InteractionService,
+    private environmentService: EnvironmentService,
+    private modificationTracker: ModificationTracker,
     private eventBus: EventBus
   ) {}
 
@@ -28,9 +34,12 @@ export class SaveGameHandler implements CommandHandler<SaveGameCommand> {
     })
 
     try {
-      // Capture game state
+      // Capture full game state
       const snapshot = this.persistenceService.captureGameSnapshot(
-        this.playerService
+        this.playerService,
+        this.interactionService,
+        this.environmentService,
+        this.modificationTracker
       )
 
       // Save to storage

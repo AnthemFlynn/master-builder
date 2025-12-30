@@ -1,8 +1,8 @@
 // src/modules/game/application/handlers/GenerateChunkHandler.ts
-import { CommandHandler } from '../../domain/commands/Command'
+import { CommandHandler } from '../../../../shared/domain/Command'
 import { GenerateChunkCommand } from '../../domain/commands/GenerateChunkCommand'
 import { WorldService } from '../../../world/application/WorldService'
-import { EventBus } from '../../infrastructure/EventBus'
+import { EventBus } from '../../../../shared/infrastructure/EventBus'
 
 export class GenerateChunkHandler implements CommandHandler<GenerateChunkCommand> {
   constructor(

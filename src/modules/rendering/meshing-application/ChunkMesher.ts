@@ -23,11 +23,21 @@ export class ChunkMesher {
           const worldX = startX + x
           const worldY = y
           const worldZ = startZ + z
-          
+
           const blockType = this.voxels.getBlockType(worldX, worldY, worldZ)
           if (blockType === -1 || blockType === 0) continue // Skip Air and Void
 
-          // Check all 6 faces
+          // Check if this is a cross-billboard block (flowers, grass, etc.)
+          const blockDef = blockRegistry.get(blockType)
+          if (blockDef?.meshType === 'cross') {
+            // Use cross-billboard rendering for vegetation
+            const lx = ((worldX % 24) + 24) % 24
+            const lz = ((worldZ % 24) + 24) % 24
+            vertexBuilder.addCrossQuads(lx, y, lz, blockType)
+            continue
+          }
+
+          // Standard cube meshing - check all 6 faces
           this.checkFace(vertexBuilder, worldX, worldY, worldZ, blockType, 1, 0, 0, 0, 1)  // Right (+X)
           this.checkFace(vertexBuilder, worldX, worldY, worldZ, blockType, -1, 0, 0, 0, -1) // Left (-X)
           this.checkFace(vertexBuilder, worldX, worldY, worldZ, blockType, 0, 1, 0, 1, 1)  // Top (+Y)

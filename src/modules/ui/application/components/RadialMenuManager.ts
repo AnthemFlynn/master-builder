@@ -7,13 +7,17 @@ export class RadialMenuManager {
   private ctx: CanvasRenderingContext2D
   private isVisible = false
   private mousePos = { x: 0, y: 0 }
-  
+
   // Config
   private centerX = 0
   private centerY = 0
   private outerRadius = 250
   private innerRadius = 100
   private bankRadius = 180 // Divide inner/outer rings
+
+  // Track hover state to avoid unnecessary redraws
+  private lastHoveredBank = -1
+  private lastHoveredItem = -1
   
   constructor(private inventory: InventoryService) {
     this.container = document.createElement('div')
@@ -54,7 +58,40 @@ export class RadialMenuManager {
   updateMouse(x: number, y: number): void {
     if (!this.isVisible) return
     this.mousePos = { x, y }
-    this.draw()
+
+    // Calculate current hover state
+    const { hoveredBank, hoveredItem } = this.calculateHoverState()
+
+    // Only redraw if hover state actually changed
+    if (hoveredBank !== this.lastHoveredBank || hoveredItem !== this.lastHoveredItem) {
+      this.lastHoveredBank = hoveredBank
+      this.lastHoveredItem = hoveredItem
+      this.draw()
+    }
+  }
+
+  private calculateHoverState(): { hoveredBank: number; hoveredItem: number } {
+    const mouseAngle = Math.atan2(this.mousePos.y - this.centerY, this.mousePos.x - this.centerX)
+    const mouseDist = Math.sqrt(
+      Math.pow(this.mousePos.x - this.centerX, 2) +
+      Math.pow(this.mousePos.y - this.centerY, 2)
+    )
+
+    let normAngle = mouseAngle
+    if (normAngle < 0) normAngle += Math.PI * 2
+
+    const sliceAngle = (Math.PI * 2) / 10
+
+    let hoveredBank = -1
+    let hoveredItem = -1
+
+    if (mouseDist > 50 && mouseDist < this.bankRadius) {
+      hoveredBank = Math.floor(normAngle / sliceAngle)
+    } else if (mouseDist > this.bankRadius && mouseDist < this.outerRadius) {
+      hoveredItem = Math.floor(normAngle / sliceAngle)
+    }
+
+    return { hoveredBank, hoveredItem }
   }
   
   handleClick(): number | null {

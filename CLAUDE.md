@@ -144,13 +144,13 @@ THREE.Mesh → Scene
 
 ---
 
-## Performance Optimizations
+## Performance Optimizations (Phase 2)
 
 ### Render Distance Support
 
 - **RD=3**: 49 chunks, 60fps (baseline)
-- **RD=5**: 121 chunks, 60fps (Phase 2 optimizations)
-- **RD=7**: 225 chunks, 60fps (Phase 3 LOD system)
+- **RD=5**: 121 chunks, 60fps (optimized)
+- **Target RD=7**: 225 chunks (requires additional optimizations)
 
 ### Budget Enforcement
 
@@ -191,50 +191,104 @@ Available in console:
 - `window.debug.getMetrics()` - Frame metrics
 - `window.debug.getLastChunk()` - Last chunk timings
 
-### Phase 3: LOD System (RD=7)
+---
 
-**4-Level LOD System:**
-- **Level 0 (0-2 chunks):** Full detail with greedy meshing + AO (highest quality)
-- **Level 1 (3-4 chunks):** Greedy meshing without AO (30% faster generation)
-- **Level 2 (5-6 chunks):** Aggressive 2x2 block merging (70% fewer polygons)
-- **Level 3 (7+ chunks):** Outer shell only (95% fewer polygons)
+## Phase 4A: Declarative World Generation
 
-**Alpha Blending Transitions:**
-- 300ms smooth fade between LOD levels
-- Material system supports transparency with opacity control
-- Hysteresis (0.5 chunks) prevents oscillation at LOD boundaries
-- Unlocks future features: glass rendering, water blocks, particle effects
+### JSON World Definitions
 
-**LRU Mesh Cache:**
-- 30 mesh capacity per default (~15MB overhead)
-- 70-80% hit rate for typical local movement patterns
-- Automatic eviction of least recently used meshes
-- Eliminates redundant mesh regeneration when moving back and forth
+Worlds are defined in JSON files (validated with Zod) instead of hardcoded presets:
 
-**Priority Queue:**
-- Level 0 meshes process first (player interaction range, priority 0)
-- Level 3 meshes process last (distant background, priority 3)
-- Ensures responsive close-range detail during heavy chunk loads
-- Integrated with WorkerPool task distribution
+**Example:** `public/worlds/default.json`
+```json
+{
+  "meta": { "name": "Sky Islands", "seed": 42069 },
+  "terrain": { "generator": "noise", ... },
+  "features": [
+    { "type": "floating_island", "spacing": 350, ... },
+    { "type": "cave_system", "density": 0.02, ... }
+  ]
+}
+```
 
-**Performance at RD=7:**
-- 225 chunks rendered simultaneously
-- ~30k-35k polygons total (vs 2.7M without LOD)
-- ~240MB memory (vs ~500MB without LOD)
-- 60fps stable on modern hardware
+**Available Worlds:**
+- `/worlds/default.json` - Sky Islands with caves and giant trees
+- `/worlds/caves.json` - Massive cave networks with crystals
+- `/worlds/forest.json` - Giant tree forest
+- `/worlds/crystals.json` - Glowing crystal caves
+- `/worlds/flat.json` - Superflat testing world
 
-**Configurable Settings:**
-- Advanced Performance panel in Settings menu
-- Adjustable LOD distance thresholds (1.0-10.0 chunks)
-- Transition speed (150-500ms)
-- Cache size (10-50 meshes)
-- Worker pool size (2-12 workers)
-- All settings persist via localStorage
+### Generation Pipeline
 
-**Debug Tools:**
-- `window.debug.getLODMetrics()` - LOD distribution and cache stats
-- `window.debug.setLODThresholds({ lodLevel0Max: 3.0 })` - Tune thresholds
-- F3 overlay shows: LOD distribution (L0/L1/L2/L3), active transitions, cache hit rate
+**4-Pass System:**
+1. **TerrainPass** - Base heightfield from noise/flat
+2. **DramaticFeaturesPass** - Floating islands, caves, giant trees, crystals
+3. **BiomePass** - Elevation-based material assignment
+4. **DecorationPass** - (Reserved for Phase 4B)
+
+### Dramatic Features
+
+**Floating Islands:**
+- Grid-based placement with noise offset
+- Configurable size (30-100 block radius)
+- Height variation (80-140 blocks)
+- Grass surface on top hemisphere
+
+**Worm Caves:**
+- 3D tunneling algorithm with winding paths
+- Variable radius (5-20 blocks)
+- Natural cave networks
+- Connects organically
+
+**Giant Trees:**
+- Massive trunks (4-9 block radius)
+- Towering height (40-85 blocks)
+- Huge spherical canopy (25-35 block radius)
+- Rare placement (density 0.001-0.003)
+
+**Crystal Formations:**
+- Grow from cave surfaces
+- Glowstone (yellow) and obsidian (purple) crystals
+- Natural cave lighting
+- Height variation (10-40 blocks)
+
+### Material Registry
+
+Maps JSON material names to BlockType:
+```typescript
+"material": "grass" → BlockType.grass
+"material": "obsidian" → BlockType.obsidian
+```
+
+**Aliases supported:**
+- `grass_green` → grass
+- `granite` → stone
+- `sand_yellow` → sand
+
+### Debug Commands
+
+```javascript
+window.debug.listWorlds()  // Show available world files
+// Returns: Array of world descriptions
+
+// Note: World switching requires page reload (ChunkWorker initialization)
+// Edit /worlds/*.json files to modify world features
+```
+
+### Determinism
+
+**Seed-based generation:**
+- Same seed + coordinates = identical terrain
+- Unmodified chunks regenerate from seed (not stored)
+- Player modifications saved separately (IndexedDB)
+- View from built structures remains stable
+
+### New Block: Obsidian
+
+- **ID:** 15
+- **Color:** Dark purple-black
+- **Properties:** Emissive glow, slightly slippery
+- **Use:** Crystal formations, lava pools, dramatic accents
 
 ---
 
@@ -245,17 +299,7 @@ Available in console:
 - **Chunk size**: 24×48×24 blocks (X×Y×Z)
 - **Coordinate system**: `ChunkCoordinate(x, z)` - no Y coordinate (chunks are vertical columns)
 - **Storage**: `Uint8Array` (1 byte per block = block type ID)
-- **Generation**: Simplex noise in `ChunkWorker.ts`
-
-### World Presets
-
-Located in `src/modules/world/domain/WorldPreset.ts`:
-- **DEFAULT**: Rolling hills, trees, water
-- **FLAT**: Flat terrain for testing
-- **MOUNTAINS**: High peaks
-- **ISLANDS**: Floating islands
-
-Change preset via `DEFAULT_WORLD_PRESET_ID` in `WorldConfig.ts`.
+- **Generation**: JSON-based pipeline in `ChunkWorker.ts` (see Phase 4A above)
 
 ---
 
@@ -574,7 +618,7 @@ src/modules/<module>/
 
 ## Current Development State
 
-**Last Updated**: 2025-12-13
+**Last Updated**: 2025-12-14
 
 **Working**:
 - ✅ Hexagonal architecture (10 modules)
@@ -583,23 +627,22 @@ src/modules/<module>/
 - ✅ Greedy meshing (90%+ polygon reduction)
 - ✅ Game state machine (SPLASH/MENU/PLAYING/PAUSE)
 - ✅ Input system (action-based, rebindable)
-- ✅ Render distance 7 (225 chunks) at stable 60fps
+- ✅ Render distance 5 (121 chunks) at stable 60fps
 - ✅ Worker pools (6×2 for lighting and meshing)
 - ✅ Budget enforcement (3ms/frame)
 - ✅ Frustum culling prioritization
 - ✅ Performance monitoring (F3 debug overlay)
 - ✅ Chunk unloading system
-- ✅ 4-level LOD system with alpha-blended transitions
-- ✅ LRU mesh cache (30 meshes)
-- ✅ Priority queue for worker tasks
-- ✅ Advanced performance settings UI
+- ✅ **Phase 4A: Declarative world generation** (JSON-based, 4 feature types)
+- ✅ **Feature generators**: Floating islands, worm caves, giant trees, crystal formations
+- ✅ **5 example worlds**: Sky islands, massive caves, titan forests, glowing crystals, superflat
 
 **Next Steps**:
+- Phase 4B: Decoration pass (small trees, flowers, grass, rocks)
 - Add texture atlas support
 - Optimize lighting propagation for sunrise/sunset
 - Add gamepad support to input system
-- Implement water and glass blocks (now possible with transparency)
-- Particle system (enabled by material transparency)
+- Target RD=7 (requires further optimizations)
 
 ---
 

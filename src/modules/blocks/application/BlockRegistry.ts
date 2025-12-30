@@ -70,18 +70,29 @@ export class BlockRegistry {
     const textureName = Array.isArray(block.textures) ? block.textures[0] : block.textures
     const map = this.createTexture(textureName)
 
+    // Calculate emissive intensity based on block strength
+    // High-emissive blocks (glowstone, jack-o-lantern) get full intensity
+    const hasEmissive = block.emissive.r > 0 || block.emissive.g > 0 || block.emissive.b > 0
+    const maxEmissive = Math.max(block.emissive.r, block.emissive.g, block.emissive.b)
+    const emissiveIntensity = hasEmissive ? Math.min(1.2, maxEmissive / 12.5) : 0  // 15 / 12.5 = 1.2
+
+    // Water special handling (ID 16)
+    const isWater = id === 16
+
     return new THREE.MeshStandardMaterial({
       map,
       transparent: block.transparent,
+      opacity: isWater ? 0.8 : 1.0,
+      side: isWater ? THREE.DoubleSide : THREE.FrontSide,
       vertexColors: true,
-      roughness: 1.0, // Matte surface for better light diffusion
-      metalness: 0.0, // Non-metallic
+      roughness: isWater ? 0.1 : 1.0, // Matte surface for better light diffusion, shiny for water
+      metalness: isWater ? 0.1 : 0.0, // Non-metallic
       emissive: new THREE.Color(
         block.emissive.r / 15,
         block.emissive.g / 15,
         block.emissive.b / 15
       ),
-      emissiveIntensity: block.emissive.r > 0 || block.emissive.g > 0 || block.emissive.b > 0 ? 0.8 : 0
+      emissiveIntensity
     })
   }
 
@@ -136,12 +147,18 @@ export class BlockRegistry {
     const textureName = this.getTextureForFace(id, faceIndex)
     const map = this.createTexture(textureName)
     const block = this.get(id)
+
+    // Water special handling (ID 16)
+    const isWater = id === 16
+
     return new THREE.MeshStandardMaterial({
       map,
       transparent: block?.transparent ?? false,
+      opacity: isWater ? 0.8 : 1.0,
+      side: isWater ? THREE.DoubleSide : THREE.FrontSide,
       vertexColors: true,
-      roughness: 1.0,
-      metalness: 0.0,
+      roughness: isWater ? 0.1 : 1.0,
+      metalness: isWater ? 0.1 : 0.0,
       emissive: block ? new THREE.Color(block.emissive.r / 15, block.emissive.g / 15, block.emissive.b / 15) : new THREE.Color(0, 0, 0),
       emissiveIntensity: block && (block.emissive.r || block.emissive.g || block.emissive.b) ? 0.8 : 0
     })

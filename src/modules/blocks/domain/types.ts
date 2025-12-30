@@ -21,6 +21,13 @@ export interface RGB {
 }
 
 /**
+ * Mesh type for rendering
+ * - 'cube': Standard 6-face cube (default)
+ * - 'cross': Two intersecting planes forming X shape (flowers, grass)
+ */
+export type MeshType = 'cube' | 'cross'
+
+/**
  * Complete block definition
  */
 export interface BlockDefinition {
@@ -32,6 +39,7 @@ export interface BlockDefinition {
   // Visual properties
   textures: string | string[]  // Single texture or 6-face array [px, nx, py, ny, pz, nz]
   transparent: boolean
+  meshType?: MeshType  // Default: 'cube'
   baseColor?: { r: number, g: number, b: number }  // Optional normalized RGB (0-1) for vertex coloring
   faceColors?: {
     top?: { r: number, g: number, b: number }

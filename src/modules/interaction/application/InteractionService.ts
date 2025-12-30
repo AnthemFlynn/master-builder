@@ -1,5 +1,5 @@
-import { CommandBus } from '../../game/infrastructure/CommandBus'
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { CommandBus } from '../../../shared/infrastructure/CommandBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { PlaceBlockCommand } from '../../game/domain/commands/PlaceBlockCommand'
 import { RemoveBlockCommand } from '../../game/domain/commands/RemoveBlockCommand'
 import { BlockPicker } from './BlockPicker'
@@ -10,6 +10,14 @@ export class InteractionService implements IInteractionHandler {
   private blockPicker: BlockPicker
   private selectedBlock = 14 // Default: Grass Block
   private highlightMesh: THREE.Mesh
+  private highlightGeometry: THREE.PlaneGeometry
+  private highlightMaterial: THREE.MeshBasicMaterial
+
+  // Pre-allocated objects for updateHighlight (avoid GC pressure)
+  private readonly highlightPosition = new THREE.Vector3()
+  private readonly highlightDefaultNormal = new THREE.Vector3(0, 0, 1)
+  private readonly highlightTargetNormal = new THREE.Vector3()
+  private readonly highlightQuaternion = new THREE.Quaternion()
 
   constructor(
     private commandBus: CommandBus,
@@ -27,18 +35,33 @@ export class InteractionService implements IInteractionHandler {
   }
 
   private createHighlightMesh(): THREE.Mesh {
-    const geometry = new THREE.PlaneGeometry(1.02, 1.02)
-    const material = new THREE.MeshBasicMaterial({
+    this.highlightGeometry = new THREE.PlaneGeometry(1.02, 1.02)
+    this.highlightMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
       opacity: 0.35,
       side: THREE.DoubleSide,
-      depthWrite: false
+      depthWrite: false,
+      depthTest: true
     })
-    const mesh = new THREE.Mesh(geometry, material)
+    const mesh = new THREE.Mesh(this.highlightGeometry, this.highlightMaterial)
     mesh.visible = false
+    // Render after transparent blocks (water=1) to prevent z-fighting
+    mesh.renderOrder = 10
     this.scene.add(mesh)
     return mesh
+  }
+
+  /**
+   * Dispose of Three.js resources. Call when destroying the service.
+   */
+  dispose(): void {
+    // Remove from scene
+    this.scene.remove(this.highlightMesh)
+
+    // Dispose geometry and material
+    this.highlightGeometry.dispose()
+    this.highlightMaterial.dispose()
   }
 
   placeBlock(camera: THREE.Camera, blockType: number): void {
@@ -89,14 +112,16 @@ export class InteractionService implements IInteractionHandler {
     }
 
     this.highlightMesh.visible = true
-    const position = result.hitBlock.clone().addScalar(0.5)
-    position.addScaledVector(result.normal, 0.51)
+
+    // Reuse pre-allocated position vector
+    this.highlightPosition.copy(result.hitBlock).addScalar(0.5)
+    this.highlightPosition.addScaledVector(result.normal, 0.51)
 
     // Plane geometry faces +Z by default; rotate to match the hit normal
-    const defaultNormal = new THREE.Vector3(0, 0, 1)
-    const targetNormal = result.normal.clone().normalize()
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultNormal, targetNormal)
-    this.highlightMesh.quaternion.copy(quaternion)
-    this.highlightMesh.position.set(position.x, position.y, position.z)
+    // Reuse pre-allocated vectors and quaternion
+    this.highlightTargetNormal.copy(result.normal).normalize()
+    this.highlightQuaternion.setFromUnitVectors(this.highlightDefaultNormal, this.highlightTargetNormal)
+    this.highlightMesh.quaternion.copy(this.highlightQuaternion)
+    this.highlightMesh.position.copy(this.highlightPosition)
   }
 }

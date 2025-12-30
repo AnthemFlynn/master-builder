@@ -1,21 +1,32 @@
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
+import { CommandBus } from '../../../shared/infrastructure/CommandBus'
 import { UIState } from '../domain/UIState'
 import { IUIQuery } from '../ports/IUIQuery'
 import { HUDManager } from './HUDManager'
 import { MenuManager } from './MenuManager'
 import { RadialMenuManager } from './components/RadialMenuManager'
 import { CreativeModalManager } from './components/CreativeModalManager'
+import { SaveLoadModal } from '../components/SaveLoadModal'
+import { PortalOverlay } from '../components/PortalOverlay'
 import { InventoryService } from '../../inventory/application/InventoryService'
 import { InventoryBank } from '../../inventory/domain/InventoryState'
 import { DebugOverlay } from './DebugOverlay'
 import { PerformanceMonitor } from '../../game/infrastructure/PerformanceMonitor'
-import { PerformanceConfig } from '../../game/infrastructure/PerformanceConfig'
-import { AdvancedSettings } from './AdvancedSettings'
-import { SettingsManager } from '../infrastructure/SettingsManager'
+import { IPersistenceQuery } from '../../persistence/ports/IPersistenceQuery'
+import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
+import { LoadGameCommand } from '../../persistence/domain/commands/LoadGameCommand'
+
+interface Position {
+  x: number
+  y: number
+  z: number
+}
 
 export interface UIServiceOptions {
   requestPointerLock?: () => void
   exitPointerLock?: () => void
+  getPlayerPosition?: () => Position
+  onStartNewGame?: () => void  // Called when Play button clicked (triggers loading)
 }
 
 export class UIService implements IUIQuery {
@@ -24,15 +35,15 @@ export class UIService implements IUIQuery {
   private menuManager: MenuManager
   private radialMenuManager: RadialMenuManager
   private creativeModalManager: CreativeModalManager
+  private saveLoadModal: SaveLoadModal | null = null
+  private portalOverlay: PortalOverlay
   private debugOverlay: DebugOverlay
-  private settingsManager: SettingsManager
 
   constructor(
     private eventBus: EventBus,
     private options: UIServiceOptions = {},
     private inventory: InventoryService,
-    performanceMonitor: PerformanceMonitor,
-    performanceConfig: PerformanceConfig
+    performanceMonitor: PerformanceMonitor
   ) {
     this.hudManager = new HUDManager()
     // Initialize hotbar with current inventory
@@ -40,9 +51,15 @@ export class UIService implements IUIQuery {
 
     this.menuManager = new MenuManager(
       () => {
-        this.onPlay()
+        // Play button - start new game with loading screen
+        if (this.options.onStartNewGame) {
+          this.options.onStartNewGame()
+        } else {
+          this.onPlay() // Fallback if no callback provided
+        }
       },
       () => {
+        // Resume - no loading needed, chunks already exist
         this.onPlay()
       },
       () => {
@@ -61,17 +78,11 @@ export class UIService implements IUIQuery {
         this.onPlay()
     })
 
-    this.debugOverlay = new DebugOverlay(performanceMonitor)
+    this.portalOverlay = new PortalOverlay()
+    this.debugOverlay = new DebugOverlay(performanceMonitor, options.getPlayerPosition)
 
-    // Initialize Advanced Settings panel
-    const advancedSettings = new AdvancedSettings(performanceConfig)
-    const settingsContainer = document.querySelector('.settings')
-    if (settingsContainer) {
-      advancedSettings.appendTo(settingsContainer as HTMLElement)
-    }
-
-    // Initialize Settings Manager for modal navigation
-    this.settingsManager = new SettingsManager()
+    // Wire up the "Load Game" button (modal will be set later)
+    this.setupSaveLoadButton()
 
     // Listen for mouse movements for the radial menu
     this.eventBus.on('input', 'InputMouseMoveEvent', (e: any) => {
@@ -80,8 +91,41 @@ export class UIService implements IUIQuery {
         }
     })
 
-    // Start in menu state (HTML shows menu by default)
-    this.setState(UIState.MENU)
+    // Start in splash state (HTML shows splash by default)
+    this.setState(UIState.SPLASH)
+  }
+
+  private setupSaveLoadButton(): void {
+    const saveButton = document.querySelector('#save')
+    saveButton?.addEventListener('click', () => {
+      this.openSaveLoadModal()
+    })
+  }
+
+  openSaveLoadModal(): void {
+    if (this.saveLoadModal) {
+      this.saveLoadModal.open()
+    }
+  }
+
+  /**
+   * Set up persistence for save/load modal (called after persistence is initialized)
+   */
+  setPersistence(commandBus: CommandBus, persistenceQuery: IPersistenceQuery): void {
+    this.saveLoadModal = new SaveLoadModal({
+      onSave: async (slotId) => {
+        commandBus.send(new SaveGameCommand(slotId, slotId, false))
+      },
+      onLoad: async (slotId) => {
+        // DON'T lock pointer here - will be locked when user clicks "Enter World"
+        // Browser releases pointer lock during DOM changes
+        commandBus.send(new LoadGameCommand(slotId))
+      },
+      onClose: () => {
+        // Return to previous state (menu or pause)
+      },
+      listSlots: () => persistenceQuery.listSaveSlots()
+    })
   }
 
   setState(newState: UIState): void {
@@ -91,14 +135,14 @@ export class UIService implements IUIQuery {
     // Update UI components
     this.hudManager.updateState(newState)
     this.menuManager.updateState(newState)
-    
+
     // Radial Menu Control
     if (newState === UIState.RADIAL_MENU) {
         this.radialMenuManager.show()
     } else {
         this.radialMenuManager.hide()
     }
-    
+
     // Creative Modal Control
     if (newState === UIState.CREATIVE_INVENTORY) {
         this.creativeModalManager.show()
@@ -162,5 +206,29 @@ export class UIService implements IUIQuery {
 
   update(): void {
     this.debugOverlay.update()
+  }
+
+  // Portal Overlay Methods
+  showLoading(message = 'Entering World...'): void {
+    this.portalOverlay.show(message)
+  }
+
+  hideLoading(): void {
+    this.portalOverlay.hide()
+  }
+
+  /**
+   * Collapse the portal with animation, then call callback
+   */
+  collapsePortal(onComplete?: () => void): void {
+    this.portalOverlay.collapse(onComplete)
+  }
+
+  updateLoadingProgress(current: number, total: number, _phase = 'chunks'): void {
+    this.portalOverlay.updateProgress(current, total)
+  }
+
+  isLoading(): boolean {
+    return this.portalOverlay.getIsVisible()
   }
 }

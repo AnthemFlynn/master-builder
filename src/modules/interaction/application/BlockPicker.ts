@@ -1,99 +1,119 @@
 import * as THREE from 'three'
 import { RaycastResult } from '../domain/RaycastResult'
 import { WorldService } from '../../world/application/WorldService'
+import { blockRegistry } from '../../blocks'
 
 export class BlockPicker {
   private raycaster = new THREE.Raycaster()
+
+  // Pre-allocated vectors to avoid GC pressure (reused every frame)
+  private readonly screenCenter = new THREE.Vector2(0, 0)
+  private readonly voxel = new THREE.Vector3()
+  private readonly step = new THREE.Vector3()
+  private readonly tMax = new THREE.Vector3()
+  private readonly tDelta = new THREE.Vector3()
+  private readonly faceNormal = new THREE.Vector3()
+  private readonly tempOrigin = new THREE.Vector3()
+  private readonly tempDirection = new THREE.Vector3()
 
   constructor(private world: WorldService) {
     this.raycaster.far = 12
   }
 
   pickBlock(camera: THREE.Camera, _scene: THREE.Scene): RaycastResult {
-    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), camera as THREE.PerspectiveCamera)
-    const origin = this.raycaster.ray.origin.clone()
-    const direction = this.raycaster.ray.direction.clone().normalize()
+    this.raycaster.setFromCamera(this.screenCenter, camera as THREE.PerspectiveCamera)
+    this.tempOrigin.copy(this.raycaster.ray.origin)
+    this.tempDirection.copy(this.raycaster.ray.direction).normalize()
 
-    return this.raycastVoxels(origin, direction)
+    return this.raycastVoxels()
   }
 
-  private raycastVoxels(origin: THREE.Vector3, direction: THREE.Vector3): RaycastResult {
+  private raycastVoxels(): RaycastResult {
     const maxDistance = 12
+    const origin = this.tempOrigin
+    const direction = this.tempDirection
 
-    const voxel = new THREE.Vector3(
+    // Reuse pre-allocated vectors
+    this.voxel.set(
       Math.floor(origin.x),
       Math.floor(origin.y),
       Math.floor(origin.z)
     )
 
-    const step = new THREE.Vector3(
+    this.step.set(
       direction.x > 0 ? 1 : direction.x < 0 ? -1 : 0,
       direction.y > 0 ? 1 : direction.y < 0 ? -1 : 0,
       direction.z > 0 ? 1 : direction.z < 0 ? -1 : 0
     )
 
-    const nextBoundary = new THREE.Vector3(
-      voxel.x + (step.x > 0 ? 1 : 0),
-      voxel.y + (step.y > 0 ? 1 : 0),
-      voxel.z + (step.z > 0 ? 1 : 0)
+    const nextBoundaryX = this.voxel.x + (this.step.x > 0 ? 1 : 0)
+    const nextBoundaryY = this.voxel.y + (this.step.y > 0 ? 1 : 0)
+    const nextBoundaryZ = this.voxel.z + (this.step.z > 0 ? 1 : 0)
+
+    this.tMax.set(
+      this.step.x !== 0 ? (nextBoundaryX - origin.x) / direction.x : Infinity,
+      this.step.y !== 0 ? (nextBoundaryY - origin.y) / direction.y : Infinity,
+      this.step.z !== 0 ? (nextBoundaryZ - origin.z) / direction.z : Infinity
     )
 
-    const tMax = new THREE.Vector3(
-      step.x !== 0 ? (nextBoundary.x - origin.x) / direction.x : Infinity,
-      step.y !== 0 ? (nextBoundary.y - origin.y) / direction.y : Infinity,
-      step.z !== 0 ? (nextBoundary.z - origin.z) / direction.z : Infinity
+    this.tDelta.set(
+      this.step.x !== 0 ? Math.abs(1 / direction.x) : Infinity,
+      this.step.y !== 0 ? Math.abs(1 / direction.y) : Infinity,
+      this.step.z !== 0 ? Math.abs(1 / direction.z) : Infinity
     )
 
-    const tDelta = new THREE.Vector3(
-      step.x !== 0 ? Math.abs(1 / direction.x) : Infinity,
-      step.y !== 0 ? Math.abs(1 / direction.y) : Infinity,
-      step.z !== 0 ? Math.abs(1 / direction.z) : Infinity
-    )
-
-    const faceNormal = new THREE.Vector3()
+    this.faceNormal.set(0, 0, 0)
     let distanceTravelled = 0
 
     while (distanceTravelled <= maxDistance) {
-      const blockType = this.world.getBlockType(voxel.x, voxel.y, voxel.z)
+      const blockType = this.world.getBlockType(this.voxel.x, this.voxel.y, this.voxel.z)
       // Skip Air (0) and Void (-1)
       if (blockType !== -1 && blockType !== 0) {
-        const hitBlock = voxel.clone()
-        const adjacentBlock = hitBlock.clone().add(faceNormal)
-        return {
-          hit: true,
-          hitBlock,
-          adjacentBlock,
-          normal: faceNormal.clone()
+        const blockDef = blockRegistry.get(blockType)
+        // Skip transparent blocks (water, glass) - can't select them
+        // Also skip unknown blocks (not in registry) to prevent false positives
+        if (!blockDef || blockDef.transparent) {
+          // Continue raycasting through transparent/unknown blocks
+        } else {
+          // Clone only on hit (rare compared to misses) - necessary for caller
+          const hitBlock = this.voxel.clone()
+          const adjacentBlock = hitBlock.clone().add(this.faceNormal)
+          return {
+            hit: true,
+            hitBlock,
+            adjacentBlock,
+            normal: this.faceNormal.clone()
+          }
         }
       }
 
-      if (tMax.x < tMax.y) {
-        if (tMax.x < tMax.z) {
-          voxel.x += step.x
-          distanceTravelled = tMax.x
-          tMax.x += tDelta.x
-          faceNormal.set(-step.x, 0, 0)
+      if (this.tMax.x < this.tMax.y) {
+        if (this.tMax.x < this.tMax.z) {
+          this.voxel.x += this.step.x
+          distanceTravelled = this.tMax.x
+          this.tMax.x += this.tDelta.x
+          this.faceNormal.set(-this.step.x, 0, 0)
         } else {
-          voxel.z += step.z
-          distanceTravelled = tMax.z
-          tMax.z += tDelta.z
-          faceNormal.set(0, 0, -step.z)
+          this.voxel.z += this.step.z
+          distanceTravelled = this.tMax.z
+          this.tMax.z += this.tDelta.z
+          this.faceNormal.set(0, 0, -this.step.z)
         }
       } else {
-        if (tMax.y < tMax.z) {
-          voxel.y += step.y
-          distanceTravelled = tMax.y
-          tMax.y += tDelta.y
-          faceNormal.set(0, -step.y, 0)
+        if (this.tMax.y < this.tMax.z) {
+          this.voxel.y += this.step.y
+          distanceTravelled = this.tMax.y
+          this.tMax.y += this.tDelta.y
+          this.faceNormal.set(0, -this.step.y, 0)
         } else {
-          voxel.z += step.z
-          distanceTravelled = tMax.z
-          tMax.z += tDelta.z
-          faceNormal.set(0, 0, -step.z)
+          this.voxel.z += this.step.z
+          distanceTravelled = this.tMax.z
+          this.tMax.z += this.tDelta.z
+          this.faceNormal.set(0, 0, -this.step.z)
         }
       }
 
-      if (step.x === 0 && step.y === 0 && step.z === 0) {
+      if (this.step.x === 0 && this.step.y === 0 && this.step.z === 0) {
         break
       }
     }

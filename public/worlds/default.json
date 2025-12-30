@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "name": "Archipelago World",
+    "seed": 42069,
+    "version": "0.1.0"
+  },
+  "terrain": {
+    "generator": "noise",
+    "baseHeight": 60,
+    "noise": {
+      "type": "simplex",
+      "octaves": 5,
+      "frequency": 0.008,
+      "amplitude": 25,
+      "lacunarity": 2.0,
+      "persistence": 0.5
+    }
+  },
+  "features": [
+    {
+      "type": "cave_system",
+      "density": 0.015,
+      "radiusRange": [4, 8],
+      "depthRange": [10, 50],
+      "windingFactor": 0.6
+    }
+  ],
+  "biomes": {
+    "climateBasedSystem": true
+  }
+}

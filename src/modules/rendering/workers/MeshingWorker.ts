@@ -8,17 +8,9 @@ import { ILightingQuery } from '../../../modules/environment/ports/ILightingQuer
 import { LightValue } from '../../../modules/environment/domain/voxel-lighting/LightValue'
 import { ILightStorage } from '../../../modules/environment/ports/ILightStorage'
 import { initializeBlockRegistry, blockRegistry } from '../../../modules/blocks'
-import { NoAOMesher } from '../meshing-application/lod/NoAOMesher'
-import { AggressiveMesher } from '../meshing-application/lod/AggressiveMesher'
-import { OuterShellMesher } from '../meshing-application/lod/OuterShellMesher'
 
 // Initialize block registry
 initializeBlockRegistry()
-
-// Initialize LOD meshers
-const noAOMesher = new NoAOMesher()
-const aggressiveMesher = new AggressiveMesher()
-const outerShellMesher = new OuterShellMesher()
 
 // Mock implementation for worker
 class WorkerVoxelQuery implements IVoxelQuery {
@@ -108,7 +100,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         if (msg.type === 'GEN_MESH') {
         const startTime = performance.now()
 
-        const { x, z, lodLevel, neighborVoxels, neighborLight } = msg
+        const { x, z, neighborVoxels, neighborLight } = msg
         const coord = new ChunkCoordinate(x, z)
 
         // Hydrate Voxels (ChunkData)
@@ -130,93 +122,58 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const lightStorage = new WorkerLightStorage(voxelQuery)
         const lightingQuery = new WorkerLightingQuery(lightStorage)
 
-        // Get the target chunk for LOD meshers
-        const targetChunk = voxelQuery.getChunk(coord)
-        if (!targetChunk) {
-            throw new Error(`Target chunk ${coord.toKey()} not found in neighborVoxels`)
+        // Meshing
+        const vertexBuilder = new VertexBuilder(voxelQuery, lightingQuery, x, z)
+        const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
+        mesher.buildMesh(vertexBuilder)
+
+        const { opaque, transparent } = vertexBuilder.getBuffers()
+
+        const transferList: ArrayBuffer[] = []
+        const opaqueGeometry: Record<string, any> = {}
+        const transparentGeometry: Record<string, any> = {}
+
+        // Process opaque geometry
+        for (const [key, buffers] of opaque.entries()) {
+            opaqueGeometry[key] = {
+                positions: buffers.positions.buffer,
+                colors: buffers.colors.buffer,
+                uvs: buffers.uvs.buffer,
+                indices: buffers.indices.buffer
+            }
+            transferList.push(
+                buffers.positions.buffer,
+                buffers.colors.buffer,
+                buffers.uvs.buffer,
+                buffers.indices.buffer
+            )
         }
 
-        // Select mesher based on LOD level
-        let geometry: {
-            positions: Float32Array
-            colors: Float32Array
-            uvs: Float32Array
-            indices: Uint16Array
+        // Process transparent geometry (water, glass, etc.)
+        for (const [key, buffers] of transparent.entries()) {
+            transparentGeometry[key] = {
+                positions: buffers.positions.buffer,
+                colors: buffers.colors.buffer,
+                uvs: buffers.uvs.buffer,
+                indices: buffers.indices.buffer
+            }
+            transferList.push(
+                buffers.positions.buffer,
+                buffers.colors.buffer,
+                buffers.uvs.buffer,
+                buffers.indices.buffer
+            )
         }
 
         const endTime = performance.now()
         const duration = endTime - startTime
 
-        let outputGeometry: Record<string, any>
-        let transferList: ArrayBuffer[]
-
-        if (lodLevel === 0) {
-            // Level 0: Full detail - keep multi-material format for proper textures
-            const vertexBuilder = new VertexBuilder(voxelQuery, lightingQuery, x, z)
-            const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
-            mesher.buildMesh(vertexBuilder)
-
-            const buffersMap = vertexBuilder.getBuffers()
-            outputGeometry = {}
-            transferList = []
-
-            for (const [key, buffers] of buffersMap.entries()) {
-                outputGeometry[key] = {
-                    positions: buffers.positions.buffer,
-                    colors: buffers.colors.buffer,
-                    uvs: buffers.uvs.buffer,
-                    indices: buffers.indices.buffer
-                }
-                transferList.push(
-                    buffers.positions.buffer,
-                    buffers.colors.buffer,
-                    buffers.uvs.buffer,
-                    buffers.indices.buffer
-                )
-            }
-        } else {
-            // Level 1-3: Simplified LOD - use single 'default' material
-            let geometry: {
-                positions: Float32Array
-                colors: Float32Array
-                uvs: Float32Array
-                indices: Uint16Array
-            }
-
-            if (lodLevel === 1) {
-                // Level 1: No AO (20-30% faster)
-                geometry = noAOMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
-            } else if (lodLevel === 2) {
-                // Level 2: Aggressive 2×2 merging (70% fewer polygons)
-                geometry = aggressiveMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
-            } else {
-                // Level 3: Outer shell only (95% fewer polygons)
-                geometry = outerShellMesher.buildMesh(targetChunk, voxelQuery, lightingQuery)
-            }
-
-            outputGeometry = {
-                default: {
-                    positions: geometry.positions.buffer,
-                    colors: geometry.colors.buffer,
-                    uvs: geometry.uvs.buffer,
-                    indices: geometry.indices.buffer
-                }
-            }
-
-            transferList = [
-                geometry.positions.buffer,
-                geometry.colors.buffer,
-                geometry.uvs.buffer,
-                geometry.indices.buffer
-            ]
-        }
-
         const response: MainMessage = {
             type: 'MESH_GENERATED',
             x,
             z,
-            lodLevel,
-            geometry: outputGeometry,
+            opaqueGeometry,
+            transparentGeometry,
             timingMs: duration
         }
 

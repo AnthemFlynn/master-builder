@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "name": "Superflat - Testing",
+    "seed": 11111,
+    "version": "0.1.0"
+  },
+  "terrain": {
+    "generator": "flat",
+    "baseHeight": 32
+  },
+  "features": [],
+  "biomes": {
+    "elevationBased": true,
+    "ranges": [
+      {
+        "elevationRange": [0, 100],
+        "surface": "grass",
+        "subsurface": "dirt"
+      }
+    ]
+  }
+}

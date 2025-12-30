@@ -1,5 +1,5 @@
 // src/modules/game/domain/commands/RemoveBlockCommand.ts
-import { Command } from './Command'
+import { Command } from '../../../../shared/domain/Command'
 
 export class RemoveBlockCommand implements Command {
   readonly type = 'RemoveBlockCommand'

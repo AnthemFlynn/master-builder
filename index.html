@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <link rel="icon" href="/src/static/mc.ico" />
+        <link rel="icon" href="/favicon.ico" />
         <link rel="stylesheet" href="/debug-overlay.css">
         <meta
             name="viewport"
@@ -16,7 +16,11 @@
     </head>
     <body>
         <script type="module" src="./src/main.ts"></script>
-        <div class="menu start">
+        <div id="splash" class="splash-screen">
+            <h1>Kingdom Builder</h1>
+            <p class="splash-subtitle">Click anywhere to continue</p>
+        </div>
+        <div class="menu start hidden">
             <button id="play" class="button">Play</button>
             <button id="save" class="button">Load Game</button>
             <button id="setting" class="button">Setting</button>

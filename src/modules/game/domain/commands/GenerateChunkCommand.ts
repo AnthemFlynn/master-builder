@@ -1,6 +1,6 @@
-// src/modules/terrain/domain/commands/GenerateChunkCommand.ts
-import { Command } from './Command'
-import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
+// src/modules/game/domain/commands/GenerateChunkCommand.ts
+import { Command } from '../../../../shared/domain/Command'
+import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 
 export class GenerateChunkCommand implements Command {
   readonly type = 'GenerateChunkCommand'
