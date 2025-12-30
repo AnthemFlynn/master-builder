@@ -1,11 +1,12 @@
 // src/modules/persistence/application/ModificationTracker.ts
 import { EventBus } from '../../../shared/infrastructure/EventBus'
+import { IModificationQuery } from '../../../shared/ports/IModificationQuery'
 
 /**
  * Tracks block modifications (placements/removals) for save/load persistence.
  * Stores only changes from generated terrain, not full chunk data.
  */
-export class ModificationTracker {
+export class ModificationTracker implements IModificationQuery {
   // Map<chunkKey, Map<localPosKey, blockType>>
   // blockType: 0 = air (removed), >0 = placed block
   private modifications = new Map<string, Map<string, number>>()

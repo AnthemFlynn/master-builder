@@ -2,17 +2,17 @@
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../shared/domain/ChunkData'
 import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
+import { IModificationQuery } from '../../../shared/ports/IModificationQuery'
 import { blockRegistry } from '../blocks'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
-import { ModificationTracker } from '../../persistence/application/ModificationTracker'
 import { ChunkWorkerPool } from '../infrastructure/ChunkWorkerPool'
 
 export class WorldService implements IVoxelQuery {
   private chunks = new Map<string, ChunkData>()
   private workerPool: ChunkWorkerPool
   private environmentService?: EnvironmentService
-  private modificationTracker?: ModificationTracker
+  private modificationQuery?: IModificationQuery
 
   // Track pending chunk requests to avoid duplicates
   private pendingChunks = new Set<string>()
@@ -41,8 +41,8 @@ export class WorldService implements IVoxelQuery {
       this.environmentService = service
   }
 
-  setModificationTracker(tracker: ModificationTracker) {
-      this.modificationTracker = tracker
+  setModificationTracker(query: IModificationQuery) {
+      this.modificationQuery = query
   }
 
   generateChunkAsync(coord: ChunkCoordinate, renderDistance: number): void {
@@ -69,8 +69,8 @@ export class WorldService implements IVoxelQuery {
         const newChunk = new ChunkData(chunkCoord, blockBuffer, metadata)
 
         // Apply saved modifications if any exist
-        if (this.modificationTracker) {
-          const mods = this.modificationTracker.getChunkModifications(key)
+        if (this.modificationQuery) {
+          const mods = this.modificationQuery.getChunkModifications(key)
           if (mods && mods.size > 0) {
             for (const [localKey, blockType] of mods) {
               const [lx, ly, lz] = localKey.split(',').map(Number)
