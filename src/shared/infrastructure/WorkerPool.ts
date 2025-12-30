@@ -1,5 +1,6 @@
 export interface WorkerTask {
   type: string
+  priority?: number  // Optional for backward compatibility (default = lowest priority)
   [key: string]: any
 }
 
@@ -56,9 +57,24 @@ export class WorkerPool {
       if (this.availableWorkers.length > 0) {
         this.executeTask(pendingTask)
       } else {
-        this.taskQueue.push(pendingTask)
+        this.insertByPriority(pendingTask)
       }
     })
+  }
+
+  private insertByPriority(pendingTask: PendingTask): void {
+    const priority = pendingTask.task.priority ?? 999  // Default to lowest priority
+
+    // Find insertion point (tasks sorted by priority, low to high)
+    const index = this.taskQueue.findIndex(t =>
+      (t.task.priority ?? 999) > priority
+    )
+
+    if (index === -1) {
+      this.taskQueue.push(pendingTask)  // Lowest priority, append
+    } else {
+      this.taskQueue.splice(index, 0, pendingTask)  // Insert before lower priority
+    }
   }
 
   private executeTask(pendingTask: PendingTask): void {

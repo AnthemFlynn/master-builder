@@ -87,4 +87,23 @@ describe('WorkerPool', () => {
     expect(util.busy).toBe(2)
     expect(util.total).toBe(6)
   })
+
+  it('should process tasks by priority (lower number first)', async () => {
+    pool = new WorkerPool(1, '/workers/dummy.js')
+
+    const results: number[] = []
+
+    // Block the single worker with a slow task first
+    const blocker = pool.execute({ type: 'BLOCKER', delay: 20 })
+
+    // Now queue 3 tasks with different priorities - all will queue since worker is busy
+    const p1 = pool.execute({ type: 'TEST', priority: 2, id: 1, delay: 10 }).then(() => results.push(1))
+    const p2 = pool.execute({ type: 'TEST', priority: 0, id: 2, delay: 10 }).then(() => results.push(2))
+    const p3 = pool.execute({ type: 'TEST', priority: 1, id: 3, delay: 10 }).then(() => results.push(3))
+
+    await Promise.all([blocker, p1, p2, p3])
+
+    // Should process in priority order: 2 (priority 0), 3 (priority 1), 1 (priority 2)
+    expect(results).toEqual([2, 3, 1])
+  })
 })

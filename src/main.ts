@@ -39,7 +39,11 @@ if (typeof window !== 'undefined') {
     setHour: (hour: number) => game.getEnvironmentService().setHour(hour),
     save: (slotName = 'manual-save') => game.commandBus.send(new SaveGameCommand(slotName, slotName, false)),
     load: (slotName = 'manual-save') => game.commandBus.send(new LoadGameCommand(slotName)),
-    listSaves: async () => await game.getPersistenceService().listSaveSlots()
+    listSaves: async () => await game.getPersistenceService().listSaveSlots(),
+    getLODMetrics: () => game.getLODMetrics(),
+    setLODThresholds: (thresholds: any) => game.setLODThresholds(thresholds),
+    getMetrics: () => game.getMetrics(),
+    getLastChunk: () => game.getLastChunk()
   }
 
   // Force time to Solar Noon for consistent development lighting

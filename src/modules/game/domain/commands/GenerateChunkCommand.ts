@@ -8,7 +8,8 @@ export class GenerateChunkCommand implements Command {
 
   constructor(
     public readonly chunkCoord: ChunkCoordinate,
-    public readonly renderDistance: number
+    public readonly renderDistance: number,
+    public readonly lodLevel: 0 | 1 | 2 | 3 = 0
   ) {
     this.timestamp = Date.now()
   }
