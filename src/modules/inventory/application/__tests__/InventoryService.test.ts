@@ -3,7 +3,7 @@ import { InventoryService } from '../InventoryService'
 import { MockEventBus } from '../../../../test-utils'
 
 // Need to initialize block registry for inventory tests
-import { initializeBlockRegistry } from '../../../world/blocks'
+import { initializeBlockRegistry } from '../../../blocks'
 initializeBlockRegistry()
 
 describe('InventoryService', () => {

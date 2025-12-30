@@ -6,7 +6,8 @@ import * as THREE from 'three'
 export interface ChunkMeshBuiltEvent extends DomainEvent {
   type: 'ChunkMeshBuiltEvent'
   chunkCoord: ChunkCoordinate
-  geometry: THREE.BufferGeometry
+  geometryMap: Map<string, THREE.BufferGeometry>
+  lodLevel?: 0 | 1 | 2 | 3
 }
 
 export interface ChunkMeshDirtyEvent extends DomainEvent {

@@ -5,6 +5,8 @@ interface MeshingTask {
   type: 'GEN_MESH'
   x: number
   z: number
+  lodLevel: 0 | 1 | 2 | 3
+  priority: number
   neighborVoxels: Record<string, ArrayBuffer>
   neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
 }
@@ -13,6 +15,7 @@ interface MeshingResult {
   type: 'MESH_GENERATED'
   x: number
   z: number
+  lodLevel: 0 | 1 | 2 | 3
   geometry: Record<string, {
     positions: ArrayBuffer
     colors: ArrayBuffer
@@ -32,12 +35,16 @@ export class MeshingWorkerPool {
   async generateMesh(
     coord: ChunkCoordinate,
     neighborVoxels: Record<string, ArrayBuffer>,
-    neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
+    neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>,
+    lodLevel: 0 | 1 | 2 | 3,
+    priority: number
   ): Promise<MeshingResult> {
     const task: MeshingTask = {
       type: 'GEN_MESH',
       x: coord.x,
       z: coord.z,
+      lodLevel,
+      priority,
       neighborVoxels,
       neighborLight
     }

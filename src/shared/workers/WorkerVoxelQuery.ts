@@ -2,7 +2,7 @@
 import { ChunkCoordinate } from '../domain/ChunkCoordinate'
 import { ChunkData } from '../domain/ChunkData'
 import { IVoxelQuery } from '../ports/IVoxelQuery'
-import { blockRegistry } from '../../modules/world/blocks'
+import { blockRegistry } from '../../modules/blocks'
 
 /**
  * WorkerVoxelQuery - IVoxelQuery implementation for use in Web Workers.
