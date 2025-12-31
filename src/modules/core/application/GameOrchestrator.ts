@@ -621,8 +621,11 @@ export class GameOrchestrator {
     this.services.eventBus.on('session', 'SessionStateChangedEvent', (event: any) => {
       if (event.newState === SessionState.PLAYING) {
         this.services.inputService.setState(GameState.PLAYING)
-        // Also update UIService to hide pause menu and resume game
-        this.services.uiService.onPlay()
+        // Only call onPlay when resuming from PAUSED (not during initial load)
+        // Initial load uses collapsePortal() for proper animation sequence
+        if (event.previousState === SessionState.PAUSED) {
+          this.services.uiService.onPlay()
+        }
       } else if (event.newState === SessionState.PAUSED) {
         this.services.inputService.setState(GameState.PAUSE)
       } else if (event.newState === SessionState.NO_SESSION) {
