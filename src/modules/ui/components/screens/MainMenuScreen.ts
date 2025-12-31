@@ -178,6 +178,11 @@ export function createMainMenuScreen(options: MainMenuScreenOptions): MainMenuSc
     void container.offsetHeight
     container.style.opacity = '1'
     container.style.visibility = 'visible'
+
+    // Focus the primary button so user can interact with the menu
+    requestAnimationFrame(() => {
+      newGameBtn.focus()
+    })
   }
 
   const hide = () => {

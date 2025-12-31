@@ -179,6 +179,12 @@ export function createPauseScreen(options: PauseScreenOptions): PauseScreenCompo
     container.style.opacity = '1'
     container.style.visibility = 'visible'
     document.addEventListener('keydown', handleKeydown)
+
+    // Focus the Resume button so user can interact with the menu
+    // Use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      resumeBtn.focus()
+    })
   }
 
   const hide = () => {
