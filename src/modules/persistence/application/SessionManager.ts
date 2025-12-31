@@ -43,6 +43,8 @@ export interface SessionManagerCallbacks {
 export class SessionManager {
   private currentSession: Session | null = null
   private lastPlayTimeUpdate = 0
+  private lastPauseTime = 0
+  private readonly RESUME_DEBOUNCE_MS = 500  // Prevent resume within 500ms of pause
   private visibilityPauseOverlay: HTMLElement | null = null
 
   constructor(
@@ -168,6 +170,12 @@ export class SessionManager {
       return
     }
 
+    // Debounce: prevent accidental resume immediately after pause
+    if (Date.now() - this.lastPauseTime < this.RESUME_DEBOUNCE_MS) {
+      console.log('[SessionManager] Resume blocked - too soon after pause')
+      return
+    }
+
     console.log('[SessionManager] Resuming session (no regeneration)')
 
     const previousState = this.currentSession.state
@@ -198,6 +206,7 @@ export class SessionManager {
 
     const previousState = this.currentSession.state
     this.currentSession.state = SessionState.PAUSED
+    this.lastPauseTime = Date.now()  // Track pause time for resume debounce
 
     // Unlock pointer
     this.callbacks.unlockPointer()
