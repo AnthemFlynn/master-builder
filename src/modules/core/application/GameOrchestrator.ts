@@ -617,10 +617,12 @@ export class GameOrchestrator {
       this.services.sessionManager.markUnsavedChanges()
     })
 
-    // Listen for session state changes
+    // Listen for session state changes - sync both UI and Input services
     this.services.eventBus.on('session', 'SessionStateChangedEvent', (event: any) => {
       if (event.newState === SessionState.PLAYING) {
         this.services.inputService.setState(GameState.PLAYING)
+        // Also update UIService to hide pause menu and resume game
+        this.services.uiService.onPlay()
       } else if (event.newState === SessionState.PAUSED) {
         this.services.inputService.setState(GameState.PAUSE)
       } else if (event.newState === SessionState.NO_SESSION) {
