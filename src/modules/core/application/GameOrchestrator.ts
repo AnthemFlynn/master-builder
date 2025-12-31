@@ -161,9 +161,9 @@ export class GameOrchestrator {
 
     console.log('Resuming game (no regeneration)...')
 
-    // SessionManager handles the state transition and pointer lock
+    // SessionManager handles the state transition, pointer lock, and emits event
+    // SessionStateChangedEvent handler will call uiService.onPlay()
     this.services.sessionManager.resumeSession()
-    this.services.uiService.onPlay()
   }
 
   /**
