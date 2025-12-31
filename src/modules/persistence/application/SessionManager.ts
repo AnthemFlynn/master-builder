@@ -45,14 +45,12 @@ export class SessionManager {
   private lastPlayTimeUpdate = 0
   private lastPauseTime = 0
   private readonly RESUME_DEBOUNCE_MS = 500  // Prevent resume within 500ms of pause
-  private visibilityPauseOverlay: HTMLElement | null = null
 
   constructor(
     private eventBus: EventBus,
     private callbacks: SessionManagerCallbacks
   ) {
     this.setupVisibilityHandling()
-    this.createVisibilityPauseOverlay()
   }
 
   // === Public Getters ===
@@ -182,10 +180,8 @@ export class SessionManager {
     this.currentSession.state = SessionState.PLAYING
     this.lastPlayTimeUpdate = Date.now()
 
-    // Hide visibility pause overlay if shown
-    this.hideVisibilityPauseOverlay()
-
     // Just lock pointer - chunks are already in memory!
+    // PauseScreen will be hidden via SessionStateChangedEvent handler
     this.callbacks.lockPointer()
 
     this.emitStateChange(previousState, SessionState.PLAYING)
@@ -257,7 +253,6 @@ export class SessionManager {
     const previousState = this.currentSession.state
     this.currentSession = null
 
-    this.hideVisibilityPauseOverlay()
     this.callbacks.unlockPointer()
 
     this.emitStateChange(previousState, SessionState.NO_SESSION)
@@ -302,94 +297,15 @@ export class SessionManager {
 
     console.log('[SessionManager] Tab hidden - auto-pausing')
 
-    // Pause with auto-save
+    // Pause with auto-save - PauseScreen will be shown via SessionStateChangedEvent
     this.pauseSession(true)
-
-    // Show the "Click to Resume" overlay
-    this.showVisibilityPauseOverlay()
   }
 
   private onTabVisible(): void {
-    // Don't auto-resume - show overlay and wait for user interaction
-    // This is better UX than suddenly being in-game when switching back
-    if (this.isPaused() && this.visibilityPauseOverlay?.classList.contains('visible')) {
-      console.log('[SessionManager] Tab visible - showing resume overlay')
-    }
-  }
-
-  // === Visibility Pause Overlay ===
-
-  private createVisibilityPauseOverlay(): void {
-    // Create overlay for tab-switch pause
-    this.visibilityPauseOverlay = document.createElement('div')
-    this.visibilityPauseOverlay.id = 'visibility-pause-overlay'
-    this.visibilityPauseOverlay.innerHTML = `
-      <div class="visibility-pause-content">
-        <h2>Game Paused</h2>
-        <p>Click anywhere to resume</p>
-      </div>
-    `
-    this.visibilityPauseOverlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      cursor: pointer;
-    `
-
-    const content = this.visibilityPauseOverlay.querySelector('.visibility-pause-content') as HTMLElement
-    if (content) {
-      content.style.cssText = `
-        text-align: center;
-        color: white;
-        font-family: 'Minecraft', sans-serif;
-      `
-    }
-
-    const h2 = this.visibilityPauseOverlay.querySelector('h2') as HTMLElement
-    if (h2) {
-      h2.style.cssText = `
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
-      `
-    }
-
-    const p = this.visibilityPauseOverlay.querySelector('p') as HTMLElement
-    if (p) {
-      p.style.cssText = `
-        font-size: 1.2rem;
-        opacity: 0.7;
-        animation: pulse 1.5s ease-in-out infinite;
-      `
-    }
-
-    // Click to resume
-    this.visibilityPauseOverlay.addEventListener('click', () => {
-      this.hideVisibilityPauseOverlay()
-      this.resumeSession()
-    })
-
-    document.body.appendChild(this.visibilityPauseOverlay)
-  }
-
-  private showVisibilityPauseOverlay(): void {
-    if (this.visibilityPauseOverlay) {
-      this.visibilityPauseOverlay.style.display = 'flex'
-      this.visibilityPauseOverlay.classList.add('visible')
-    }
-  }
-
-  private hideVisibilityPauseOverlay(): void {
-    if (this.visibilityPauseOverlay) {
-      this.visibilityPauseOverlay.style.display = 'none'
-      this.visibilityPauseOverlay.classList.remove('visible')
+    // Don't auto-resume - PauseScreen is already visible from pauseSession()
+    // User must click Resume on PauseScreen to continue
+    if (this.isPaused()) {
+      console.log('[SessionManager] Tab visible - PauseScreen is showing')
     }
   }
 
