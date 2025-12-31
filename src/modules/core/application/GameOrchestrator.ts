@@ -168,20 +168,19 @@ export class GameOrchestrator {
 
   /**
    * Exit to main menu - ends the current session
-   * Shows main menu instead of pause menu
+   * UI state change is handled by SessionStateChangedEvent handler
    */
   async exitToMenu(): Promise<void> {
     console.log('Exiting to main menu...')
 
-    // End session (auto-saves if there are unsaved changes)
-    await this.services.sessionManager.endSession()
-
-    // Clear world and modifications
+    // Clear world and modifications BEFORE ending session
+    // This ensures the world is cleared before menu appears
     this.services.worldService.clearAllChunks()
     this.services.modificationTracker.clear()
 
-    // Show main menu
-    this.services.uiService.onMenu()
+    // End session (auto-saves if there are unsaved changes)
+    // SessionStateChangedEvent handler will call uiService.onMenu()
+    await this.services.sessionManager.endSession()
   }
 
   update(skipHeavyProcessing = false): void {

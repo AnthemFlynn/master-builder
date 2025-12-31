@@ -332,8 +332,8 @@ export class MenuUIManager {
           console.log('Settings not implemented yet')
         },
         onExitToMenu: () => {
+          // Just call the callback - SessionStateChangedEvent handler will show main menu
           this.callbacks.onExitToMenu()
-          this.navigateTo(GameState.MAIN_MENU)
         }
       })
     }
