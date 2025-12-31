@@ -598,13 +598,11 @@ export class GameOrchestrator {
       }
 
       // Use SessionManager for pause if we have an active session
+      // SessionStateChangedEvent handler will sync UI state
       if (this.services.sessionManager.isPlaying()) {
         this.services.sessionManager.pauseSession()
-        this.services.uiService.onPause()
-      } else if (this.services.uiService.isPlaying()) {
-        // Fallback for legacy flow
-        this.services.uiService.onPause()
       }
+      // Note: No fallback needed - SessionManager is source of truth for game sessions
     })
   }
 
@@ -618,6 +616,7 @@ export class GameOrchestrator {
     })
 
     // Listen for session state changes - sync both UI and Input services
+    // This is the SINGLE SOURCE OF TRUTH for state synchronization
     this.services.eventBus.on('session', 'SessionStateChangedEvent', (event: any) => {
       if (event.newState === SessionState.PLAYING) {
         this.services.inputService.setState(GameState.PLAYING)
@@ -628,8 +627,10 @@ export class GameOrchestrator {
         }
       } else if (event.newState === SessionState.PAUSED) {
         this.services.inputService.setState(GameState.PAUSE)
+        this.services.uiService.onPause()
       } else if (event.newState === SessionState.NO_SESSION) {
         this.services.inputService.setState(GameState.MAIN_MENU)
+        this.services.uiService.onMenu()
       }
     })
   }
