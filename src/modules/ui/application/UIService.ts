@@ -13,6 +13,7 @@ import { InventoryBank } from '../../inventory/domain/InventoryState'
 import { DebugOverlay } from './DebugOverlay'
 import { PerformanceMonitor } from '../../game/infrastructure/PerformanceMonitor'
 import { IPersistenceQuery } from '../../persistence/ports/IPersistenceQuery'
+import { PersistenceService } from '../../persistence/application/PersistenceService'
 import { WorldManager } from '../../persistence/application/WorldManager'
 import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from '../../persistence/domain/commands/LoadGameCommand'
@@ -43,6 +44,7 @@ export class UIService implements IUIQuery {
   private saveLoadModal: SaveLoadModal | null = null
   private portalOverlay: PortalOverlay
   private debugOverlay: DebugOverlay
+  private commandBus: CommandBus | null = null
 
   constructor(
     private eventBus: EventBus,
@@ -70,8 +72,14 @@ export class UIService implements IUIQuery {
           this.onPlay()
         }
       },
-      onSave: (slotId) => {
-        this.options.onSaveGame?.(slotId)
+      onSave: async (slotId) => {
+        // Use CommandBus directly for saves (more reliable than options callback)
+        if (this.commandBus) {
+          this.commandBus.send(new SaveGameCommand(slotId, slotId, false))
+        } else {
+          // Fallback to options callback if commandBus not yet set
+          this.options.onSaveGame?.(slotId)
+        }
       },
       onLoad: (worldId, slotId) => {
         this.options.onLoadGame?.(worldId, slotId)
@@ -83,6 +91,9 @@ export class UIService implements IUIQuery {
           this.options.exitPointerLock?.()
           this.onMenu()
         }
+      },
+      onOpenSaveModal: () => {
+        this.openSaveLoadModal('save')
       }
     }
     this.menuUIManager = new MenuUIManager(eventBus, callbacks)
@@ -142,7 +153,8 @@ export class UIService implements IUIQuery {
   /**
    * Set up persistence for save/load modal (called after persistence is initialized)
    */
-  setPersistence(commandBus: CommandBus, persistenceQuery: IPersistenceQuery): void {
+  setPersistence(commandBus: CommandBus, persistenceService: PersistenceService): void {
+    this.commandBus = commandBus
     this.saveLoadModal = new SaveLoadModal({
       onSave: async (slotId) => {
         commandBus.send(new SaveGameCommand(slotId, slotId, false))
@@ -152,10 +164,14 @@ export class UIService implements IUIQuery {
         // Browser releases pointer lock during DOM changes
         commandBus.send(new LoadGameCommand(slotId))
       },
+      onDelete: async (slotId) => {
+        await persistenceService.deleteSaveSlot(slotId)
+        console.log(`[UIService] Deleted save slot: ${slotId}`)
+      },
       onClose: () => {
         // Return to previous state (menu or pause)
       },
-      listSlots: () => persistenceQuery.listSaveSlots()
+      listSlots: () => persistenceService.listSaveSlots()
     })
   }
 

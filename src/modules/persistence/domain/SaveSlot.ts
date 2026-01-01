@@ -5,7 +5,7 @@
  *
  * Each world can have multiple save slots:
  * - 1 autosave slot (automatically saved on pause/tab-switch)
- * - 3 manual save slots (user-initiated saves)
+ * - 9 manual save slots (user-initiated saves)
  */
 export interface SaveSlot {
   readonly id: string                      // "autosave" | "slot-1" | "slot-2" | "slot-3"
@@ -23,20 +23,27 @@ export interface SaveSlot {
 }
 
 /**
- * Predefined slot IDs for each world
+ * Predefined slot IDs for each world (1 autosave + 9 manual = 10 total)
  */
-export const SAVE_SLOT_IDS = ['autosave', 'slot-1', 'slot-2', 'slot-3'] as const
+export const SAVE_SLOT_IDS = [
+  'autosave',
+  'slot-1', 'slot-2', 'slot-3',
+  'slot-4', 'slot-5', 'slot-6',
+  'slot-7', 'slot-8', 'slot-9'
+] as const
 export type SaveSlotId = typeof SAVE_SLOT_IDS[number]
 
 /**
  * Get display name for a slot ID
  */
 export function getSlotDisplayName(slotId: string): string {
-  switch (slotId) {
-    case 'autosave': return 'Auto Save'
-    case 'slot-1': return 'Slot 1'
-    case 'slot-2': return 'Slot 2'
-    case 'slot-3': return 'Slot 3'
-    default: return slotId
+  if (slotId === 'autosave') return 'Auto Save'
+
+  // Handle slot-N pattern (slot-1 through slot-9)
+  const match = slotId.match(/^slot-(\d+)$/)
+  if (match) {
+    return `Slot ${match[1]}`
   }
+
+  return slotId
 }

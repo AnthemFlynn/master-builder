@@ -117,4 +117,11 @@ export class PersistenceService implements IPersistenceQuery {
   async getSaveSlotMetadata(slotId: string): Promise<SaveSlot | null> {
     return this.storage.getSaveSlotMetadata(slotId)
   }
+
+  /**
+   * Delete a save slot
+   */
+  async deleteSaveSlot(slotId: string): Promise<void> {
+    return this.storage.deleteSaveSlot(slotId)
+  }
 }

@@ -1,9 +1,10 @@
 // src/modules/ui/components/SaveLoadModal.ts
-import { SaveSlot } from '../../persistence/domain/SaveSlot'
+import { SaveSlot, SAVE_SLOT_IDS } from '../../persistence/domain/SaveSlot'
 
 export interface SaveLoadModalCallbacks {
   onSave: (slotId: string) => Promise<void>
   onLoad: (slotId: string) => Promise<void>
+  onDelete: (slotId: string) => Promise<void>
   onClose: () => void
   listSlots: () => Promise<SaveSlot[]>
 }
@@ -88,16 +89,23 @@ export class SaveLoadModal {
       })
     })
 
+    this.element.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const slotId = (e.target as HTMLElement).dataset.slot!
+        this.handleDelete(slotId)
+      })
+    })
+
     document.body.appendChild(this.element)
   }
 
   private renderSlots(slots: SaveSlot[]): string {
-    const slotConfigs = [
-      { id: 'autosave', name: 'Auto-Save', isAuto: true },
-      { id: 'slot-1', name: 'Slot 1', isAuto: false },
-      { id: 'slot-2', name: 'Slot 2', isAuto: false },
-      { id: 'slot-3', name: 'Slot 3', isAuto: false }
-    ]
+    // Build slot configs from SAVE_SLOT_IDS (1 autosave + 9 manual = 10 total)
+    const slotConfigs = SAVE_SLOT_IDS.map(id => ({
+      id,
+      name: id === 'autosave' ? 'Auto-Save' : `Slot ${id.replace('slot-', '')}`,
+      isAuto: id === 'autosave'
+    }))
 
     return slotConfigs.map(config => {
       const slot = slots.find(s => s.id === config.id)
@@ -133,7 +141,9 @@ export class SaveLoadModal {
       `
       const loadBtn = showLoad ? `<button class="load-btn" data-slot="${config.id}">Load</button>` : ''
       const saveBtn = showSave && !config.isAuto ? `<button class="save-btn" data-slot="${config.id}">Overwrite</button>` : ''
-      buttons = `${loadBtn}${saveBtn}`
+      // Delete button for non-autosave slots only
+      const deleteBtn = !config.isAuto ? `<button class="delete-btn" data-slot="${config.id}">Delete</button>` : ''
+      buttons = `${loadBtn}${saveBtn}${deleteBtn}`
     }
 
     return `
@@ -178,6 +188,23 @@ export class SaveLoadModal {
     this.close()
   }
 
+  private async handleDelete(slotId: string): Promise<void> {
+    const slotName = slotId.replace('slot-', 'Slot ')
+    const confirmed = confirm(`Delete ${slotName}? This cannot be undone.`)
+    if (!confirmed) return
+
+    await this.callbacks.onDelete(slotId)
+    this.showNotification('Save Deleted')
+
+    // Refresh slots display
+    const newSlots = await this.callbacks.listSlots()
+    if (this.element) {
+      const body = this.element.querySelector('.modal-body')
+      if (body) body.innerHTML = this.renderSlots(newSlots)
+      this.reattachListeners(newSlots)
+    }
+  }
+
   private reattachListeners(slots: SaveSlot[]): void {
     this.element?.querySelectorAll('.save-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -190,6 +217,13 @@ export class SaveLoadModal {
       btn.addEventListener('click', (e) => {
         const slotId = (e.target as HTMLElement).dataset.slot!
         this.handleLoad(slotId)
+      })
+    })
+
+    this.element?.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const slotId = (e.target as HTMLElement).dataset.slot!
+        this.handleDelete(slotId)
       })
     })
   }
@@ -322,6 +356,13 @@ export class SaveLoadModal {
       }
       .save-load-modal .save-btn:hover {
         background: #5a7abc;
+      }
+      .save-load-modal .delete-btn {
+        background: #8c4a4a;
+        color: white;
+      }
+      .save-load-modal .delete-btn:hover {
+        background: #a55a5a;
       }
       .save-load-modal .back-btn {
         padding: 8px 20px;

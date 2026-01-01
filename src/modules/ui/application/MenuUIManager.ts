@@ -31,11 +31,13 @@ export interface MenuUICallbacks {
   /** Resume from pause */
   onResume: () => void
   /** Save current game */
-  onSave: (slotId: string) => void
+  onSave: (slotId: string) => Promise<void>
   /** Load a save slot */
   onLoad: (worldId: string, slotId: string) => void
   /** Exit to main menu */
   onExitToMenu: () => void
+  /** Open save modal */
+  onOpenSaveModal: () => void
 }
 
 /**
@@ -325,14 +327,16 @@ export class MenuUIManager {
           this.callbacks.onResume()
         },
         onSave: () => {
-          // TODO: Save modal
-          this.callbacks.onSave('autosave')
+          // Open save modal for user to choose slot
+          this.callbacks.onOpenSaveModal()
         },
         onSettings: () => {
           console.log('Settings not implemented yet')
         },
-        onExitToMenu: () => {
-          // Just call the callback - SessionStateChangedEvent handler will show main menu
+        onExitToMenu: async () => {
+          // Save to autosave before exiting
+          await this.callbacks.onSave('autosave')
+          // Then exit - SessionStateChangedEvent handler will show main menu
           this.callbacks.onExitToMenu()
         }
       })
