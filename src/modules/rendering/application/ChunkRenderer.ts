@@ -28,6 +28,10 @@ export class ChunkRenderer {
     this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
       this.disposeChunk(e.chunkCoord)
     })
+
+    this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
+      this.disposeChunk(e.chunkCoord)
+    })
   }
 
   private updateMesh(
@@ -100,6 +104,21 @@ export class ChunkRenderer {
     if (chunkMeshes) {
       this.disposeGroup(chunkMeshes.opaque)
       this.disposeGroup(chunkMeshes.transparent)
+      this.meshes.delete(key)
+    }
+  }
+
+  disposeChunk(coord: ChunkCoordinate): void {
+    const key = coord.toKey()
+    const group = this.meshes.get(key)
+
+    if (group) {
+      group.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose()
+        }
+      })
+      this.scene.remove(group)
       this.meshes.delete(key)
     }
   }
