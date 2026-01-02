@@ -106,7 +106,12 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
       self.postMessage(response, [buffer])
     }
   } catch (error) {
-    console.error('[ChunkWorker] Error processing message:', error)
+    // Enhanced error logging to debug issues
+    const errorDetails = error instanceof Error
+      ? { message: error.message, stack: error.stack, name: error.name }
+      : { raw: String(error) }
+    console.error('[ChunkWorker] Error processing message:', errorDetails.message || errorDetails.raw)
+    console.error('[ChunkWorker] Stack trace:', errorDetails.stack || 'N/A')
     self.postMessage({
       type: 'CHUNK_ERROR',
       error: error instanceof Error ? error.message : String(error)

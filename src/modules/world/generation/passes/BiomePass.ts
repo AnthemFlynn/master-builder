@@ -4,6 +4,7 @@ import { resolveBlockType } from '../../domain/MaterialRegistry'
 import { getSurfaceBiome } from '../biomes/SurfaceBiomes'
 import { getUndergroundBiome } from '../biomes/UndergroundBiomes'
 import { BlockType } from '../../domain/BlockType'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../../shared/constants/ChunkConstants'
 
 export class BiomePass implements GenerationPass {
   readonly name = 'BiomePass'
@@ -22,8 +23,8 @@ export class BiomePass implements GenerationPass {
   }
 
   private executeClimateBased(context: GenerationContext): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const surface = context.surfaceMap.get(`${x},${z}`)
         if (!surface) continue
 
@@ -88,8 +89,8 @@ export class BiomePass implements GenerationPass {
   private executeLegacy(context: GenerationContext): void {
     const { biomes } = context.worldDef
 
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const height = Math.floor(context.heightMap[x][z])
 
         // Find matching biome range

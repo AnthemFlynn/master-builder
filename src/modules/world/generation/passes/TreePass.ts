@@ -3,6 +3,7 @@ import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
 import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 import { SeededRandom } from '../utils/SeededRandom'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../../shared/constants/ChunkConstants'
 
 export class TreePass implements GenerationPass {
   readonly name = 'TreePass'
@@ -58,7 +59,7 @@ export class TreePass implements GenerationPass {
         const z = Math.floor(gridZ + jitterZ)
 
         // Only include if within chunk bounds
-        if (x >= 0 && x < 24 && z >= 0 && z < 24) {
+        if (x >= 0 && x < CHUNK_WIDTH && z >= 0 && z < CHUNK_DEPTH) {
           positions.push({ x, z })
         }
       }

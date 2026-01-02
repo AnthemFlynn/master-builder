@@ -1,10 +1,11 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
+import { CHUNK_WIDTH, CHUNK_DEPTH, SEA_LEVEL } from '../../../../shared/constants/ChunkConstants'
 
 export class WaterPass implements GenerationPass {
   readonly name = 'WaterPass'
-  private readonly seaLevel = 63  // Match Minecraft's sea level
+  private readonly seaLevel = SEA_LEVEL
 
   execute(context: GenerationContext): void {
     // Fill water (sea level)
@@ -18,8 +19,8 @@ export class WaterPass implements GenerationPass {
   }
 
   private fillSeaLevel(context: GenerationContext): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const terrainHeight = context.heightMap[x][z]
 
         // Fill air below sea level with water
@@ -34,8 +35,8 @@ export class WaterPass implements GenerationPass {
 
   private createCoastlines(context: GenerationContext): void {
     // Analyze slope at each position to determine beach vs cliff
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const terrainHeight = context.heightMap[x][z]
 
         // Only process coastline zone (near sea level)
@@ -84,7 +85,7 @@ export class WaterPass implements GenerationPass {
     ]
 
     for (const [nx, nz] of neighbors) {
-      if (nx >= 0 && nx < 24 && nz >= 0 && nz < 24) {
+      if (nx >= 0 && nx < CHUNK_WIDTH && nz >= 0 && nz < CHUNK_DEPTH) {
         const diff = Math.abs(context.heightMap[nx][nz] - centerHeight)
         maxDiff = Math.max(maxDiff, diff)
       }
@@ -94,8 +95,8 @@ export class WaterPass implements GenerationPass {
   }
 
   private updateWaterSurfaces(context: GenerationContext): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const terrainHeight = context.heightMap[x][z]
 
         // If terrain is below sea level, surface is water at sea level
