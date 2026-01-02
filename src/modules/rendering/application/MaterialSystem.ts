@@ -1,3 +1,10 @@
+// src/modules/rendering/application/MaterialSystem.ts
+/**
+ * MaterialSystem - Manages materials for voxel rendering
+ *
+ * Supports both legacy format and SOTA packed vertex format (12 bytes per vertex).
+ * Uses texture arrays (DataArrayTexture) for efficient rendering.
+ */
 import * as THREE from 'three'
 import { blockRegistry } from '../../../modules/world/blocks'
 import { textureArrayLoader } from './TextureArrayLoader'
@@ -5,35 +12,27 @@ import {
   createOpaqueMaterial,
   createTransparentMaterial,
   createVegetationMaterial,
+  createPackedOpaqueMaterial,
   updateFogUniforms
 } from '../shaders/VoxelShader'
 
-/**
- * MaterialSystem - Manages materials for voxel rendering
- *
- * Uses texture arrays (DataArrayTexture) for efficient single-draw-call rendering.
- * Instead of one material per block type, we have only 3 shared materials:
- * - Opaque (solid blocks)
- * - Transparent (water, glass, ice)
- * - Vegetation (flowers, grass with alpha cutout)
- *
- * The texture layer index is stored per-vertex in the mesh geometry.
- */
 export class MaterialSystem {
-  // Shared materials (texture array approach - only 3 total!)
+  // Legacy shared materials (for backwards compatibility)
   private opaqueMaterial: THREE.ShaderMaterial | null = null
   private transparentMaterial: THREE.ShaderMaterial | null = null
   private vegetationMaterial: THREE.ShaderMaterial | null = null
 
-  // Fallback materials (for before texture array loads)
+  // Fallback materials
   private fallbackOpaque: THREE.MeshBasicMaterial
   private fallbackTransparent: THREE.MeshBasicMaterial
 
   private isInitialized = false
   private initPromise: Promise<void> | null = null
 
+  // Cache texture array for packed material creation
+  private textureArray: THREE.DataArrayTexture | null = null
+
   constructor() {
-    // Create simple fallback materials
     this.fallbackOpaque = new THREE.MeshBasicMaterial({
       color: 0x888888,
       vertexColors: true
@@ -46,13 +45,8 @@ export class MaterialSystem {
     })
   }
 
-  /**
-   * Initialize the texture array and create materials
-   * Call this after block registry is populated
-   */
   async initialize(): Promise<void> {
     if (this.initPromise) return this.initPromise
-
     this.initPromise = this.doInitialize()
     return this.initPromise
   }
@@ -60,32 +54,33 @@ export class MaterialSystem {
   private async doInitialize(): Promise<void> {
     console.log('🎨 MaterialSystem: Loading texture array...')
 
-    // Get all texture names from block registry
     const textureNames = blockRegistry.getAllTextureNames()
     console.log(`📦 Found ${textureNames.length} unique textures`)
 
-    // Load textures into array
     await textureArrayLoader.loadTextures(textureNames)
 
-    const textureArray = textureArrayLoader.getTextureArray()
-    if (!textureArray) {
+    this.textureArray = textureArrayLoader.getTextureArray()
+    if (!this.textureArray) {
       console.error('❌ MaterialSystem: Failed to create texture array')
       return
     }
 
-    // Create shared materials
-    this.opaqueMaterial = createOpaqueMaterial(textureArray)
-    this.transparentMaterial = createTransparentMaterial(textureArray)
-    this.vegetationMaterial = createVegetationMaterial(textureArray)
+    // Create legacy shared materials
+    this.opaqueMaterial = createOpaqueMaterial(this.textureArray)
+    this.transparentMaterial = createTransparentMaterial(this.textureArray)
+    this.vegetationMaterial = createVegetationMaterial(this.textureArray)
+
+    // Mark legacy materials as shared (don't dispose per-chunk)
+    this.opaqueMaterial.userData.shared = true
+    this.transparentMaterial.userData.shared = true
+    this.vegetationMaterial.userData.shared = true
 
     this.isInitialized = true
-    console.log('✅ MaterialSystem: Texture array materials ready')
+    console.log('✅ MaterialSystem: Texture array materials ready (legacy + packed)')
   }
 
-  /**
-   * Get material for OPAQUE geometry (solid blocks)
-   * Returns the shared opaque material (all solid blocks use same material)
-   */
+  // === Legacy Material Methods ===
+
   getOpaqueMaterial(_materialKey?: string): THREE.Material {
     if (!this.isInitialized || !this.opaqueMaterial) {
       return this.fallbackOpaque
@@ -93,42 +88,162 @@ export class MaterialSystem {
     return this.opaqueMaterial
   }
 
-  /**
-   * Get material for TRANSPARENT geometry (water, glass, vegetation)
-   * Checks materialKey to determine if it's vegetation (alpha cutout) or true transparent
-   */
   getTransparentMaterial(materialKey: string): THREE.Material {
     if (!this.isInitialized) {
       return this.fallbackTransparent
     }
 
-    // Check if it's vegetation (cross-billboard)
     if (materialKey.endsWith(':cross')) {
       return this.vegetationMaterial || this.fallbackTransparent
     }
 
-    // True transparency (water, glass, ice)
     return this.transparentMaterial || this.fallbackTransparent
   }
 
+  // === Packed Material Methods (SOTA 12-byte vertices) ===
+
   /**
-   * Get texture layer index for a texture name
-   * Used by VertexBuilder to set per-vertex layer indices
+   * Create a packed opaque material with chunk offset uniform
+   * Each chunk gets its own material instance (for uChunkOffset uniform)
    */
+  getPackedOpaqueMaterial(chunkOffset: THREE.Vector3): THREE.Material {
+    if (!this.isInitialized || !this.textureArray) {
+      return this.fallbackOpaque
+    }
+
+    // Create new material instance with chunk-specific offset
+    const material = createPackedOpaqueMaterial(this.textureArray, chunkOffset)
+    // Mark as NOT shared (will be disposed with chunk)
+    material.userData.shared = false
+    return material
+  }
+
+  /**
+   * Create a packed transparent material with chunk offset uniform
+   */
+  getPackedTransparentMaterial(chunkOffset: THREE.Vector3): THREE.Material {
+    if (!this.isInitialized || !this.textureArray) {
+      return this.fallbackTransparent
+    }
+
+    // Create new material for transparent with packed format
+    const material = new THREE.ShaderMaterial({
+      vertexShader: `
+precision highp float;
+precision highp int;
+
+attribute uint aPackedPosNormal;
+attribute uint aPackedUVTex;
+attribute uint aPackedColor;
+
+uniform vec3 uChunkOffset;
+
+varying vec2 vUv;
+varying vec3 vColor;
+varying float vLayer;
+varying vec3 vWorldPosition;
+varying vec3 vNormal;
+
+const vec3 NORMALS[6] = vec3[6](
+  vec3(1.0, 0.0, 0.0),
+  vec3(-1.0, 0.0, 0.0),
+  vec3(0.0, 1.0, 0.0),
+  vec3(0.0, -1.0, 0.0),
+  vec3(0.0, 0.0, 1.0),
+  vec3(0.0, 0.0, -1.0)
+);
+
+void main() {
+  float x = float(aPackedPosNormal & 0x1Fu);
+  float z = float((aPackedPosNormal >> 5u) & 0x1Fu);
+  float y = float((aPackedPosNormal >> 10u) & 0x1FFu);
+  uint normalIdx = (aPackedPosNormal >> 19u) & 0x7u;
+
+  float u = float(aPackedUVTex & 0xFFu) / 16.0;
+  float v = float((aPackedUVTex >> 8u) & 0xFFu) / 16.0;
+  float texLayer = float((aPackedUVTex >> 16u) & 0xFFFu);
+
+  float r = float(aPackedColor & 0xFFu) / 255.0;
+  float g = float((aPackedColor >> 8u) & 0xFFu) / 255.0;
+  float b = float((aPackedColor >> 16u) & 0xFFu) / 255.0;
+
+  vec3 localPos = vec3(x, y, z);
+  vec3 worldPos = localPos + uChunkOffset;
+  vec3 normal = normalIdx < 6u ? NORMALS[normalIdx] : vec3(0.0, 1.0, 0.0);
+
+  vUv = vec2(u, v);
+  vColor = vec3(r, g, b);
+  vLayer = texLayer;
+  vNormal = normalize(normalMatrix * normal);
+  vWorldPosition = worldPos;
+
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPos, 1.0);
+}
+`,
+      fragmentShader: `
+precision highp float;
+precision highp sampler2DArray;
+
+uniform sampler2DArray uTextureArray;
+uniform float uAlphaTest;
+uniform vec3 uFogColor;
+uniform float uFogNear;
+uniform float uFogFar;
+uniform bool uUseFog;
+
+varying vec2 vUv;
+varying vec3 vColor;
+varying float vLayer;
+varying vec3 vWorldPosition;
+varying vec3 vNormal;
+
+void main() {
+  vec4 texColor = texture(uTextureArray, vec3(vUv, vLayer));
+
+  if (texColor.a < uAlphaTest) {
+    discard;
+  }
+
+  vec3 finalColor = texColor.rgb * vColor;
+
+  if (uUseFog) {
+    float depth = gl_FragCoord.z / gl_FragCoord.w;
+    float fogFactor = smoothstep(uFogNear, uFogFar, depth);
+    finalColor = mix(finalColor, uFogColor, fogFactor);
+  }
+
+  gl_FragColor = vec4(finalColor, texColor.a);
+}
+`,
+      uniforms: {
+        uTextureArray: { value: this.textureArray },
+        uAlphaTest: { value: 0.5 },
+        uFogColor: { value: new THREE.Color(0xcccccc) },
+        uFogNear: { value: 50 },
+        uFogFar: { value: 200 },
+        uUseFog: { value: true },
+        uChunkOffset: { value: chunkOffset }
+      },
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      glslVersion: THREE.GLSL3
+    })
+
+    material.userData.shared = false
+    return material
+  }
+
+  // === Utility Methods ===
+
   getTextureLayerIndex(textureName: string): number {
     return textureArrayLoader.getLayerIndex(textureName)
   }
 
-  /**
-   * Get the texture layer lookup function for VertexBuilder
-   */
   getTextureLayerLookup(): (name: string) => number {
     return (name: string) => textureArrayLoader.getLayerIndex(name)
   }
 
-  /**
-   * Update fog settings on all materials
-   */
   updateFog(fogColor: THREE.Color, fogNear: number, fogFar: number): void {
     if (this.opaqueMaterial) {
       updateFogUniforms(this.opaqueMaterial, fogColor, fogNear, fogFar)
@@ -141,9 +256,6 @@ export class MaterialSystem {
     }
   }
 
-  /**
-   * Check if texture array is loaded
-   */
   isReady(): boolean {
     return this.isInitialized
   }
@@ -159,6 +271,7 @@ export class MaterialSystem {
     this.opaqueMaterial = null
     this.transparentMaterial = null
     this.vegetationMaterial = null
+    this.textureArray = null
     this.isInitialized = false
     this.initPromise = null
   }

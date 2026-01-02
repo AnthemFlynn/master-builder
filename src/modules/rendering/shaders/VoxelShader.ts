@@ -2,16 +2,87 @@
 import * as THREE from 'three'
 
 /**
- * VoxelShader - Custom shader material for voxel rendering
+ * VoxelShader - SOTA packed vertex format shader
  *
- * Uses texture arrays (sampler2DArray) for efficient single-draw-call rendering.
- * Supports:
- * - Texture array sampling with layer index per vertex
- * - Vertex colors for ambient occlusion and lighting
- * - Fog support
- * - Alpha testing for vegetation cutouts
+ * Unpacks 12-byte vertices (3 × uint32) in the vertex shader:
+ * - uint32[0]: Position (X, Z, Y) + Normal index + AO level
+ * - uint32[1]: UV + Texture layer
+ * - uint32[2]: Color RGB8
+ *
+ * This format reduces vertex size from 48 bytes to 12 bytes (4× reduction).
  */
 
+export const packedVoxelVertexShader = /* glsl */ `
+precision highp float;
+precision highp int;
+
+// Packed vertex attributes (3 × uint32 = 12 bytes per vertex)
+attribute uint aPackedPosNormal;  // Position + Normal + AO
+attribute uint aPackedUVTex;      // UV + Texture layer
+attribute uint aPackedColor;      // RGB8 color
+
+// Uniforms
+uniform vec3 uChunkOffset;  // World position of chunk origin
+
+// Varyings to fragment shader
+varying vec2 vUv;
+varying vec3 vColor;
+varying float vLayer;
+varying vec3 vWorldPosition;
+varying vec3 vNormal;
+
+// Normal vectors lookup table
+const vec3 NORMALS[6] = vec3[6](
+  vec3(1.0, 0.0, 0.0),   // 0: +X
+  vec3(-1.0, 0.0, 0.0),  // 1: -X
+  vec3(0.0, 1.0, 0.0),   // 2: +Y
+  vec3(0.0, -1.0, 0.0),  // 3: -Y
+  vec3(0.0, 0.0, 1.0),   // 4: +Z
+  vec3(0.0, 0.0, -1.0)   // 5: -Z
+);
+
+void main() {
+  // Unpack position from aPackedPosNormal
+  // bits 0-4: X, bits 5-9: Z, bits 10-18: Y
+  float x = float(aPackedPosNormal & 0x1Fu);
+  float z = float((aPackedPosNormal >> 5u) & 0x1Fu);
+  float y = float((aPackedPosNormal >> 10u) & 0x1FFu);
+
+  // Unpack normal index (bits 19-21) and AO (bits 22-23)
+  uint normalIdx = (aPackedPosNormal >> 19u) & 0x7u;
+  // uint aoLevel = (aPackedPosNormal >> 22u) & 0x3u;  // Available if needed
+
+  // Unpack UV and texture layer from aPackedUVTex
+  // bits 0-7: U, bits 8-15: V, bits 16-27: texture layer
+  float u = float(aPackedUVTex & 0xFFu) / 16.0;  // Unscale from packed format
+  float v = float((aPackedUVTex >> 8u) & 0xFFu) / 16.0;
+  float texLayer = float((aPackedUVTex >> 16u) & 0xFFFu);
+
+  // Unpack color from aPackedColor
+  // bits 0-7: R, bits 8-15: G, bits 16-23: B
+  float r = float(aPackedColor & 0xFFu) / 255.0;
+  float g = float((aPackedColor >> 8u) & 0xFFu) / 255.0;
+  float b = float((aPackedColor >> 16u) & 0xFFu) / 255.0;
+
+  // Reconstruct position
+  vec3 localPos = vec3(x, y, z);
+  vec3 worldPos = localPos + uChunkOffset;
+
+  // Get normal from lookup table
+  vec3 normal = normalIdx < 6u ? NORMALS[normalIdx] : vec3(0.0, 1.0, 0.0);
+
+  // Set varyings
+  vUv = vec2(u, v);
+  vColor = vec3(r, g, b);
+  vLayer = texLayer;
+  vNormal = normalize(normalMatrix * normal);
+  vWorldPosition = worldPos;
+
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPos, 1.0);
+}
+`
+
+// Legacy vertex shader for backwards compatibility
 export const voxelVertexShader = /* glsl */ `
 precision highp float;
 
@@ -120,7 +191,7 @@ void main() {
 `
 
 /**
- * Create a voxel material using the custom shader
+ * Material options
  */
 export interface VoxelMaterialOptions {
   textureArray: THREE.DataArrayTexture
@@ -131,8 +202,13 @@ export interface VoxelMaterialOptions {
   fog?: boolean
   emissive?: THREE.Color
   emissiveIntensity?: number
+  usePacked?: boolean  // Use packed vertex format
+  chunkOffset?: THREE.Vector3  // Chunk world position (for packed format)
 }
 
+/**
+ * Create a voxel material using packed or legacy shader
+ */
 export function createVoxelMaterial(options: VoxelMaterialOptions): THREE.ShaderMaterial {
   const {
     textureArray,
@@ -142,11 +218,13 @@ export function createVoxelMaterial(options: VoxelMaterialOptions): THREE.Shader
     side = THREE.FrontSide,
     fog = true,
     emissive = new THREE.Color(0, 0, 0),
-    emissiveIntensity = 0
+    emissiveIntensity = 0,
+    usePacked = false,
+    chunkOffset = new THREE.Vector3(0, 0, 0)
   } = options
 
   const material = new THREE.ShaderMaterial({
-    vertexShader: voxelVertexShader,
+    vertexShader: usePacked ? packedVoxelVertexShader : voxelVertexShader,
     fragmentShader: voxelFragmentShader,
     uniforms: {
       uTextureArray: { value: textureArray },
@@ -156,19 +234,21 @@ export function createVoxelMaterial(options: VoxelMaterialOptions): THREE.Shader
       uFogFar: { value: 200 },
       uUseFog: { value: fog },
       uEmissive: { value: emissive },
-      uEmissiveIntensity: { value: emissiveIntensity }
+      uEmissiveIntensity: { value: emissiveIntensity },
+      uChunkOffset: { value: chunkOffset }
     },
     transparent,
     depthWrite,
     side,
-    vertexColors: true
+    vertexColors: !usePacked,  // Legacy format uses vertex colors attribute
+    glslVersion: usePacked ? THREE.GLSL3 : undefined  // GLSL3 for uint attributes
   })
 
   return material
 }
 
 /**
- * Create material for opaque blocks
+ * Create material for opaque blocks (legacy format)
  */
 export function createOpaqueMaterial(textureArray: THREE.DataArrayTexture): THREE.ShaderMaterial {
   return createVoxelMaterial({
@@ -177,7 +257,27 @@ export function createOpaqueMaterial(textureArray: THREE.DataArrayTexture): THRE
     alphaTest: 0.0,
     depthWrite: true,
     side: THREE.FrontSide,
-    fog: true
+    fog: true,
+    usePacked: false
+  })
+}
+
+/**
+ * Create material for opaque blocks (packed format)
+ */
+export function createPackedOpaqueMaterial(
+  textureArray: THREE.DataArrayTexture,
+  chunkOffset: THREE.Vector3
+): THREE.ShaderMaterial {
+  return createVoxelMaterial({
+    textureArray,
+    transparent: false,
+    alphaTest: 0.0,
+    depthWrite: true,
+    side: THREE.FrontSide,
+    fog: true,
+    usePacked: true,
+    chunkOffset
   })
 }
 
@@ -189,9 +289,10 @@ export function createTransparentMaterial(textureArray: THREE.DataArrayTexture):
     textureArray,
     transparent: true,
     alphaTest: 0.0,
-    depthWrite: false, // Don't write depth for true transparency
+    depthWrite: false,
     side: THREE.FrontSide,
-    fog: true
+    fog: true,
+    usePacked: false
   })
 }
 
@@ -202,15 +303,16 @@ export function createVegetationMaterial(textureArray: THREE.DataArrayTexture): 
   return createVoxelMaterial({
     textureArray,
     transparent: true,
-    alphaTest: 0.5, // Cutout transparency
-    depthWrite: true, // Can write depth since using alpha test
-    side: THREE.DoubleSide, // Render both sides for cross-billboards
-    fog: true
+    alphaTest: 0.5,
+    depthWrite: true,
+    side: THREE.DoubleSide,
+    fog: true,
+    usePacked: false
   })
 }
 
 /**
- * Update fog uniforms (call when fog settings change)
+ * Update fog uniforms
  */
 export function updateFogUniforms(
   material: THREE.ShaderMaterial,
@@ -224,7 +326,19 @@ export function updateFogUniforms(
 }
 
 /**
- * Update emissive uniforms (for light-emitting blocks)
+ * Update chunk offset for packed materials
+ */
+export function updateChunkOffset(
+  material: THREE.ShaderMaterial,
+  chunkOffset: THREE.Vector3
+): void {
+  if (material.uniforms.uChunkOffset) {
+    material.uniforms.uChunkOffset.value.copy(chunkOffset)
+  }
+}
+
+/**
+ * Update emissive uniforms
  */
 export function updateEmissiveUniforms(
   material: THREE.ShaderMaterial,
