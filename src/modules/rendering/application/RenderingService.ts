@@ -16,6 +16,21 @@ export class RenderingService {
     this.chunkRenderer = new ChunkRenderer(scene, this.materialSystem, eventBus)
   }
 
+  /**
+   * Initialize the rendering service (loads texture arrays)
+   * Call this after block registry is populated
+   */
+  async initialize(): Promise<void> {
+    await this.materialSystem.initialize()
+  }
+
+  /**
+   * Get the texture layer lookup function for use in workers
+   */
+  getTextureLayerLookup(): (name: string) => number {
+    return this.materialSystem.getTextureLayerLookup()
+  }
+
   // Public API is minimal - rendering is event-driven
   // ChunkRenderer listens to ChunkMeshBuiltEvent automatically
 

@@ -94,6 +94,10 @@ export class MeshingService {
         geo.setAttribute('normal', new THREE.Float32BufferAttribute(buffers.normals, 3))  // Pre-computed normals
         geo.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
+        // Texture array layer indices (for VoxelShader sampler2DArray)
+        if (buffers.layers) {
+          geo.setAttribute('aLayer', new THREE.Float32BufferAttribute(buffers.layers, 1))
+        }
         geo.setIndex(new THREE.Uint16BufferAttribute(buffers.indices, 1))
         // No more computeVertexNormals() - normals are pre-computed in worker!
         map.set(key, geo)

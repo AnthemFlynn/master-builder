@@ -10,8 +10,10 @@ export type MeshingRequest =
 // Geometry buffer structure for a single material
 export type GeometryBuffers = {
   positions: ArrayBuffer
+  normals: ArrayBuffer      // Pre-computed normals (axis-aligned)
   colors: ArrayBuffer
   uvs: ArrayBuffer
+  layers: ArrayBuffer       // Texture array layer indices
   indices: ArrayBuffer
 }
 

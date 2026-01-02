@@ -9,6 +9,7 @@ import { ModificationTracker } from '../ModificationTracker'
 import { WorldService } from '../../../world/application/WorldService'
 import { EventBus } from '../../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../../shared/constants/ChunkConstants'
 
 /**
  * Handler for LoadGameCommand
@@ -49,8 +50,8 @@ export class LoadGameHandler implements CommandHandler<LoadGameCommand> {
       // Regenerate chunks around the loaded player position to apply modifications
       const playerPos = snapshot.player.position
       const centerChunk = new ChunkCoordinate(
-        Math.floor(playerPos.x / 24),
-        Math.floor(playerPos.z / 24)
+        Math.floor(playerPos.x / CHUNK_WIDTH),
+        Math.floor(playerPos.z / CHUNK_DEPTH)
       )
 
       // Clear existing chunks and regenerate

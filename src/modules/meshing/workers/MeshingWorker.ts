@@ -8,6 +8,7 @@ import { LightValue } from '../../../shared/domain/LightValue'
 import { ILightStorage } from '../../../shared/ports/ILightStorage'
 import { initializeBlockRegistry } from '../../../modules/world/blocks'
 import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../shared/constants/ChunkConstants'
 
 // Initialize block registry
 initializeBlockRegistry()
@@ -26,17 +27,17 @@ class WorkerLightingQuery implements ILightingQuery {
     
     getLight(worldX: number, worldY: number, worldZ: number): LightValue {
         if (worldY < 0) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
-        if (worldY >= 256) return { sky: {r:15,g:15,b:15}, block: {r:0,g:0,b:0} }
+        if (worldY >= CHUNK_HEIGHT) return { sky: {r:15,g:15,b:15}, block: {r:0,g:0,b:0} }
 
-        const cx = Math.floor(worldX / 24)
-        const cz = Math.floor(worldZ / 24)
+        const cx = Math.floor(worldX / CHUNK_WIDTH)
+        const cz = Math.floor(worldZ / CHUNK_DEPTH)
         const coord = new ChunkCoordinate(cx, cz)
         const data = this.storage.getLightData(coord)
-        
+
         if (!data) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
-        
-        const lx = ((worldX % 24) + 24) % 24
-        const lz = ((worldZ % 24) + 24) % 24
+
+        const lx = ((worldX % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
+        const lz = ((worldZ % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
         
         const b = data.getBlockLight(lx, worldY, lz)
         const s = data.getSkyLight(lx, worldY, lz)
@@ -99,6 +100,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 normals: buffers.normals.buffer,  // Pre-computed normals
                 colors: buffers.colors.buffer,
                 uvs: buffers.uvs.buffer,
+                layers: buffers.layers.buffer,    // Texture array layer indices
                 indices: buffers.indices.buffer
             }
             transferList.push(
@@ -106,6 +108,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 buffers.normals.buffer,
                 buffers.colors.buffer,
                 buffers.uvs.buffer,
+                buffers.layers.buffer,
                 buffers.indices.buffer
             )
         }
@@ -117,6 +120,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 normals: buffers.normals.buffer,  // Pre-computed normals
                 colors: buffers.colors.buffer,
                 uvs: buffers.uvs.buffer,
+                layers: buffers.layers.buffer,    // Texture array layer indices
                 indices: buffers.indices.buffer
             }
             transferList.push(
@@ -124,6 +128,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
                 buffers.normals.buffer,
                 buffers.colors.buffer,
                 buffers.uvs.buffer,
+                buffers.layers.buffer,
                 buffers.indices.buffer
             )
         }

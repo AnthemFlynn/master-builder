@@ -1,6 +1,7 @@
 // src/modules/persistence/application/ModificationTracker.ts
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { IModificationQuery } from '../../../shared/ports/IModificationQuery'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstants'
 
 /**
  * Tracks block modifications (placements/removals) for save/load persistence.
@@ -29,12 +30,12 @@ export class ModificationTracker implements IModificationQuery {
    * Track a block modification at world coordinates
    */
   trackModification(worldX: number, worldY: number, worldZ: number, blockType: number): void {
-    const chunkX = Math.floor(worldX / 24)
-    const chunkZ = Math.floor(worldZ / 24)
+    const chunkX = Math.floor(worldX / CHUNK_WIDTH)
+    const chunkZ = Math.floor(worldZ / CHUNK_DEPTH)
     const chunkKey = `${chunkX},${chunkZ}`
 
-    const localX = ((worldX % 24) + 24) % 24
-    const localZ = ((worldZ % 24) + 24) % 24
+    const localX = ((worldX % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
+    const localZ = ((worldZ % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
     const localKey = `${localX},${worldY},${localZ}`
 
     if (!this.modifications.has(chunkKey)) {

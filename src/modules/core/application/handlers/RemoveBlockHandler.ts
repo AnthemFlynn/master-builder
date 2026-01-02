@@ -4,6 +4,7 @@ import { RemoveBlockCommand } from '../../domain/commands/RemoveBlockCommand'
 import { WorldService } from '../../../world/application/WorldService'
 import { EventBus } from '../../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../../shared/constants/ChunkConstants'
 
 export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {
   constructor(
@@ -15,7 +16,7 @@ export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {
     const { x, y, z } = command
 
     // Validate
-    if (y < 0 || y > 255) {
+    if (y < 0 || y >= CHUNK_HEIGHT) {
       console.warn('Invalid Y position for block removal')
       return
     }
@@ -37,8 +38,8 @@ export class RemoveBlockHandler implements CommandHandler<RemoveBlockCommand> {
 
     // Calculate chunk coordinate
     const chunkCoord = new ChunkCoordinate(
-      Math.floor(x / 24),
-      Math.floor(z / 24)
+      Math.floor(x / CHUNK_WIDTH),
+      Math.floor(z / CHUNK_DEPTH)
     )
 
     const position = {

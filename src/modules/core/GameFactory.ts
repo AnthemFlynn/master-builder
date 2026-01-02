@@ -233,6 +233,10 @@ export async function initializeAsyncServices(
   // Initialize WorldManager (uses same DB, handles migration)
   await services.worldManager.initialize()
 
+  // Initialize rendering (loads texture arrays)
+  await services.renderingService.initialize()
+  console.log('✅ RenderingService initialized (texture arrays loaded)')
+
   // Set up thumbnail capture with renderer
   if (renderer) {
     services.thumbnailCapture.setRenderer(renderer)

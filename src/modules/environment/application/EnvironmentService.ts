@@ -12,6 +12,7 @@ import { ChunkData } from '../../../shared/domain/ChunkData'
 import { LightValue } from '../../../shared/domain/LightValue'
 import { LightingWorkerPool } from '../infrastructure/LightingWorkerPool'
 import { BlockType } from '../../world/domain/BlockType'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstants'
 
 export class EnvironmentService implements ILightingQuery, ILightStorage {
   private timeCycle: TimeCycle
@@ -52,16 +53,16 @@ export class EnvironmentService implements ILightingQuery, ILightStorage {
 
   // ILightingQuery Implementation
   getLight(worldX: number, worldY: number, worldZ: number): LightValue {
-      const cx = Math.floor(worldX / 24)
-      const cz = Math.floor(worldZ / 24)
+      const cx = Math.floor(worldX / CHUNK_WIDTH)
+      const cz = Math.floor(worldZ / CHUNK_DEPTH)
       const coord = new ChunkCoordinate(cx, cz)
       const data = this.chunkDataMap.get(coord.toKey())
 
       // Default to DARKNESS if chunk is missing
       if (!data) return { sky: {r:0,g:0,b:0}, block: {r:0,g:0,b:0} }
 
-      const lx = ((worldX % 24) + 24) % 24
-      const lz = ((worldZ % 24) + 24) % 24
+      const lx = ((worldX % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
+      const lz = ((worldZ % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
 
       // Use ChunkData API
       const b = data.getBlockLight(lx, worldY, lz)

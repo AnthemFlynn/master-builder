@@ -2,6 +2,7 @@ import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
 import { createNoise3D, NoiseFunction3D } from 'simplex-noise'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../../shared/constants/ChunkConstants'
 
 /**
  * CaveSystemPass - Minecraft 1.18-style noise caves (optimized)
@@ -38,8 +39,8 @@ export class CaveSystemPass implements GenerationPass {
   execute(context: GenerationContext): void {
     const chunkX = context.chunkCoord.x
     const chunkZ = context.chunkCoord.z
-    const worldX = chunkX * 24
-    const worldZ = chunkZ * 24
+    const worldX = chunkX * CHUNK_WIDTH
+    const worldZ = chunkZ * CHUNK_DEPTH
 
     // Initialize noise (once per seed)
     if (this.cachedSeed !== context.seed) {
@@ -52,8 +53,8 @@ export class CaveSystemPass implements GenerationPass {
     const noise2 = this.noise2!
 
     // Carve caves
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const wx = worldX + x
         const wz = worldZ + z
         const terrainHeight = context.heightMap[x][z]
@@ -104,8 +105,8 @@ export class CaveSystemPass implements GenerationPass {
     worldZ: number
   ): void {
     // Only check every 6th position for decorations
-    for (let x = 0; x < 24; x += 2) {
-      for (let z = 0; z < 24; z += 2) {
+    for (let x = 0; x < CHUNK_WIDTH; x += 2) {
+      for (let z = 0; z < CHUNK_DEPTH; z += 2) {
         // Use position-based pseudo-random for decoration placement
         const wx = worldX + x
         const wz = worldZ + z

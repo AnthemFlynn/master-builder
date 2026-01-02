@@ -2,6 +2,7 @@ import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
 import { SeededRandom } from '../utils/SeededRandom'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../../shared/constants/ChunkConstants'
 
 interface OreConfig {
   blockType: BlockType
@@ -75,8 +76,8 @@ export class OrePass implements GenerationPass {
 
     for (let i = 0; i < veinAttempts; i++) {
       // Random starting position within chunk
-      const startX = Math.floor(rng.next() * 24)
-      const startZ = Math.floor(rng.next() * 24)
+      const startX = Math.floor(rng.next() * CHUNK_WIDTH)
+      const startZ = Math.floor(rng.next() * CHUNK_DEPTH)
       const startY = Math.floor(ore.minY + rng.next() * (ore.maxY - ore.minY))
 
       // Check if starting position is in stone (underground)
@@ -112,9 +113,9 @@ export class OrePass implements GenerationPass {
       const key = `${current.x},${current.y},${current.z}`
 
       if (placed.has(key)) continue
-      if (current.x < 0 || current.x >= 24) continue
-      if (current.z < 0 || current.z >= 24) continue
-      if (current.y < 1 || current.y >= 255) continue
+      if (current.x < 0 || current.x >= CHUNK_WIDTH) continue
+      if (current.z < 0 || current.z >= CHUNK_DEPTH) continue
+      if (current.y < 1 || current.y >= CHUNK_HEIGHT - 1) continue
 
       // Check distance from center (creates roughly spherical veins)
       const dx = current.x - startX

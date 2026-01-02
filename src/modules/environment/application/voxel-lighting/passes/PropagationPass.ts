@@ -5,6 +5,7 @@ import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
 import { ILightStorage } from '../../../../../shared/ports/ILightStorage'
 import { blockRegistry } from '../../../../../modules/world/blocks'
 import { LightValue } from '../../../../../shared/domain/LightValue'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../../../shared/constants/ChunkConstants'
 
 export class PropagationPass implements ILightingPass {
   // Pre-allocated reusable coordinate to avoid GC
@@ -22,8 +23,8 @@ export class PropagationPass implements ILightingPass {
     coord: ChunkCoordinate,
     storage: ILightStorage
   ): void {
-    const worldX = coord.x * 24
-    const worldZ = coord.z * 24
+    const worldX = coord.x * CHUNK_WIDTH
+    const worldZ = coord.z * CHUNK_DEPTH
 
     // Reset queue and visited for this execution
     this.qHead = 0
@@ -61,8 +62,8 @@ export class PropagationPass implements ILightingPass {
     const packLight = (r: number, g: number, b: number, s: number) => (r << 24) | (g << 16) | (b << 8) | s
 
     const borderOffsets = [
-      { dx: -1, dz: 0 }, { dx: 24, dz: 0 },
-      { dx: 0, dz: -1 }, { dx: 0, dz: 24 }
+      { dx: -1, dz: 0 }, { dx: CHUNK_WIDTH, dz: 0 },
+      { dx: 0, dz: -1 }, { dx: 0, dz: CHUNK_DEPTH }
     ]
 
     // Helper to get light from any chunk (current or neighbor)
@@ -70,21 +71,21 @@ export class PropagationPass implements ILightingPass {
       let targetChunk: ChunkData | undefined
       let lx: number, ly: number, lz: number
 
-      if (rx >= 0 && rx < 24 && rz >= 0 && rz < 24) {
+      if (rx >= 0 && rx < CHUNK_WIDTH && rz >= 0 && rz < CHUNK_DEPTH) {
         targetChunk = chunkData // Current chunk
         lx = rx
         ly = ry
         lz = rz
       } else {
-        const cx = coord.x + Math.floor(rx / 24)
-        const cz = coord.z + Math.floor(rz / 24)
+        const cx = coord.x + Math.floor(rx / CHUNK_WIDTH)
+        const cz = coord.z + Math.floor(rz / CHUNK_DEPTH)
         this.tempCoord.x = cx
         this.tempCoord.z = cz
         targetChunk = storage.getLightData(this.tempCoord)
         if (!targetChunk) return null // Neighbor chunk not loaded
-        lx = ((rx % 24) + 24) % 24
+        lx = ((rx % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
         ly = ry
-        lz = ((rz % 24) + 24) % 24
+        lz = ((rz % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
       }
       const b = targetChunk.getBlockLight(lx, ly, lz)
       const s = targetChunk.getSkyLight(lx, ly, lz)
@@ -96,21 +97,21 @@ export class PropagationPass implements ILightingPass {
       let targetChunk: ChunkData | undefined
       let lx: number, ly: number, lz: number
 
-      if (rx >= 0 && rx < 24 && rz >= 0 && rz < 24) {
+      if (rx >= 0 && rx < CHUNK_WIDTH && rz >= 0 && rz < CHUNK_DEPTH) {
         targetChunk = chunkData // Current chunk
         lx = rx
         ly = ry
         lz = rz
       } else {
-        const cx = coord.x + Math.floor(rx / 24)
-        const cz = coord.z + Math.floor(rz / 24)
+        const cx = coord.x + Math.floor(rx / CHUNK_WIDTH)
+        const cz = coord.z + Math.floor(rz / CHUNK_DEPTH)
         this.tempCoord.x = cx
         this.tempCoord.z = cz
         targetChunk = storage.getLightData(this.tempCoord)
         if (!targetChunk) return false // Neighbor chunk not loaded
-        lx = ((rx % 24) + 24) % 24
+        lx = ((rx % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
         ly = ry
-        lz = ((rz % 24) + 24) % 24
+        lz = ((rz % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
       }
       targetChunk.setBlockLight(lx, ly, lz, r, g, b)
       targetChunk.setSkyLight(lx, ly, lz, s)
@@ -122,7 +123,7 @@ export class PropagationPass implements ILightingPass {
         nx: number, ny: number, nz: number,
         node: {r: number, g: number, b: number, s: number}
     ) => {
-        if (ny < 0 || ny >= 256) return
+        if (ny < 0 || ny >= CHUNK_HEIGHT) return
 
         const lightAbsorption = voxels.getLightAbsorption(worldX + nx, ny, worldZ + nz)
         if (lightAbsorption >= 15) return
@@ -157,8 +158,8 @@ export class PropagationPass implements ILightingPass {
     // Phase 0: Seed from neighbors
     for (const { dx, dz } of borderOffsets) {
       const isXAxis = dx !== 0
-      for (let i = 0; i < 24; i++) {
-        for (let y = 0; y < 256; y++) {
+      for (let i = 0; i < CHUNK_WIDTH; i++) {
+        for (let y = 0; y < CHUNK_HEIGHT; y++) {
           const checkX = isXAxis ? dx : i
           const checkZ = isXAxis ? i : dz
           const light = getGlobalLight(checkX, y, checkZ)
@@ -171,9 +172,9 @@ export class PropagationPass implements ILightingPass {
 
     // Phase 1: Seed internal
     let emissiveCount = 0
-    for (let localX = 0; localX < 24; localX++) {
-      for (let localY = 0; localY < 256; localY++) {
-        for (let localZ = 0; localZ < 24; localZ++) {
+    for (let localX = 0; localX < CHUNK_WIDTH; localX++) {
+      for (let localY = 0; localY < CHUNK_HEIGHT; localY++) {
+        for (let localZ = 0; localZ < CHUNK_DEPTH; localZ++) {
           const blockType = voxels.getBlockType(worldX + localX, localY, worldZ + localZ)
 
           const bl = chunkData.getBlockLight(localX, localY, localZ)

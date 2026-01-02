@@ -22,6 +22,9 @@ export class ThreeSkyAdapter {
   private readonly LIGHTING_UPDATE_INTERVAL_MS = 100
   private lastLightingUpdate = 0
 
+  // Cache day for sun times calculation (only needs update once per day)
+  private lastSunTimesDay = -1
+
   // Underwater fog settings
   private readonly UNDERWATER_FOG_COLOR = 0x1a5f7a  // Teal blue
   private readonly UNDERWATER_FOG_NEAR = 0.5
@@ -202,9 +205,6 @@ export class ThreeSkyAdapter {
       )
     }
   }
-
-  // Cache day for sun times calculation (only needs update once per day)
-  private lastSunTimesDay = -1
 
   private calculateSunTimes(date: Date): void {
     // OPTIMIZED: Only recalculate sun times when day changes

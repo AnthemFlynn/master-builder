@@ -3,12 +3,14 @@ import { IVoxelQuery } from '../../../shared/ports/IVoxelQuery'
 import { ILightingQuery } from '../../../shared/ports/ILightingQuery'
 import { blockRegistry } from '../../../modules/world/blocks'
 import { RGB, combineLightChannels, normalizeLightToColor } from '../../../shared/domain/LightValue'
+import { CHUNK_WIDTH, CHUNK_DEPTH, SEA_LEVEL } from '../../../shared/constants/ChunkConstants'
 
 interface BufferData {
   positions: number[]
   normals: number[]  // Pre-computed normals to avoid expensive computeVertexNormals()
   colors: number[]
   uvs: number[]
+  layers: number[]   // Texture array layer indices
   indices: number[]
   vertexCount: number
 }
@@ -23,9 +25,27 @@ export class VertexBuilder {
   private hashCache = new Map<string, number>()
   // Skip AO calculation for LOD meshers (performance optimization)
   private skipAO = false
+  // Texture layer lookup (texture name -> layer index)
+  private textureLayerLookup: ((name: string) => number) | null = null
 
   setSkipAO(skip: boolean): void {
     this.skipAO = skip
+  }
+
+  /**
+   * Set the texture layer lookup function (for texture array rendering)
+   */
+  setTextureLayerLookup(lookup: (name: string) => number): void {
+    this.textureLayerLookup = lookup
+  }
+
+  /**
+   * Get texture layer index for a block face
+   */
+  private getTextureLayer(blockType: number, faceIndex: number): number {
+    if (!this.textureLayerLookup) return 0
+    const textureName = blockRegistry.getTextureForFace(blockType, faceIndex)
+    return this.textureLayerLookup(textureName)
   }
 
   constructor(
@@ -34,8 +54,8 @@ export class VertexBuilder {
     chunkX: number,
     chunkZ: number
   ) {
-    this.worldOffsetX = chunkX * 24
-    this.worldOffsetZ = chunkZ * 24
+    this.worldOffsetX = chunkX * CHUNK_WIDTH
+    this.worldOffsetZ = chunkZ * CHUNK_DEPTH
   }
 
   /**
@@ -50,8 +70,12 @@ export class VertexBuilder {
     // Cross quads (flowers, grass) are always transparent
     const buffer = this.getBuffer(materialKey, true)
 
-    // Get base color for the block
-    const baseColor = blockRegistry.getFaceColor(blockType, { x: 0, y: 1, z: 0 })
+    // Get base color for the block (non-allocating - copy values immediately)
+    const baseColorRGB = blockRegistry.getFaceColorRGB(blockType, { x: 0, y: 1, z: 0 })
+    const baseColor = { r: baseColorRGB.r, g: baseColorRGB.g, b: baseColorRGB.b }
+
+    // Get texture layer for cross-billboard (use face 0)
+    const layer = this.getTextureLayer(blockType, 0)
 
     // Calculate world coordinates for lighting
     const worldX = Math.floor(x + this.worldOffsetX)
@@ -101,6 +125,7 @@ export class VertexBuilder {
           light.b * baseColor.b * variation
         )
         buffer.uvs.push(v.u, v.v)
+        buffer.layers.push(layer)
       }
 
       // Front face indices
@@ -119,6 +144,7 @@ export class VertexBuilder {
           light.b * baseColor.b * variation
         )
         buffer.uvs.push(v.u, v.v)
+        buffer.layers.push(layer)
       }
 
       // Back face indices (reversed winding for back face)
@@ -142,11 +168,12 @@ export class VertexBuilder {
     const buffer = this.getBuffer(materialKey, isTransparent)
     const vertices = this.getQuadVertices(x, y, z, width, height, axis, direction)
     const normal = this.getFaceNormal(axis, direction)
-    // Note: blockRegistry.getFaceColor returns THREE.Color, which might fail in worker if THREE not tree-shaken properly?
-    // Actually, we imported THREE in blockRegistry? 
-    // We need to check BlockRegistry dependencies. 
-    // Assuming for now it returns {r,g,b} object compatible with THREE.Color structure.
-    const baseColor = blockRegistry.getFaceColor(blockType, normal)
+    // Get face color (non-allocating - copy values immediately since the pooled object is reused)
+    const baseColorRGB = blockRegistry.getFaceColorRGB(blockType, normal)
+    const baseColor = { r: baseColorRGB.r, g: baseColorRGB.g, b: baseColorRGB.b }
+
+    // Get texture layer for this face
+    const layer = this.getTextureLayer(blockType, faceIndex)
 
     for (let i = 0; i < 4; i++) {
       const v = vertices[i]
@@ -190,6 +217,9 @@ export class VertexBuilder {
 
       // UVs
       buffer.uvs.push(v.u, v.v)
+
+      // Texture layer
+      buffer.layers.push(layer)
     }
 
     // Indices for quad (2 triangles)
@@ -218,11 +248,11 @@ export class VertexBuilder {
 
   // Returns raw arrays instead of BufferGeometry - separate opaque and transparent for two-pass rendering
   getBuffers(): {
-    opaque: Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>,
-    transparent: Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>
+    opaque: Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, layers: Float32Array, indices: Uint16Array }>,
+    transparent: Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, layers: Float32Array, indices: Uint16Array }>
   } {
     const convertBufferMap = (bufferMap: Map<string, BufferData>) => {
-      const result = new Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>()
+      const result = new Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, layers: Float32Array, indices: Uint16Array }>()
       for (const [key, buffer] of bufferMap.entries()) {
         if (buffer.positions.length === 0) continue
         result.set(key, {
@@ -230,6 +260,7 @@ export class VertexBuilder {
           normals: new Float32Array(buffer.normals),
           colors: new Float32Array(buffer.colors),
           uvs: new Float32Array(buffer.uvs),
+          layers: new Float32Array(buffer.layers),
           indices: new Uint16Array(buffer.indices)
         })
       }
@@ -417,10 +448,9 @@ export class VertexBuilder {
   /**
    * Calculate water depth darkening factor.
    * Water gets darker the deeper it is (lower Y value).
-   * Surface water (Y >= 63) is full brightness, deep water is darker.
+   * Surface water (Y >= SEA_LEVEL) is full brightness, deep water is darker.
    */
   private getWaterDepthFactor(worldY: number): number {
-    const SEA_LEVEL = 63
     const MAX_DEPTH = 30  // Depth at which water is at minimum brightness
 
     if (worldY >= SEA_LEVEL) {
@@ -475,6 +505,7 @@ export class VertexBuilder {
         normals: [],
         colors: [],
         uvs: [],
+        layers: [],
         indices: [],
         vertexCount: 0
       }

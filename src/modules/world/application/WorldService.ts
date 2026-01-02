@@ -7,6 +7,7 @@ import { blockRegistry } from '../blocks'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { EnvironmentService } from '../../environment/application/EnvironmentService'
 import { ChunkWorkerPool } from '../infrastructure/ChunkWorkerPool'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstants'
 
 export class WorldService implements IVoxelQuery {
   private chunks = new Map<string, ChunkData>()
@@ -213,9 +214,9 @@ export class WorldService implements IVoxelQuery {
     // Check if we need to update neighbors (if on edge)
     const neighborsToUpdate = new Set<string>()
     if (local.x === 0) neighborsToUpdate.add(`${coord.x - 1},${coord.z}`)
-    if (local.x === 23) neighborsToUpdate.add(`${coord.x + 1},${coord.z}`)
+    if (local.x === CHUNK_WIDTH - 1) neighborsToUpdate.add(`${coord.x + 1},${coord.z}`)
     if (local.z === 0) neighborsToUpdate.add(`${coord.x},${coord.z - 1}`)
-    if (local.z === 23) neighborsToUpdate.add(`${coord.x},${coord.z + 1}`)
+    if (local.z === CHUNK_DEPTH - 1) neighborsToUpdate.add(`${coord.x},${coord.z + 1}`)
     
     for (const key of neighborsToUpdate) {
         const [x, z] = key.split(',').map(Number)
@@ -288,16 +289,16 @@ export class WorldService implements IVoxelQuery {
 
   worldToChunkCoord(worldX: number, worldZ: number): ChunkCoordinate {
     return new ChunkCoordinate(
-      Math.floor(worldX / 24),
-      Math.floor(worldZ / 24)
+      Math.floor(worldX / CHUNK_WIDTH),
+      Math.floor(worldZ / CHUNK_DEPTH)
     )
   }
 
   private worldToLocal(worldX: number, worldY: number, worldZ: number): { x: number, y: number, z: number } {
     return {
-      x: ((worldX % 24) + 24) % 24,
+      x: ((worldX % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH,
       y: worldY,
-      z: ((worldZ % 24) + 24) % 24
+      z: ((worldZ % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
     }
   }
 }

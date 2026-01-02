@@ -3,6 +3,7 @@ import { ILightingQuery } from '../../../shared/ports/ILightingQuery'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { VertexBuilder } from './VertexBuilder'
 import { blockRegistry } from '../../../modules/world/blocks'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../shared/constants/ChunkConstants'
 
 export class ChunkMesher {
   constructor(
@@ -12,10 +13,10 @@ export class ChunkMesher {
   ) {}
 
   buildMesh(vertexBuilder: VertexBuilder): void {
-    const startX = this.chunkCoord.x * 24
-    const startZ = this.chunkCoord.z * 24
-    const size = 24
-    const height = 256
+    const startX = this.chunkCoord.x * CHUNK_WIDTH
+    const startZ = this.chunkCoord.z * CHUNK_DEPTH
+    const size = CHUNK_WIDTH
+    const height = CHUNK_HEIGHT
 
     for (let x = 0; x < size; x++) {
       for (let y = 0; y < height; y++) {
@@ -31,8 +32,8 @@ export class ChunkMesher {
           const blockDef = blockRegistry.get(blockType)
           if (blockDef?.meshType === 'cross') {
             // Use cross-billboard rendering for vegetation
-            const lx = ((worldX % 24) + 24) % 24
-            const lz = ((worldZ % 24) + 24) % 24
+            const lx = ((worldX % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
+            const lz = ((worldZ % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
             vertexBuilder.addCrossQuads(lx, y, lz, blockType)
             continue
           }
@@ -103,9 +104,9 @@ export class ChunkMesher {
     if (shouldDraw) {
       // Calculate local coords for vertex builder (relative to chunk)
       // Ensure positive local coordinates even if world coords are negative
-      const lx = ((wx % 24) + 24) % 24
+      const lx = ((wx % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
       const ly = wy
-      const lz = ((wz % 24) + 24) % 24
+      const lz = ((wz % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
 
       const faceIndex = this.getFaceIndex(axis, direction)
       

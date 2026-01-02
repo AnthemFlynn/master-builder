@@ -7,6 +7,7 @@ import { WorkerMessage, MainMessage } from '../workers/types'
 import { PlayerService } from '../../player/application/PlayerService'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { ChunkData } from '../../../shared/domain/ChunkData'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstants'
 
 export class PhysicsService {
   private worker: Worker
@@ -33,8 +34,8 @@ export class PhysicsService {
     
     // Collect chunks around the player for collision detection
     const playerChunkCoord = new ChunkCoordinate(
-        Math.floor(playerPosition.x / 24),
-        Math.floor(playerPosition.z / 24)
+        Math.floor(playerPosition.x / CHUNK_WIDTH),
+        Math.floor(playerPosition.z / CHUNK_DEPTH)
     )
 
     const worldVoxels: Record<string, ArrayBuffer> = {}

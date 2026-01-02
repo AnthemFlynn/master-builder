@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { MaterialSystem } from './MaterialSystem'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstants'
 
 // Two-VBO approach: separate opaque and transparent mesh groups per chunk
 interface ChunkMeshes {
@@ -28,10 +29,6 @@ export class ChunkRenderer {
     this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
       this.disposeChunk(e.chunkCoord)
     })
-
-    this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
-      this.disposeChunk(e.chunkCoord)
-    })
   }
 
   private updateMesh(
@@ -40,8 +37,8 @@ export class ChunkRenderer {
     transparentGeometryMap: Map<string, THREE.BufferGeometry>
   ): void {
     const key = coord.toKey()
-    const worldX = coord.x * 24
-    const worldZ = coord.z * 24
+    const worldX = coord.x * CHUNK_WIDTH
+    const worldZ = coord.z * CHUNK_DEPTH
 
     // Debug: log mesh creation
     const opaqueCount = opaqueGeometryMap.size
@@ -108,26 +105,23 @@ export class ChunkRenderer {
     }
   }
 
-  disposeChunk(coord: ChunkCoordinate): void {
-    const key = coord.toKey()
-    const group = this.meshes.get(key)
-
-    if (group) {
-      group.children.forEach(child => {
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose()
-        }
-      })
-      this.scene.remove(group)
-      this.meshes.delete(key)
-    }
-  }
-
   disposeAll(): void {
     for (const chunkMeshes of this.meshes.values()) {
       this.disposeGroup(chunkMeshes.opaque)
       this.disposeGroup(chunkMeshes.transparent)
     }
     this.meshes.clear()
+  }
+
+  /**
+   * Get all loaded chunk meshes (for debug/inspection)
+   */
+  getLoadedChunks(): Map<string, THREE.Group> {
+    const result = new Map<string, THREE.Group>()
+    for (const [key, meshes] of this.meshes.entries()) {
+      // Return the opaque group as the primary representation
+      result.set(key, meshes.opaque)
+    }
+    return result
   }
 }

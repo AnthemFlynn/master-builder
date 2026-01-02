@@ -3,6 +3,7 @@ import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
 import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 import { OrganicIslandGenerator } from '../OrganicIslandGenerator'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../../shared/constants/ChunkConstants'
 
 export class TerrainPass implements GenerationPass {
   readonly name = 'TerrainPass'
@@ -51,8 +52,8 @@ export class TerrainPass implements GenerationPass {
   }
 
   private generateFlat(context: GenerationContext, height: number): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         context.heightMap[x][z] = height
       }
     }
@@ -67,15 +68,15 @@ export class TerrainPass implements GenerationPass {
     const islands = this.organicGenerator.getAllIslands()
     context.setIslandConfigs(islands)
 
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
-        const worldX = context.chunkCoord.x * 24 + x
-        const worldZ = context.chunkCoord.z * 24 + z
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
+        const worldX = context.chunkCoord.x * CHUNK_WIDTH + x
+        const worldZ = context.chunkCoord.z * CHUNK_DEPTH + z
 
         // Use organic island generator for height
         const result = this.organicGenerator.getIslandHeight(worldX, worldZ)
 
-        context.heightMap[x][z] = Math.floor(Math.max(1, Math.min(255, result.height)))
+        context.heightMap[x][z] = Math.floor(Math.max(1, Math.min(CHUNK_HEIGHT - 1, result.height)))
       }
     }
   }
@@ -97,10 +98,10 @@ export class TerrainPass implements GenerationPass {
     // Get island configurations from organic generator
     const islands = this.organicGenerator?.getAllIslands() ?? []
 
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
-        const worldX = context.chunkCoord.x * 24 + x
-        const worldZ = context.chunkCoord.z * 24 + z
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
+        const worldX = context.chunkCoord.x * CHUNK_WIDTH + x
+        const worldZ = context.chunkCoord.z * CHUNK_DEPTH + z
         const height = context.heightMap[x][z]
 
         // Find closest island
@@ -148,11 +149,11 @@ export class TerrainPass implements GenerationPass {
   }
 
   private fillTerrain(context: GenerationContext): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const height = Math.floor(context.heightMap[x][z])
         context.setBlock(x, 0, z, BlockType.bedrock)
-        for (let y = 1; y <= height && y < 256; y++) {
+        for (let y = 1; y <= height && y < CHUNK_HEIGHT; y++) {
           context.setBlock(x, y, z, BlockType.stone)
         }
       }
@@ -160,8 +161,8 @@ export class TerrainPass implements GenerationPass {
   }
 
   private initializeSurfaceMap(context: GenerationContext): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const height = Math.floor(context.heightMap[x][z])
         context.surfaceMap.set(`${x},${z}`, {
           y: height,

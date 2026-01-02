@@ -18,6 +18,7 @@ import { generateSpiralOrder } from '../../world/infrastructure/ChunkPriorityQue
 import { SessionState } from '../../ui/domain/Session'
 import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from '../../persistence/domain/commands/LoadGameCommand'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../shared/constants/ChunkConstants'
 
 export class GameOrchestrator {
   // Infrastructure (public for external access)
@@ -76,7 +77,7 @@ export class GameOrchestrator {
           this.services.modificationTracker.clear()
         },
         generateChunksAround: (x: number, z: number) => {
-          const centerChunk = new ChunkCoordinate(Math.floor(x / 24), Math.floor(z / 24))
+          const centerChunk = new ChunkCoordinate(Math.floor(x / CHUNK_WIDTH), Math.floor(z / CHUNK_DEPTH))
           this.generateChunksInRenderDistance(centerChunk)
         },
         hasLoadedChunks: () => this.services.worldService.getLoadedChunkCount() > 0,
@@ -111,8 +112,8 @@ export class GameOrchestrator {
 
     // Set initial chunk reference
     this.previousChunk = new ChunkCoordinate(
-      Math.floor(this.camera.position.x / 24),
-      Math.floor(this.camera.position.z / 24)
+      Math.floor(this.camera.position.x / CHUNK_WIDTH),
+      Math.floor(this.camera.position.z / CHUNK_DEPTH)
     )
   }
 
@@ -142,8 +143,8 @@ export class GameOrchestrator {
     this.services.uiService.onPlay()
 
     const centerChunk = new ChunkCoordinate(
-      Math.floor(this.camera.position.x / 24),
-      Math.floor(this.camera.position.z / 24)
+      Math.floor(this.camera.position.x / CHUNK_WIDTH),
+      Math.floor(this.camera.position.z / CHUNK_DEPTH)
     )
 
     this.startLoadingMode(centerChunk, 'Generating world...')
@@ -215,8 +216,8 @@ export class GameOrchestrator {
 
     // Update chunks based on camera position
     const newChunk = new ChunkCoordinate(
-      Math.floor(this.camera.position.x / 24),
-      Math.floor(this.camera.position.z / 24)
+      Math.floor(this.camera.position.x / CHUNK_WIDTH),
+      Math.floor(this.camera.position.z / CHUNK_DEPTH)
     )
 
     if (!newChunk.equals(this.previousChunk)) {
@@ -281,8 +282,8 @@ export class GameOrchestrator {
 
       const playerPos = event.playerPosition
       const centerChunk = new ChunkCoordinate(
-        Math.floor(playerPos.x / 24),
-        Math.floor(playerPos.z / 24)
+        Math.floor(playerPos.x / CHUNK_WIDTH),
+        Math.floor(playerPos.z / CHUNK_DEPTH)
       )
 
       this.camera.position.set(playerPos.x, playerPos.y, playerPos.z)
@@ -443,16 +444,16 @@ export class GameOrchestrator {
   }
 
   private findGroundLevel(x: number, z: number): number {
-    const chunkX = Math.floor(x / 24)
-    const chunkZ = Math.floor(z / 24)
+    const chunkX = Math.floor(x / CHUNK_WIDTH)
+    const chunkZ = Math.floor(z / CHUNK_DEPTH)
     const chunk = this.services.worldService.getChunk(new ChunkCoordinate(chunkX, chunkZ))
 
     if (!chunk) return 64
 
-    const localX = Math.floor(x) - chunkX * 24
-    const localZ = Math.floor(z) - chunkZ * 24
+    const localX = Math.floor(x) - chunkX * CHUNK_WIDTH
+    const localZ = Math.floor(z) - chunkZ * CHUNK_DEPTH
 
-    for (let y = 253; y >= 0; y--) {
+    for (let y = CHUNK_HEIGHT - 3; y >= 0; y--) {
       const blockHere = chunk.getBlockId(localX, y, localZ)
       const blockAbove1 = chunk.getBlockId(localX, y + 1, localZ)
       const blockAbove2 = chunk.getBlockId(localX, y + 2, localZ)
