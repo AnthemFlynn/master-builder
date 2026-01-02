@@ -6,6 +6,7 @@ import { RGB, combineLightChannels, normalizeLightToColor } from '../../../share
 
 interface BufferData {
   positions: number[]
+  normals: number[]  // Pre-computed normals to avoid expensive computeVertexNormals()
   colors: number[]
   uvs: number[]
   indices: number[]
@@ -92,6 +93,8 @@ export class VertexBuilder {
       // Add front face
       for (const v of quad) {
         buffer.positions.push(v.x, v.y, v.z)
+        // Cross quads use (0, 1, 0) normal for consistent lighting
+        buffer.normals.push(0, 1, 0)
         buffer.colors.push(
           light.r * baseColor.r * variation,
           light.g * baseColor.g * variation,
@@ -108,6 +111,8 @@ export class VertexBuilder {
       // Add back face (same vertices, reversed winding)
       for (const v of quad) {
         buffer.positions.push(v.x, v.y, v.z)
+        // Back face uses inverted normal
+        buffer.normals.push(0, -1, 0)
         buffer.colors.push(
           light.r * baseColor.r * variation,
           light.g * baseColor.g * variation,
@@ -152,6 +157,9 @@ export class VertexBuilder {
         v.y,
         v.z
       )
+
+      // Pre-computed normal (axis-aligned faces have trivial normals)
+      buffer.normals.push(normal.x, normal.y, normal.z)
 
       // Calculate world coordinates once
       const worldX = Math.floor(v.x + this.worldOffsetX)
@@ -210,15 +218,16 @@ export class VertexBuilder {
 
   // Returns raw arrays instead of BufferGeometry - separate opaque and transparent for two-pass rendering
   getBuffers(): {
-    opaque: Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>,
-    transparent: Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>
+    opaque: Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>,
+    transparent: Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>
   } {
     const convertBufferMap = (bufferMap: Map<string, BufferData>) => {
-      const result = new Map<string, { positions: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>()
+      const result = new Map<string, { positions: Float32Array, normals: Float32Array, colors: Float32Array, uvs: Float32Array, indices: Uint16Array }>()
       for (const [key, buffer] of bufferMap.entries()) {
         if (buffer.positions.length === 0) continue
         result.set(key, {
           positions: new Float32Array(buffer.positions),
+          normals: new Float32Array(buffer.normals),
           colors: new Float32Array(buffer.colors),
           uvs: new Float32Array(buffer.uvs),
           indices: new Uint16Array(buffer.indices)
@@ -463,6 +472,7 @@ export class VertexBuilder {
     if (!buffer) {
       buffer = {
         positions: [],
+        normals: [],
         colors: [],
         uvs: [],
         indices: [],

@@ -96,12 +96,14 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         for (const [key, buffers] of opaque.entries()) {
             opaqueGeometry[key] = {
                 positions: buffers.positions.buffer,
+                normals: buffers.normals.buffer,  // Pre-computed normals
                 colors: buffers.colors.buffer,
                 uvs: buffers.uvs.buffer,
                 indices: buffers.indices.buffer
             }
             transferList.push(
                 buffers.positions.buffer,
+                buffers.normals.buffer,
                 buffers.colors.buffer,
                 buffers.uvs.buffer,
                 buffers.indices.buffer
@@ -112,12 +114,14 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         for (const [key, buffers] of transparent.entries()) {
             transparentGeometry[key] = {
                 positions: buffers.positions.buffer,
+                normals: buffers.normals.buffer,  // Pre-computed normals
                 colors: buffers.colors.buffer,
                 uvs: buffers.uvs.buffer,
                 indices: buffers.indices.buffer
             }
             transferList.push(
                 buffers.positions.buffer,
+                buffers.normals.buffer,
                 buffers.colors.buffer,
                 buffers.uvs.buffer,
                 buffers.indices.buffer

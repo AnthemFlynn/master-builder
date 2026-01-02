@@ -84,15 +84,18 @@ export class MeshingService {
     const resultCoord = new ChunkCoordinate(x, z)
 
     // Helper to convert buffer records to BufferGeometry maps
+    // Normals are now pre-computed in the worker (axis-aligned faces have trivial normals)
+    // This eliminates expensive computeVertexNormals() calls on the main thread
     const createGeometryMap = (geometryRecord: Record<string, any>) => {
       const map = new Map<string, THREE.BufferGeometry>()
       for (const [key, buffers] of Object.entries(geometryRecord)) {
         const geo = new THREE.BufferGeometry()
         geo.setAttribute('position', new THREE.Float32BufferAttribute(buffers.positions, 3))
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(buffers.normals, 3))  // Pre-computed normals
         geo.setAttribute('color', new THREE.Float32BufferAttribute(buffers.colors, 3))
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(buffers.uvs, 2))
         geo.setIndex(new THREE.Uint16BufferAttribute(buffers.indices, 1))
-        geo.computeVertexNormals()
+        // No more computeVertexNormals() - normals are pre-computed in worker!
         map.set(key, geo)
       }
       return map
