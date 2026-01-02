@@ -9,6 +9,19 @@ export class ThreeSkyAdapter {
   private lastUpdate = 0
   private isUnderwater = false
 
+  // Cached light references to avoid scene.children.filter() every frame
+  private hemiLight: THREE.HemisphereLight | null = null
+  private pointLights: THREE.PointLight[] = []
+  private lightsCached = false
+
+  // SunCalc result caching - only recalculate when minute changes
+  private lastSunCalcMinute = -1
+  private cachedSunPosition: { azimuth: number, altitude: number } | null = null
+
+  // Throttle lighting updates to reduce CPU (100ms = 10 updates/sec)
+  private readonly LIGHTING_UPDATE_INTERVAL_MS = 100
+  private lastLightingUpdate = 0
+
   // Underwater fog settings
   private readonly UNDERWATER_FOG_COLOR = 0x1a5f7a  // Teal blue
   private readonly UNDERWATER_FOG_NEAR = 0.5
@@ -75,8 +88,9 @@ export class ThreeSkyAdapter {
     this.sunLight.shadow.camera.bottom = -shadowSize / 2
     this.sunLight.shadow.camera.near = 0.5
     this.sunLight.shadow.camera.far = 300
-    this.sunLight.shadow.mapSize.width = 4096
-    this.sunLight.shadow.mapSize.height = 4096
+    // OPTIMIZED: Reduced from 4096 to 2048 (4x less pixels to render per frame)
+    this.sunLight.shadow.mapSize.width = 2048
+    this.sunLight.shadow.mapSize.height = 2048
 
     // OPTIMIZED: Reduced bias for voxel blocks
     this.sunLight.shadow.bias = -0.0001
@@ -84,12 +98,17 @@ export class ThreeSkyAdapter {
     this.sunLight.shadow.normalBias = 0.0
 
     this.scene.add(this.sunLight)
-    console.log('☀️ Sun directional light added (4096px shadow map with snapped updates)')
+    console.log('☀️ Sun directional light added (2048px shadow map - optimized for CPU)')
   }
 
   update(): void {
-    // Update every frame for smooth shadow movement (snapping handles jitter)
-    this.updateLighting()
+    // OPTIMIZED: Throttle lighting updates to 10/sec instead of 60/sec
+    // Sun position changes slowly, no need to recalculate every frame
+    const now = performance.now()
+    if (now - this.lastLightingUpdate >= this.LIGHTING_UPDATE_INTERVAL_MS) {
+      this.lastLightingUpdate = now
+      this.updateLighting()
+    }
   }
 
   /**
@@ -136,29 +155,35 @@ export class ThreeSkyAdapter {
       }
     }
 
+    // OPTIMIZED: Cache light references instead of filtering scene.children every frame
+    if (!this.lightsCached) {
+      this.hemiLight = this.scene.children.find(c => c instanceof THREE.HemisphereLight) as THREE.HemisphereLight | null
+      this.pointLights = this.scene.children.filter(c => c instanceof THREE.PointLight) as THREE.PointLight[]
+      this.lightsCached = true
+    }
+
     // Update Hemisphere Light
-    const hemiLight = this.scene.children.find(c => c instanceof THREE.HemisphereLight) as THREE.HemisphereLight
-    if (hemiLight) {
-        hemiLight.intensity = ambientIntensity
-        hemiLight.color.copy(skyColor) // Sky color comes from above
+    if (this.hemiLight) {
+        this.hemiLight.intensity = ambientIntensity
+        this.hemiLight.color.copy(skyColor) // Sky color comes from above
 
         // Ground color: Darker version of sky or earthy tone?
         // Simple heuristic: Mix sky with ground tone
         // Night: Black/Dark Blue. Day: Brown/Green.
         const isNight = ambientIntensity < 0.3
         if (isNight) {
-            hemiLight.groundColor.setHex(this.COLOR_GROUND_NIGHT)
+            this.hemiLight.groundColor.setHex(this.COLOR_GROUND_NIGHT)
         } else {
             // Reuse pre-allocated color for lerp
             this.groundColorResult.setHex(this.COLOR_GROUND_DAY)
-            hemiLight.groundColor.copy(this.groundColorResult.lerp(skyColor, 0.5))
+            this.hemiLight.groundColor.copy(this.groundColorResult.lerp(skyColor, 0.5))
         }
     }
 
-    // Point lights (fill)
-    this.scene.children.filter(c => c instanceof THREE.PointLight).forEach(l => {
-      (l as THREE.PointLight).intensity = ambientIntensity * 0.3
-    })
+    // Point lights (fill) - use cached array
+    for (const light of this.pointLights) {
+      light.intensity = ambientIntensity * 0.3
+    }
 
     // 4. Update Sun Position
     this.updateSunPosition(date)
@@ -178,7 +203,15 @@ export class ThreeSkyAdapter {
     }
   }
 
+  // Cache day for sun times calculation (only needs update once per day)
+  private lastSunTimesDay = -1
+
   private calculateSunTimes(date: Date): void {
+    // OPTIMIZED: Only recalculate sun times when day changes
+    const currentDay = date.getDate()
+    if (currentDay === this.lastSunTimesDay) return
+    this.lastSunTimesDay = currentDay
+
     const times = SunCalc.getTimes(date, this.latitude, this.longitude)
     this.sunriseTod = times.sunrise.getHours() + times.sunrise.getMinutes() / 60
     this.sunsetTod = times.sunset.getHours() + times.sunset.getMinutes() / 60
@@ -255,9 +288,15 @@ export class ThreeSkyAdapter {
   }
 
   private updateSunPosition(date: Date): void {
-    const pos = SunCalc.getPosition(date, this.latitude, this.longitude)
-    const azimuth = pos.azimuth
-    const altitude = pos.altitude
+    // OPTIMIZED: Cache SunCalc results - only recalculate when minute changes
+    // SunCalc.getPosition() involves expensive trigonometry
+    const currentMinute = date.getHours() * 60 + date.getMinutes()
+    if (currentMinute !== this.lastSunCalcMinute || !this.cachedSunPosition) {
+      this.cachedSunPosition = SunCalc.getPosition(date, this.latitude, this.longitude)
+      this.lastSunCalcMinute = currentMinute
+    }
+    const azimuth = this.cachedSunPosition.azimuth
+    const altitude = this.cachedSunPosition.altitude
 
     // Follow player with SNAPPING to prevent shadow swimming
     // Snap to 1-block increments (or larger power of 2 like 8 or 16 for stability)
