@@ -33,7 +33,7 @@ self.onmessage = (e: MessageEvent<any>) => {
     playerPosition.set(rawPlayerState.position.x, rawPlayerState.position.y, rawPlayerState.position.z)
     playerVelocity.set(rawPlayerState.velocity.x, rawPlayerState.velocity.y, rawPlayerState.velocity.z)
     cameraQuaternion.set(rawPlayerState.cameraQuaternion.x, rawPlayerState.cameraQuaternion.y, rawPlayerState.cameraQuaternion.z, rawPlayerState.cameraQuaternion.w)
-    
+
     // Set player-related state on the MovementController (simulating IPlayerQuery)
     const workerPlayerState = {
         getPosition: () => playerPosition,
@@ -50,7 +50,7 @@ self.onmessage = (e: MessageEvent<any>) => {
         setJumpVelocity: (jv: number) => (rawPlayerState.jumpVelocity = jv),
         setMode: (m: PlayerMode) => (rawPlayerState.mode = m)
     };
-    
+
     (movementController as any).player = workerPlayerState
 
     // Clear previous chunks and hydrate with current chunk data
@@ -61,7 +61,7 @@ self.onmessage = (e: MessageEvent<any>) => {
       const [cx, cz] = coordKey.split(',').map(Number)
       workerVoxelQuery.addChunk(new ChunkData(new ChunkCoordinate(cx, cz), buffer))
     }
-    
+
     // Calculate new position and velocity
     const newPosition = movementController.applyMovement(movementVector, cameraQuaternion, deltaTime)
 

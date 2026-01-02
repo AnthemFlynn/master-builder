@@ -1,7 +1,7 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
-import { createNoise2D } from 'simplex-noise'
+import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 import { SeededRandom } from '../utils/SeededRandom'
 
 /**
@@ -10,6 +10,10 @@ import { SeededRandom } from '../utils/SeededRandom'
  */
 export class DecorationPass implements GenerationPass {
   readonly name = 'DecorationPass'
+
+  // Cached noise function (created once, reused for all chunks)
+  private decorationNoise: NoiseFunction2D | null = null
+  private cachedSeed: number | null = null
 
   // Default flower types when biome doesn't specify
   private readonly DEFAULT_FLOWERS = [
@@ -31,7 +35,13 @@ export class DecorationPass implements GenerationPass {
     const rng = new SeededRandom(
       context.seed + context.chunkCoord.x * 73 + context.chunkCoord.z * 151 + 9000
     )
-    const decorationNoise = createNoise2D(() => context.seed + 8000)
+
+    // Use cached noise (or create if seed changed)
+    if (!this.decorationNoise || this.cachedSeed !== context.seed) {
+      this.decorationNoise = createNoise2D(() => context.seed + 8000)
+      this.cachedSeed = context.seed
+    }
+    const decorationNoise = this.decorationNoise
 
     for (let x = 0; x < 24; x++) {
       for (let z = 0; z < 24; z++) {

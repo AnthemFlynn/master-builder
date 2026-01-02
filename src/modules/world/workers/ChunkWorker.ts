@@ -5,7 +5,7 @@ import { WorldLoader } from '../application/WorldLoader'
 import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
 import { WaterPass } from '../generation/passes/WaterPass'
-import { CavePass } from '../generation/passes/CavePass'
+import { CaveSystemPass } from '../generation/passes/CaveSystemPass'
 import { BiomePass } from '../generation/passes/BiomePass'
 import { TreePass } from '../generation/passes/TreePass'
 import { DecorationPass } from '../generation/passes/DecorationPass'
@@ -25,30 +25,44 @@ function getOrchestrator(): Promise<GenerationOrchestrator> {
 }
 
 async function initializeOrchestrator(): Promise<GenerationOrchestrator> {
+  const startTime = performance.now()
+
   const loader = new WorldLoader()
   const worldDef = await loader.load('/worlds/default.json')
 
-  // MINECRAFT-STYLE WORLD GENERATION
-  // Pass ordering:
-  // 1. TerrainPass - Generate heightmap with continentalness (oceans, land, mountains)
+  // WORLD GENERATION PIPELINE
+  // Pass ordering (caves LAST to punch through surface features):
+  // 1. TerrainPass - Generate heightmap with islands and volcanoes
   // 2. WaterPass - Fill sea level (Y=63), beaches on gentle slopes
-  // 3. CavePass - Carve cave systems
-  // 4. OrePass - Place ore veins (coal, iron, gold, diamond)
-  // 5. BiomePass - Apply surface materials based on climate
-  // 6. TreePass - Place trees based on biome
-  // 7. DecorationPass - Place grass, flowers, mushrooms, cacti
+  // 3. OrePass - Place ore veins (coal, iron, gold, diamond)
+  // 4. BiomePass - Apply surface materials based on climate
+  // 5. TreePass - Place trees based on biome
+  // 6. DecorationPass - Place grass, flowers, mushrooms, cacti
+  // 7. CaveSystemPass - Carve volcanic lava tube networks (LAST)
+
+  // Create passes - pre-warm expensive generators
+  const terrainPass = new TerrainPass()
+
+  // Pre-initialize OrganicIslandGenerator (expensive: ~10-20ms)
+  // Do this once per worker instead of lazily on first chunk
+  const warmupStart = performance.now()
+  terrainPass.warmup(worldDef.meta.seed)
+  const warmupEnd = performance.now()
+
   const orchestrator = new GenerationOrchestrator(worldDef, [
-    new TerrainPass(),
+    terrainPass,
     new WaterPass(),
-    new CavePass(),
     new OrePass(),
     new BiomePass(),
     new TreePass(),
-    new DecorationPass()
+    new DecorationPass(),
+    new CaveSystemPass()  // Caves run LAST to carve through everything
   ])
 
-  console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Generation pipeline: Terrain → Water → Caves → Ores → Biomes → Trees → Decorations`)
+  const endTime = performance.now()
+  console.log(`🌍 Worker initialized in ${(endTime - startTime).toFixed(1)}ms (warmup: ${(warmupEnd - warmupStart).toFixed(1)}ms)`)
+  console.log(`🌍 World: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
+  console.log(`🌍 Pipeline: Terrain → Water → Ores → Biomes → Trees → Decorations → CaveSystem`)
 
   return orchestrator
 }

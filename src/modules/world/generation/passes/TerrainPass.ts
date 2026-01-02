@@ -1,7 +1,7 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
-import { createNoise2D } from 'simplex-noise'
+import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 import { OrganicIslandGenerator } from '../OrganicIslandGenerator'
 
 export class TerrainPass implements GenerationPass {
@@ -9,6 +9,27 @@ export class TerrainPass implements GenerationPass {
 
   // Organic island generator (replaces hardcoded circular islands)
   private organicGenerator: OrganicIslandGenerator | null = null
+  private cachedSeed: number | null = null
+
+  // Cached noise functions for climate (created once, reused for all chunks)
+  private tempNoise: NoiseFunction2D | null = null
+  private humidNoise: NoiseFunction2D | null = null
+
+  /**
+   * Pre-initialize the island generator with a given seed
+   * Call this ONCE per worker to avoid expensive lazy initialization
+   */
+  warmup(seed: number): void {
+    if (this.organicGenerator) return  // Already initialized
+
+    this.cachedSeed = seed
+    this.organicGenerator = new OrganicIslandGenerator(seed)
+    this.organicGenerator.initialize()
+
+    // Also pre-initialize climate noise functions
+    this.tempNoise = createNoise2D(() => seed + 5000)
+    this.humidNoise = createNoise2D(() => seed + 6000)
+  }
 
   execute(context: GenerationContext): void {
     const { terrain } = context.worldDef
@@ -16,7 +37,7 @@ export class TerrainPass implements GenerationPass {
     if (terrain.generator === 'flat') {
       this.generateFlat(context, terrain.baseHeight)
     } else {
-      // Initialize organic island generator with world seed
+      // Initialize organic island generator if not pre-warmed
       if (!this.organicGenerator) {
         this.organicGenerator = new OrganicIslandGenerator(context.seed)
         this.organicGenerator.initialize()
@@ -64,8 +85,14 @@ export class TerrainPass implements GenerationPass {
   }
 
   private generateClimateData(context: GenerationContext): void {
-    const tempNoise = createNoise2D(() => context.seed + 5000)
-    const humidNoise = createNoise2D(() => context.seed + 6000)
+    // Use cached noise functions (or create if not warmed up)
+    if (!this.tempNoise || this.cachedSeed !== context.seed) {
+      this.tempNoise = createNoise2D(() => context.seed + 5000)
+      this.humidNoise = createNoise2D(() => context.seed + 6000)
+      this.cachedSeed = context.seed
+    }
+    const tempNoise = this.tempNoise
+    const humidNoise = this.humidNoise!
 
     // Get island configurations from organic generator
     const islands = this.organicGenerator?.getAllIslands() ?? []

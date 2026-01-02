@@ -1,7 +1,7 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
-import { createNoise3D } from 'simplex-noise'
+import { createNoise3D, NoiseFunction3D } from 'simplex-noise'
 
 /**
  * CavePass - Underground cave networks with walkable entrances
@@ -25,6 +25,10 @@ export class CavePass implements GenerationPass {
   private readonly CAVE_CEILING = 40
   private readonly CAVE_FLOOR = 10
 
+  // Cached noise function (created once per worker, reused for all chunks)
+  private noise: NoiseFunction3D | null = null
+  private cachedSeed: number | null = null
+
   execute(context: GenerationContext): void {
     if (!this.ENABLED) {
       return  // Caves disabled
@@ -34,8 +38,12 @@ export class CavePass implements GenerationPass {
     const worldX = chunkX * 24
     const worldZ = chunkZ * 24
 
-    // 3D noise for caves
-    const noise = createNoise3D(() => context.seed + 1000)
+    // Cache noise function (only create once per seed)
+    if (!this.noise || this.cachedSeed !== context.seed) {
+      this.noise = createNoise3D(() => context.seed + 1000)
+      this.cachedSeed = context.seed
+    }
+    const noise = this.noise
     let carved = 0
 
     // 1. Carve underground cave network (Y=10-40)
@@ -65,9 +73,10 @@ export class CavePass implements GenerationPass {
     // 3. Add lighting
     const lights = this.addCaveLighting(context)
 
-    if (carved > 0 || entrances > 0) {
-      console.log(`🕳️ CavePass chunk(${chunkX},${chunkZ}): carved=${carved}, entrances=${entrances}, lights=${lights}`)
-    }
+    // Verbose logging disabled for performance
+    // if (carved > 0 || entrances > 0) {
+    //   console.log(`🕳️ CavePass chunk(${chunkX},${chunkZ}): carved=${carved}, entrances=${entrances}, lights=${lights}`)
+    // }
   }
 
   /**
