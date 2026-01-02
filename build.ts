@@ -1,5 +1,7 @@
-import { serve } from "bun";
 import { rmSync } from "node:fs";
+
+// Parse command line flags
+const isDev = process.argv.includes('--dev');
 
 // Clean dist
 try {
@@ -10,7 +12,7 @@ try {
 const workerEntrypoints = [
   "./src/modules/world/workers/ChunkWorker.ts",
   "./src/modules/environment/workers/LightingWorker.ts",
-  "./src/modules/rendering/workers/MeshingWorker.ts",
+  "./src/modules/meshing/workers/MeshingWorker.ts",
   "./src/modules/physics/workers/PhysicsWorker.ts",
 ];
 
@@ -18,9 +20,10 @@ const workerBuild = await Bun.build({
   entrypoints: workerEntrypoints,
   outdir: "./dist/assets",
   target: "browser",
-  minify: true,
-  kind: "worker", // Explicitly tell Bun this is a worker
-  naming: "[name].[ext]", // Flatten output structure
+  minify: !isDev,
+  sourcemap: isDev ? "external" : "none",
+  kind: "worker",
+  naming: "[name].[ext]",
 });
 
 if (!workerBuild.success) {
@@ -34,9 +37,10 @@ const build = await Bun.build({
   entrypoints: ["./src/main.ts"],
   outdir: "./dist",
   target: "browser",
-  minify: true,
-  splitting: false, // Disable code splitting
-  naming: "index.js", // Match HTML reference
+  minify: !isDev,
+  sourcemap: isDev ? "external" : "none",
+  splitting: false,
+  naming: "index.js",
 });
 
 if (!build.success) {
@@ -59,11 +63,16 @@ html = html.replace(
 );
 await Bun.write("./dist/index.html", html);
 
-// Copy style.css manually
-const css = await Bun.file("./src/style.css").text();
-await Bun.write("./dist/style.css", css);
+// Copy and concatenate CSS files
+const mainCss = await Bun.file("./src/style.css").text();
+const designTokensCss = await Bun.file("./src/modules/ui/styles/design-tokens.css").text();
+const componentsCss = await Bun.file("./src/modules/ui/styles/components.css").text();
+
+// Concatenate all CSS (design tokens first, then main, then components)
+const fullCss = `/* Design Tokens */\n${designTokensCss}\n\n/* Main Styles */\n${mainCss}\n\n/* Component Styles */\n${componentsCss}`;
+await Bun.write("./dist/style.css", fullCss);
 
 // Copy public folder to dist
 await Bun.$`cp -r public/* dist/ 2>/dev/null || true`;
 
-console.log("✅ Build Complete!");
+console.log(`✅ Build Complete! (${isDev ? 'development' : 'production'})`);

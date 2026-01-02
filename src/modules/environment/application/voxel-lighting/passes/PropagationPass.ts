@@ -2,8 +2,8 @@ import { ILightingPass } from './ILightingPass'
 import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
-import { ILightStorage } from '../../ports/ILightStorage'
-import { blockRegistry } from '../../../../../modules/blocks'
+import { ILightStorage } from '../../../../../shared/ports/ILightStorage'
+import { blockRegistry } from '../../../../../modules/world/blocks'
 import { LightValue } from '../../../../../shared/domain/LightValue'
 
 export class PropagationPass implements ILightingPass {
@@ -170,11 +170,12 @@ export class PropagationPass implements ILightingPass {
     }
 
     // Phase 1: Seed internal
+    let emissiveCount = 0
     for (let localX = 0; localX < 24; localX++) {
       for (let localY = 0; localY < 256; localY++) {
         for (let localZ = 0; localZ < 24; localZ++) {
           const blockType = voxels.getBlockType(worldX + localX, localY, worldZ + localZ)
-          
+
           const bl = chunkData.getBlockLight(localX, localY, localZ)
           const sl = chunkData.getSkyLight(localX, localY, localZ)
           let r = bl.r
@@ -186,9 +187,13 @@ export class PropagationPass implements ILightingPass {
             const blockDef = blockRegistry.get(blockType)
             if (blockDef && blockDef.emissive) {
               const { r: er, g: eg, b: eb } = blockDef.emissive
-              r = Math.max(r, er)
-              g = Math.max(g, eg)
-              b = Math.max(b, eb)
+              // Only count if actually emissive (non-zero values)
+              if (er > 0 || eg > 0 || eb > 0) {
+                r = Math.max(r, er)
+                g = Math.max(g, eg)
+                b = Math.max(b, eb)
+                emissiveCount++
+              }
             }
           }
 
@@ -201,6 +206,11 @@ export class PropagationPass implements ILightingPass {
         }
       }
     }
+    // Only log if we found actual light-emitting blocks (not just ambient)
+    // Disabled: too noisy during normal gameplay
+    // if (emissiveCount > 0) {
+    //   console.log(`💡 PropagationPass found ${emissiveCount} emissive blocks in chunk (${coord.x}, ${coord.z})`)
+    // }
 
     // Phase 2: Flood-fill (BFS) with High Perf Queue
     while (!isEmpty()) {

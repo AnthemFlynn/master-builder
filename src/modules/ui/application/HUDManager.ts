@@ -1,5 +1,5 @@
-import { UIState } from '../domain/UIState'
-import { blockRegistry } from '../../blocks'
+import { GameState } from '../../../shared/domain/GameState'
+import { blockRegistry } from '../../world/blocks'
 import { InventoryBank } from '../../inventory/domain/InventoryState'
 
 export class HUDManager {
@@ -49,8 +49,8 @@ export class HUDManager {
     this.bagDisplay?.classList.add('hidden')
   }
 
-  updateState(state: UIState): void {
-    if (state === UIState.PLAYING) {
+  updateState(state: GameState): void {
+    if (state === GameState.PLAYING) {
       this.show()
     } else {
       this.hide()

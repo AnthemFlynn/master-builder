@@ -1,0 +1,250 @@
+/* Kingdom Builder Component Styles
+ * Consolidated CSS for all UI components
+ */
+
+/* Import design tokens */
+@import './design-tokens.css';
+
+/* ===========================
+   PANEL COMPONENT
+   =========================== */
+
+.kb-panel {
+  font-family: var(--font-family);
+  color: var(--text-light);
+}
+
+.kb-panel::-webkit-scrollbar {
+  width: 12px;
+}
+
+.kb-panel::-webkit-scrollbar-track {
+  background: var(--wood-dark);
+  border-radius: 6px;
+}
+
+.kb-panel::-webkit-scrollbar-thumb {
+  background: var(--wood-light);
+  border-radius: 6px;
+  border: 2px solid var(--wood-dark);
+}
+
+.kb-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--parchment);
+}
+
+/* ===========================
+   BUTTON COMPONENT
+   =========================== */
+
+.kb-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.kb-button:not(:disabled):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.kb-button:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.1);
+}
+
+.kb-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(50%);
+}
+
+.kb-button--primary:not(:disabled):hover {
+  box-shadow: var(--glow-green), var(--shadow-button);
+}
+
+.kb-button--secondary:not(:disabled):hover {
+  box-shadow: var(--glow-purple), var(--shadow-button);
+}
+
+.kb-button--danger:not(:disabled):hover {
+  box-shadow: 0 0 20px rgba(211, 47, 47, 0.5), var(--shadow-button);
+}
+
+.kb-button--ghost {
+  background: transparent;
+  border: 2px solid var(--text-muted);
+  box-shadow: none;
+}
+
+.kb-button--ghost:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--text-light);
+}
+
+.kb-button:focus-visible {
+  outline: 3px solid var(--parchment);
+  outline-offset: 2px;
+}
+
+/* ===========================
+   RIBBON TITLE COMPONENT
+   =========================== */
+
+.kb-ribbon {
+  animation: kb-slide-up 0.3s ease-out;
+}
+
+.kb-ribbon-main::before,
+.kb-ribbon-main::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  width: 16px;
+  height: 16px;
+  background: var(--ribbon-red-dark);
+}
+
+.kb-ribbon-main::before {
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.kb-ribbon-main::after {
+  right: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+/* ===========================
+   PROGRESS BAR COMPONENT
+   =========================== */
+
+.kb-progress-fill {
+  position: relative;
+  overflow: hidden;
+}
+
+.kb-progress-shimmer {
+  animation: kb-shimmer 2s infinite linear;
+}
+
+/* ===========================
+   SCREEN TRANSITIONS
+   =========================== */
+
+.kb-screen {
+  animation: kb-screen-enter 0.3s ease-out;
+}
+
+.kb-screen--exit {
+  animation: kb-screen-exit 0.2s ease-in forwards;
+}
+
+@keyframes kb-screen-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes kb-screen-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* ===========================
+   LOADING SCREEN PORTAL
+   =========================== */
+
+@keyframes kb-portal-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.kb-loading-portal {
+  transition: transform 0.6s ease-in, opacity 0.6s ease-in;
+}
+
+.kb-loading-content {
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+/* ===========================
+   CARD HOVER EFFECTS
+   =========================== */
+
+.kb-world-card,
+.kb-save-slot {
+  transition: all var(--transition-fast);
+}
+
+.kb-world-card:hover,
+.kb-save-slot:hover {
+  transform: translateX(4px);
+}
+
+/* ===========================
+   MODAL BACKDROP
+   =========================== */
+
+.kb-modal-backdrop {
+  animation: kb-fade-in 0.2s ease-out;
+}
+
+.kb-modal {
+  animation: kb-scale-in 0.2s ease-out;
+}
+
+/* ===========================
+   TOAST NOTIFICATIONS
+   =========================== */
+
+.kb-toast {
+  animation: kb-toast-enter 0.2s ease-out;
+}
+
+@keyframes kb-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===========================
+   FOCUS STATES (Accessibility)
+   =========================== */
+
+.kb-input:focus,
+.kb-toggle-option:focus,
+.kb-world-card:focus,
+.kb-save-slot:focus {
+  outline: 3px solid var(--parchment);
+  outline-offset: 2px;
+}
+
+/* ===========================
+   REDUCED MOTION
+   =========================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

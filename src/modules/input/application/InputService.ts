@@ -1,7 +1,7 @@
-import { EventBus } from '../../game/infrastructure/EventBus'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { GameAction } from '../domain/GameAction'
 import { KeyBinding } from '../domain/KeyBinding'
-import { GameState } from '../domain/InputState'
+import { GameState } from '../../../shared/domain/GameState'
 import { IInputQuery } from '../ports/IInputQuery'
 
 export enum InputType {
@@ -35,7 +35,30 @@ export class InputService implements IInputQuery {
   private nextSubscriptionId = 0
   private mousePosition: { x: number, y: number } = { x: 0, y: 0 }
 
+  // Throttle mousemove events to prevent CPU overload (16ms = 60fps max)
+  private lastMouseMoveEmit = 0
+  private readonly MOUSE_MOVE_THROTTLE_MS = 16
+
+  // Store bound handlers for cleanup (prevents memory leaks)
+  private boundHandlers: {
+    keydown: (e: KeyboardEvent) => void
+    keyup: (e: KeyboardEvent) => void
+    mousedown: (e: MouseEvent) => void
+    mouseup: (e: MouseEvent) => void
+    dblclick: (e: MouseEvent) => void
+    mousemove: (e: MouseEvent) => void
+  }
+
   constructor(private eventBus: EventBus) {
+    // Bind handlers once and store references for cleanup
+    this.boundHandlers = {
+      keydown: this.handleKeyDown.bind(this),
+      keyup: this.handleKeyUp.bind(this),
+      mousedown: this.handleMouseDown.bind(this),
+      mouseup: this.handleMouseUp.bind(this),
+      dblclick: this.handleDoubleClick.bind(this),
+      mousemove: this.handleMouseMove.bind(this)
+    }
     this.setupEventListeners()
   }
 
@@ -126,18 +149,45 @@ export class InputService implements IInputQuery {
 
   // Setup DOM event listeners
   private setupEventListeners(): void {
-    document.addEventListener('keydown', this.handleKeyDown.bind(this), true)
-    document.addEventListener('keyup', this.handleKeyUp.bind(this), true)
-    document.addEventListener('mousedown', this.handleMouseDown.bind(this), true)
-    document.addEventListener('mouseup', this.handleMouseUp.bind(this), true)
-    document.addEventListener('dblclick', this.handleDoubleClick.bind(this), true)
-    document.addEventListener('mousemove', this.handleMouseMove.bind(this), true)
+    document.addEventListener('keydown', this.boundHandlers.keydown, true)
+    document.addEventListener('keyup', this.boundHandlers.keyup, true)
+    document.addEventListener('mousedown', this.boundHandlers.mousedown, true)
+    document.addEventListener('mouseup', this.boundHandlers.mouseup, true)
+    document.addEventListener('dblclick', this.boundHandlers.dblclick, true)
+    document.addEventListener('mousemove', this.boundHandlers.mousemove, true)
+  }
+
+  /**
+   * Remove all event listeners. Call this when disposing the service
+   * to prevent memory leaks if the service is recreated.
+   */
+  dispose(): void {
+    document.removeEventListener('keydown', this.boundHandlers.keydown, true)
+    document.removeEventListener('keyup', this.boundHandlers.keyup, true)
+    document.removeEventListener('mousedown', this.boundHandlers.mousedown, true)
+    document.removeEventListener('mouseup', this.boundHandlers.mouseup, true)
+    document.removeEventListener('dblclick', this.boundHandlers.dblclick, true)
+    document.removeEventListener('mousemove', this.boundHandlers.mousemove, true)
+
+    // Clear all subscriptions
+    this.subscriptions.clear()
+    this.actions.clear()
+    this.actionBindings.clear()
+    this.actionStates.clear()
   }
 
   private handleMouseMove(event: MouseEvent): void {
+    // Always update position (cheap operation)
     this.mousePosition = { x: event.clientX, y: event.clientY }
-    
-    // Emit for UI components (Radial Menu)
+
+    // Throttle event emission to prevent CPU overload
+    const now = performance.now()
+    if (now - this.lastMouseMoveEmit < this.MOUSE_MOVE_THROTTLE_MS) {
+      return // Skip emission, position already updated
+    }
+    this.lastMouseMoveEmit = now
+
+    // Emit for UI components (Radial Menu) - throttled to 60fps max
     this.eventBus.emit('input', {
       type: 'InputMouseMoveEvent',
       timestamp: Date.now(),
@@ -149,14 +199,17 @@ export class InputService implements IInputQuery {
   private handleKeyDown(event: KeyboardEvent): void {
     if (event.repeat) return
 
+    // Allow typing in input fields
+    if (this.isTypingInInput(event)) return
+
     const actionName = this.findActionByKey(event.code)
-    
-    // DEBUG: Targeted logging for problem keys
-    if (['Space', 'Tab', 'KeyB'].includes(event.code)) {
-        console.log(`[Input] Debug KeyDown: ${event.code} mapped to ${actionName}`)
-    }
-    
     if (!actionName) return
+
+    // Check if action is valid in current state BEFORE preventing default
+    const action = this.actions.get(actionName)
+    if (action && !this.isActionValidInCurrentState(action)) {
+      return // Don't intercept keys when action isn't valid
+    }
 
     event.preventDefault() // Prevent browser default (e.g., Tab focus)
 
@@ -165,13 +218,42 @@ export class InputService implements IInputQuery {
   }
 
   private handleKeyUp(event: KeyboardEvent): void {
+    // Allow typing in input fields
+    if (this.isTypingInInput(event)) return
+
     const actionName = this.findActionByKey(event.code)
     if (!actionName) return
+
+    // Check if action is valid in current state
+    const action = this.actions.get(actionName)
+    if (action && !this.isActionValidInCurrentState(action)) {
+      return
+    }
 
     event.preventDefault() // Prevent browser default
 
     this.actionStates.set(actionName, false)
     this.triggerAction(actionName, ActionEventType.RELEASED, event)
+  }
+
+  /**
+   * Check if the user is typing in an input field
+   */
+  private isTypingInInput(event: KeyboardEvent): boolean {
+    const target = event.target as HTMLElement
+    if (!target) return false
+
+    const tagName = target.tagName.toUpperCase()
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+      return true
+    }
+
+    // Also check contenteditable
+    if (target.isContentEditable) {
+      return true
+    }
+
+    return false
   }
 
   private handleMouseDown(event: MouseEvent): void {
@@ -248,6 +330,13 @@ export class InputService implements IInputQuery {
   }
 
   private triggerAction(actionName: string, eventType: ActionEventType, event?: Event): void {
+    const action = this.actions.get(actionName)
+
+    // Check if action is valid in current state based on category
+    if (action && !this.isActionValidInCurrentState(action)) {
+      return // Don't trigger gameplay actions in menus
+    }
+
     const subs = this.subscriptions.get(actionName)
     if (subs && subs.length > 0) {
       // Filter by context
@@ -271,5 +360,34 @@ export class InputService implements IInputQuery {
       action: actionName,
       eventType
     })
+  }
+
+  /**
+   * Check if an action is valid in the current game state based on its category
+   */
+  private isActionValidInCurrentState(action: GameAction): boolean {
+    const { category } = action
+    const state = this.currentState
+
+    // UI actions (pause, etc.) are valid in most states
+    if (category === 'ui') {
+      return true
+    }
+
+    // Gameplay actions only valid when PLAYING
+    const gameplayCategories = ['movement', 'building', 'camera']
+    if (gameplayCategories.includes(category)) {
+      return state === GameState.PLAYING
+    }
+
+    // Inventory actions valid in PLAYING and inventory states
+    if (category === 'inventory') {
+      return state === GameState.PLAYING ||
+             state === GameState.RADIAL_MENU ||
+             state === GameState.CREATIVE_INVENTORY
+    }
+
+    // Default: allow action
+    return true
   }
 }

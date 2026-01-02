@@ -3,7 +3,7 @@ import { ILightingPass } from './ILightingPass'
 import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
-import { ILightStorage } from '../../ports/ILightStorage'
+import { ILightStorage } from '../../../../../shared/ports/ILightStorage'
 
 export class SkyLightPass implements ILightingPass {
   execute(lightData: ChunkData, voxels: IVoxelQuery, coord: ChunkCoordinate, storage: ILightStorage): void {

@@ -1,6 +1,6 @@
 import { InventoryState } from '../domain/InventoryState'
-import { EventBus } from '../../game/infrastructure/EventBus'
-import { blockRegistry } from '../../blocks'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
+import { blockRegistry } from '../../world/blocks'
 
 export class InventoryService {
   private state: InventoryState

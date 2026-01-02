@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Project**: Kingdom Builder (Minecraft-inspired voxel game)
 **Tech Stack**: TypeScript, Three.js 0.181, Bun (build/serve)
-**Architecture**: Hexagonal (10 modules + infrastructure)
+**Architecture**: Hexagonal (11 modules)
 **Dev Server**: http://localhost:4173
 
 ---
@@ -29,29 +29,33 @@ bun lint         # TypeScript type check (no emit)
 
 ### Hexagonal Architecture (Ports & Adapters)
 
-The codebase follows a strict hexagonal architecture with 10 independent modules:
+The codebase follows a strict hexagonal architecture with 11 independent modules:
 
 ```
 src/modules/
-├── game/           Infrastructure (CommandBus, EventBus, GameOrchestrator)
-├── world/          Voxel data storage (chunks, blocks)
-├── rendering/      Mesh generation (greedy meshing, vertex colors)
+├── core/           Infrastructure (CommandBus, EventBus, GameOrchestrator)
+├── world/          Voxel data, chunks, blocks, terrain generation
+├── meshing/        Mesh generation (greedy meshing, vertex colors)
+├── rendering/      Three.js rendering, materials, chunk display
 ├── environment/    Lighting system (sunlight, block lights, AO)
 ├── physics/        Movement + collision (Web Worker)
 ├── player/         Player state (position, mode, velocity)
 ├── input/          Input system (keyboard, mouse, gamepad-ready)
-├── interaction/    Block placement/removal, raycasting
+├── building/       Block placement/removal, raycasting
 ├── ui/             Game states, HUD, menus
 ├── audio/          Sound effects
-└── blocks/         Block registry and definitions
+├── inventory/      Block selection, hotbar
+└── persistence/    Save/load, IndexedDB storage
 ```
 
 ### Key Architectural Principles
 
-1. **Ports Pattern**: Modules expose interfaces (ports) in `src/modules/*/ports/`
+1. **Ports Pattern**: Modules expose interfaces (ports) in `src/modules/*/ports/` and `src/shared/ports/`
    - `IVoxelQuery` - Read voxel data
    - `IVoxelStorage` - Write voxel data
    - `ILightingQuery` - Read lighting data
+   - `ILightStorage` - Read raw light buffers
+   - `IModificationQuery` - Query block modifications
    - `IPlayerQuery` - Read player state
 
 2. **Web Workers**: Heavy computation offloaded to workers
@@ -71,7 +75,7 @@ src/modules/
 2. Core (Three.js setup)            # Renderer, camera, scene
 3. GameOrchestrator created:
    a. Infrastructure (CommandBus, EventBus)
-   b. Services (10 modules in dependency order)
+   b. Services (11 modules in dependency order)
    c. Register command handlers
    d. Register input actions
    e. Setup event listeners
@@ -193,6 +197,105 @@ Available in console:
 
 ---
 
+## Phase 4A: Declarative World Generation
+
+### JSON World Definitions
+
+Worlds are defined in JSON files (validated with Zod) instead of hardcoded presets:
+
+**Example:** `public/worlds/default.json`
+```json
+{
+  "meta": { "name": "Sky Islands", "seed": 42069 },
+  "terrain": { "generator": "noise", ... },
+  "features": [
+    { "type": "floating_island", "spacing": 350, ... },
+    { "type": "cave_system", "density": 0.02, ... }
+  ]
+}
+```
+
+**Available Worlds:**
+- `/worlds/default.json` - Sky Islands with caves and giant trees
+- `/worlds/caves.json` - Massive cave networks with crystals
+- `/worlds/forest.json` - Giant tree forest
+- `/worlds/crystals.json` - Glowing crystal caves
+- `/worlds/flat.json` - Superflat testing world
+
+### Generation Pipeline
+
+**4-Pass System:**
+1. **TerrainPass** - Base heightfield from noise/flat
+2. **DramaticFeaturesPass** - Floating islands, caves, giant trees, crystals
+3. **BiomePass** - Elevation-based material assignment
+4. **DecorationPass** - (Reserved for Phase 4B)
+
+### Dramatic Features
+
+**Floating Islands:**
+- Grid-based placement with noise offset
+- Configurable size (30-100 block radius)
+- Height variation (80-140 blocks)
+- Grass surface on top hemisphere
+
+**Worm Caves:**
+- 3D tunneling algorithm with winding paths
+- Variable radius (5-20 blocks)
+- Natural cave networks
+- Connects organically
+
+**Giant Trees:**
+- Massive trunks (4-9 block radius)
+- Towering height (40-85 blocks)
+- Huge spherical canopy (25-35 block radius)
+- Rare placement (density 0.001-0.003)
+
+**Crystal Formations:**
+- Grow from cave surfaces
+- Glowstone (yellow) and obsidian (purple) crystals
+- Natural cave lighting
+- Height variation (10-40 blocks)
+
+### Material Registry
+
+Maps JSON material names to BlockType:
+```typescript
+"material": "grass" → BlockType.grass
+"material": "obsidian" → BlockType.obsidian
+```
+
+**Aliases supported:**
+- `grass_green` → grass
+- `granite` → stone
+- `sand_yellow` → sand
+
+### Debug Commands
+
+```javascript
+window.debug.listWorlds()  // Show available world files
+// Returns: Array of world descriptions
+
+// Note: World switching requires page reload (ChunkWorker initialization)
+// Edit /worlds/*.json files to modify world features
+```
+
+### Determinism
+
+**Seed-based generation:**
+- Same seed + coordinates = identical terrain
+- Unmodified chunks regenerate from seed (not stored)
+- Player modifications saved separately (IndexedDB)
+- View from built structures remains stable
+
+### New Block: Obsidian
+
+- **ID:** 15
+- **Color:** Dark purple-black
+- **Properties:** Emissive glow, slightly slippery
+- **Use:** Crystal formations, lava pools, dramatic accents
+
+---
+
 ## World Generation & Chunks
 
 ### Chunk System
@@ -200,17 +303,7 @@ Available in console:
 - **Chunk size**: 24×48×24 blocks (X×Y×Z)
 - **Coordinate system**: `ChunkCoordinate(x, z)` - no Y coordinate (chunks are vertical columns)
 - **Storage**: `Uint8Array` (1 byte per block = block type ID)
-- **Generation**: Simplex noise in `ChunkWorker.ts`
-
-### World Presets
-
-Located in `src/modules/world/domain/WorldPreset.ts`:
-- **DEFAULT**: Rolling hills, trees, water
-- **FLAT**: Flat terrain for testing
-- **MOUNTAINS**: High peaks
-- **ISLANDS**: Floating islands
-
-Change preset via `DEFAULT_WORLD_PRESET_ID` in `WorldConfig.ts`.
+- **Generation**: JSON-based pipeline in `ChunkWorker.ts` (see Phase 4A above)
 
 ---
 
@@ -380,7 +473,7 @@ commandBus.send(new PlaceBlockCommand(position, blockId))
 
 ### BlockRegistry
 
-All block types are registered in `src/modules/blocks/application/BlockRegistry.ts`:
+All block types are registered in `src/modules/world/blocks/application/BlockRegistry.ts`:
 
 ```typescript
 // Block definition
@@ -402,7 +495,7 @@ const glowstone = BlockRegistry.getBlockByName('glowstone')
 
 ### Block Categories
 
-Defined in `src/modules/blocks/definitions/*.ts`:
+Defined in `src/modules/world/blocks/definitions/*.ts`:
 - `ground.ts` - Grass, dirt, sand, gravel
 - `stone.ts` - Stone, cobblestone, ores
 - `wood.ts` - Oak, birch, spruce planks/logs
@@ -522,17 +615,23 @@ src/modules/<module>/
 ├── domain/           # Entities, value objects, commands, events
 ├── ports/            # Interfaces (dependency inversion)
 ├── workers/          # Web Workers (if applicable)
-└── infrastructure/   # EventBus, CommandBus (only in game/)
+└── infrastructure/   # Worker pools, adapters (only in core/)
+
+src/shared/
+├── domain/           # Cross-module value objects (ChunkData, LightValue)
+├── infrastructure/   # EventBus, CommandBus
+├── ports/            # Cross-module interfaces (IVoxelQuery, ILightingQuery)
+└── workers/          # Shared worker utilities
 ```
 
 ---
 
 ## Current Development State
 
-**Last Updated**: 2025-12-12
+**Last Updated**: 2025-12-29
 
 **Working**:
-- ✅ Hexagonal architecture (10 modules)
+- ✅ Hexagonal architecture (11 modules with proper ports/domain layers)
 - ✅ Physics in Web Worker
 - ✅ Vertex color lighting system
 - ✅ Greedy meshing (90%+ polygon reduction)
@@ -544,8 +643,14 @@ src/modules/<module>/
 - ✅ Frustum culling prioritization
 - ✅ Performance monitoring (F3 debug overlay)
 - ✅ Chunk unloading system
+- ✅ **Declarative world generation** (JSON-based, 4 feature types)
+- ✅ **Feature generators**: Floating islands, worm caves, giant trees, crystal formations
+- ✅ **5 example worlds**: Sky islands, massive caves, titan forests, glowing crystals, superflat
+- ✅ **255 characterization tests** covering all modules
+- ✅ **Save/load system** with IndexedDB persistence
 
 **Next Steps**:
+- Decoration pass (small trees, flowers, grass, rocks)
 - Add texture atlas support
 - Optimize lighting propagation for sunrise/sunset
 - Add gamepad support to input system

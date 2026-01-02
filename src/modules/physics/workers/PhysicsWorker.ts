@@ -1,12 +1,12 @@
 import * as THREE from 'three'
 import { MovementVector } from '../../domain/MovementVector.ts'
 import { CollisionDetector } from '../application/CollisionDetector.ts'
-import { WorkerVoxelQuery } from './WorkerVoxelQuery.ts'
+import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
 import { PlayerMode } from '../../player/domain/PlayerMode.ts' // Corrected path
 import { ChunkData } from '../../../shared/domain/ChunkData.ts'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate.ts'
 import { MovementController } from '../application/MovementController.ts'
-import { initializeBlockRegistry } from '../../../modules/blocks/index.ts'
+import { initializeBlockRegistry } from '../../../modules/world/blocks/index.ts'
 
 // Initialize block registry for this worker
 initializeBlockRegistry()

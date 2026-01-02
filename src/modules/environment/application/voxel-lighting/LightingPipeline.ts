@@ -3,7 +3,7 @@ import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
 import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ILightingPass } from './passes/ILightingPass'
-import { ILightStorage } from '../../ports/ILightStorage'
+import { ILightStorage } from '../../../../shared/ports/ILightStorage'
 import { SkyLightPass } from './passes/SkyLightPass'
 import { PropagationPass } from './passes/PropagationPass'
 

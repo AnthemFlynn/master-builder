@@ -1,11 +1,12 @@
 import Core from './core'
-import { GameOrchestrator } from './modules/game'
+import { GameOrchestrator } from './modules/core'
+import { initializeAsyncServices } from './modules/core/GameFactory'
 import { PlayerMode } from './modules/player/domain/PlayerMode'
-import { getWorldPreset } from './modules/world/domain/WorldPreset'
-import { DEFAULT_WORLD_PRESET_ID } from './modules/world/domain/WorldConfig'
+import { SaveGameCommand } from './modules/persistence/domain/commands/SaveGameCommand'
+import { LoadGameCommand } from './modules/persistence/domain/commands/LoadGameCommand'
 
 // Initialize BlockRegistry
-import { initializeBlockRegistry } from './modules/blocks'
+import { initializeBlockRegistry } from './modules/world/blocks'
 initializeBlockRegistry()
 
 // Initialize Three.js core
@@ -13,13 +14,25 @@ const core = new Core()
 const camera = core.camera
 const scene = core.scene
 const renderer = core.renderer
-const activePreset = getWorldPreset(DEFAULT_WORLD_PRESET_ID)
 
 // Initialize game (all modules)
 const game = new GameOrchestrator(scene, camera)
 
-// Expose for debugging
-if (typeof window !== 'undefined') {
+// Initialize async services and start game
+async function initializeGame() {
+  try {
+    await initializeAsyncServices(game.getServices(), renderer)
+    setupDebugHelpers()
+    console.log('✅ Game initialized - all hexagonal modules operational')
+  } catch (error) {
+    console.error('[main.ts] Error during async initialization:', error)
+    throw error
+  }
+}
+
+function setupDebugHelpers() {
+  if (typeof window === 'undefined') return
+
   const global = window as any
 
   if (typeof global.game === 'function') {
@@ -38,22 +51,45 @@ if (typeof window !== 'undefined') {
     setPlayerMode: (mode: PlayerMode) => game.getPlayerService().setMode(mode),
     getPlayerPosition: () => game.getPlayerService().getPosition().clone(),
     setHour: (hour: number) => game.getEnvironmentService().setHour(hour),
-    getWorldPreset: () => activePreset
+    save: (slotName = 'manual-save') => game.commandBus.send(new SaveGameCommand(slotName, slotName, false)),
+    load: (slotName = 'manual-save') => game.commandBus.send(new LoadGameCommand(slotName)),
+    listSaves: async () => await game.getPersistenceService().listSaveSlots(),
+    getLODMetrics: () => game.getLODMetrics(),
+    setLODThresholds: (thresholds: any) => game.setLODThresholds(thresholds),
+    getMetrics: () => game.getMetrics(),
+    getLastChunk: () => game.getLastChunk()
   }
 
   // Force time to Solar Noon for consistent development lighting
   game.getEnvironmentService().setHour(12)
 
-  console.log('✅ Hexagonal architecture active - 10 modules loaded')
+  console.log('✅ Hexagonal architecture active - 11 modules loaded (persistence added)')
   console.log('🐛 Debug: window.debug.enableTracing()')
+  console.log('💾 Debug: window.debug.save() / window.debug.load() / window.debug.listSaves()')
 }
 
-// Animation loop
+// Start initialization
+initializeGame().catch(console.error)
+
+// Animation loop with frame budget enforcement
+const FRAME_BUDGET_MS = 16.67 // 60fps target
+const FRAME_BUDGET_WARNING_MS = 33.33 // Warn if frame takes >2 frames worth
+let lastFrameTime = performance.now()
+let frameOverrunCount = 0
+let lastOverrunWarning = 0
+
 ;(function animate() {
   requestAnimationFrame(animate)
 
+  const frameStart = performance.now()
+  const deltaTime = frameStart - lastFrameTime
+  lastFrameTime = frameStart
+
   try {
-    game.update()
+    // Skip heavy processing if we're severely behind (>3 frames)
+    const skipHeavyProcessing = deltaTime > FRAME_BUDGET_MS * 3
+
+    game.update(skipHeavyProcessing)
 
     const uiService = game.getUIService()
     if (uiService && uiService.updateFPS) {
@@ -61,6 +97,20 @@ if (typeof window !== 'undefined') {
     }
 
     renderer.render(scene, camera)
+
+    // Frame budget enforcement: warn if we're taking too long
+    const frameEnd = performance.now()
+    const frameDuration = frameEnd - frameStart
+
+    if (frameDuration > FRAME_BUDGET_WARNING_MS) {
+      frameOverrunCount++
+      // Throttle warnings to avoid console spam
+      if (frameEnd - lastOverrunWarning > 5000) {
+        console.warn(`⚠️ Frame budget exceeded: ${frameDuration.toFixed(1)}ms (${frameOverrunCount} overruns in last 5s)`)
+        frameOverrunCount = 0
+        lastOverrunWarning = frameEnd
+      }
+    }
   } catch (error) {
     console.error('❌ Animation loop error:', error)
     throw error
@@ -73,5 +123,3 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
 })
-
-console.log('✅ Game initialized - all hexagonal modules operational')
