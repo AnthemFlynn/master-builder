@@ -161,6 +161,10 @@ export class GameOrchestrator {
 
     console.log('Resuming game (no regeneration)...')
 
+    // Ignore unlock events briefly - pointer lock may fail after tab switch
+    // and we don't want that to immediately pause the game again
+    this.ignoreUnlockUntil = Date.now() + 500
+
     // SessionManager handles the state transition, pointer lock, and emits event
     // SessionStateChangedEvent handler will call uiService.onPlay()
     this.services.sessionManager.resumeSession()

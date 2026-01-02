@@ -14,13 +14,16 @@ import {
   createCreateWorldScreen,
   createPauseScreen,
   createLoadingScreen,
+  createSettingsScreen,
   SplashScreenComponent,
   MainMenuScreenComponent,
   WorldSelectScreenComponent,
   CreateWorldScreenComponent,
   PauseScreenComponent,
-  LoadingScreenComponent
+  LoadingScreenComponent,
+  SettingsScreenComponent
 } from '../components/screens'
+import { showDeleteConfirm } from '../components/base/ConfirmDialog'
 
 /**
  * Callbacks for game actions
@@ -38,6 +41,10 @@ export interface MenuUICallbacks {
   onExitToMenu: () => void
   /** Open save modal */
   onOpenSaveModal: () => void
+  /** Settings changed */
+  onRenderDistanceChange?: (value: number) => void
+  onFovChange?: (value: number) => void
+  onVolumeChange?: (value: number) => void
 }
 
 /**
@@ -57,6 +64,7 @@ export class MenuUIManager {
   private createWorldScreen: CreateWorldScreenComponent | null = null
   private pauseScreen: PauseScreenComponent | null = null
   private loadingScreen: LoadingScreenComponent | null = null
+  private settingsScreen: SettingsScreenComponent | null = null
 
   // Track which screen is currently visible
   private visibleScreen: GameState | null = null
@@ -197,6 +205,9 @@ export class MenuUIManager {
       case GameState.LOADING:
         this.loadingScreen?.hide()
         break
+      case GameState.SETTINGS:
+        this.settingsScreen?.hide()
+        break
     }
   }
 
@@ -228,6 +239,10 @@ export class MenuUIManager {
 
       case GameState.LOADING:
         this.ensureLoadingScreen(params?.loadingMessage).show()
+        break
+
+      case GameState.SETTINGS:
+        this.ensureSettingsScreen().show()
         break
 
       case GameState.PLAYING:
@@ -271,8 +286,7 @@ export class MenuUIManager {
         onNewGame: () => this.navigateTo(GameState.CREATE_WORLD),
         onWorlds: () => this.navigateTo(GameState.WORLD_SELECT),
         onSettings: () => {
-          // TODO: Settings screen
-          console.log('Settings not implemented yet')
+          this.navigateTo(GameState.SETTINGS)
         }
       })
     } else {
@@ -291,6 +305,17 @@ export class MenuUIManager {
         },
         onPlayWorld: (world) => {
           this.callbacks.onStartNewGame(world.id)
+        },
+        onDeleteWorld: (world) => {
+          // Show styled confirmation dialog
+          showDeleteConfirm(world.name, async () => {
+            if (this.worldManager) {
+              await this.worldManager.deleteWorld(world.id)
+              // Refresh the world list
+              const updatedWorlds = await this.loadWorlds()
+              this.worldSelectScreen?.setWorlds(updatedWorlds)
+            }
+          })
         },
         onCreateWorld: () => this.navigateTo(GameState.CREATE_WORLD),
         onBack: () => this.goBack()
@@ -331,7 +356,7 @@ export class MenuUIManager {
           this.callbacks.onOpenSaveModal()
         },
         onSettings: () => {
-          console.log('Settings not implemented yet')
+          this.navigateTo(GameState.SETTINGS)
         },
         onExitToMenu: async () => {
           // Save to autosave before exiting
@@ -355,6 +380,27 @@ export class MenuUIManager {
     return this.loadingScreen
   }
 
+  private ensureSettingsScreen(): SettingsScreenComponent {
+    if (!this.settingsScreen) {
+      this.settingsScreen = createSettingsScreen({
+        renderDistance: 6,
+        fov: 50,
+        volume: 0.5,
+        onRenderDistanceChange: (value) => {
+          this.callbacks.onRenderDistanceChange?.(value)
+        },
+        onFovChange: (value) => {
+          this.callbacks.onFovChange?.(value)
+        },
+        onVolumeChange: (value) => {
+          this.callbacks.onVolumeChange?.(value)
+        },
+        onBack: () => this.goBack()
+      })
+    }
+    return this.settingsScreen
+  }
+
   /**
    * Clean up all screens
    */
@@ -365,5 +411,6 @@ export class MenuUIManager {
     this.createWorldScreen?.destroy()
     this.pauseScreen?.destroy()
     this.loadingScreen?.destroy()
+    this.settingsScreen?.destroy()
   }
 }

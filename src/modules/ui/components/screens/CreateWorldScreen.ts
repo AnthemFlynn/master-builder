@@ -94,17 +94,6 @@ export function createCreateWorldScreen(options: CreateWorldScreenOptions): Crea
     helper: 'Leave empty for random seed'
   })
 
-  // Game mode toggle
-  const gameModeToggle = createToggleGroup({
-    label: 'Game Mode',
-    options: [
-      { value: 'creative', label: 'Creative', icon: '✨', description: 'Unlimited resources' },
-      { value: 'survival', label: 'Survival', icon: '⚔️', description: 'Coming soon' }
-    ],
-    selected: 'creative',
-    direction: 'horizontal'
-  })
-
   // World type toggle
   const worldTypeToggle = createToggleGroup({
     label: 'World Type',
@@ -120,7 +109,6 @@ export function createCreateWorldScreen(options: CreateWorldScreenOptions): Crea
 
   form.appendChild(nameInput.element)
   form.appendChild(seedInput.element)
-  form.appendChild(gameModeToggle.element)
   form.appendChild(worldTypeToggle.element)
 
   // Buttons
@@ -148,14 +136,13 @@ export function createCreateWorldScreen(options: CreateWorldScreenOptions): Crea
       const name = nameInput.getValue().trim() || 'My World'
       const seedStr = seedInput.getValue().trim()
       const seed = seedStr ? parseSeed(seedStr) : Math.floor(Math.random() * 1000000)
-      const gameMode = gameModeToggle.getValue() as 'creative' | 'survival'
       const worldType = worldTypeToggle.getValue()
 
       onCreate({
         name,
         seed,
         worldType,
-        gameMode
+        gameMode: 'creative'  // Always creative - this is a building game
       })
     }
   })
@@ -172,7 +159,6 @@ export function createCreateWorldScreen(options: CreateWorldScreenOptions): Crea
   const reset = () => {
     nameInput.setValue('')
     seedInput.setValue('')
-    gameModeToggle.setValue('creative')
     worldTypeToggle.setValue('default')
     nameInput.setError(null)
   }
