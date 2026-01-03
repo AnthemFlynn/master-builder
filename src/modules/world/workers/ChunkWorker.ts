@@ -14,21 +14,23 @@ import { OrePass } from '../generation/passes/OrePass'
 // Initialize blocks definitions
 initializeBlockRegistry()
 
-// Initialize world loader and orchestrator using promise for proper async handling
+// Current world type and orchestrator
+let currentWorldType = 'default'
 let orchestratorPromise: Promise<GenerationOrchestrator> | null = null
 
 function getOrchestrator(): Promise<GenerationOrchestrator> {
   if (!orchestratorPromise) {
-    orchestratorPromise = initializeOrchestrator()
+    orchestratorPromise = initializeOrchestrator(currentWorldType)
   }
   return orchestratorPromise
 }
 
-async function initializeOrchestrator(): Promise<GenerationOrchestrator> {
+async function initializeOrchestrator(worldType: string): Promise<GenerationOrchestrator> {
   const startTime = performance.now()
 
   const loader = new WorldLoader()
-  const worldDef = await loader.load('/worlds/default.json')
+  const worldPath = `/worlds/${worldType}.json`
+  const worldDef = await loader.load(worldPath)
 
   // WORLD GENERATION PIPELINE
   // Pass ordering (caves LAST to punch through surface features):
@@ -67,12 +69,34 @@ async function initializeOrchestrator(): Promise<GenerationOrchestrator> {
   return orchestrator
 }
 
-// Start initialization immediately
+// Start initialization immediately with default world
 getOrchestrator()
 
 self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   try {
     const msg = e.data
+
+    if (msg.type === 'SET_WORLD_TYPE') {
+      const { worldType, seed } = msg
+
+      // Only reinitialize if world type changed
+      if (worldType !== currentWorldType) {
+        console.log(`🌍 Worker switching world type: ${currentWorldType} → ${worldType}`)
+        currentWorldType = worldType
+        // Reset orchestrator to force reinitialization
+        orchestratorPromise = null
+        // Pre-initialize with new world type
+        await getOrchestrator()
+      }
+
+      const response: MainMessage = {
+        type: 'WORLD_TYPE_SET',
+        worldType,
+        success: true
+      }
+      self.postMessage(response)
+      return
+    }
 
     if (msg.type === 'GENERATE_CHUNK') {
       const startTime = performance.now()

@@ -1,9 +1,14 @@
-export type ChunkRequest = 
+export type ChunkRequest =
   | {
       type: 'GENERATE_CHUNK'
       x: number
       z: number
       renderDistance: number
+    }
+  | {
+      type: 'SET_WORLD_TYPE'
+      worldType: string  // 'default' | 'flat' | 'caves' | 'forest' | 'crystals'
+      seed?: number      // Optional seed override
     }
 
 export type ChunkResponse =
@@ -15,6 +20,11 @@ export type ChunkResponse =
       blockBuffer: ArrayBuffer
       metadata: Map<number, any>
       timingMs: number
+    }
+  | {
+      type: 'WORLD_TYPE_SET'
+      worldType: string
+      success: boolean
     }
 
 export type WorkerMessage = ChunkRequest

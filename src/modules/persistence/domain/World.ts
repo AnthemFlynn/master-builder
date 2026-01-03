@@ -43,7 +43,7 @@ export interface CreateWorldParams {
  * Default settings for new worlds
  */
 export const DEFAULT_WORLD_SETTINGS: WorldSettings = {
-  renderDistance: 6,
+  renderDistance: 4,
   difficulty: 'peaceful'
 }
 

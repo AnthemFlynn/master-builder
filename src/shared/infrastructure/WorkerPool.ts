@@ -84,6 +84,11 @@ export class WorkerPool {
   }
 
   private onWorkerComplete(worker: Worker, result: WorkerResult): void {
+    // Ignore broadcast responses - they're handled by their own event listeners in broadcast()
+    if (result.type === 'WORLD_TYPE_SET') {
+      return
+    }
+
     const pendingTask = this.workerTasks.get(worker)
     if (pendingTask) {
       pendingTask.resolve(result)
@@ -140,5 +145,31 @@ export class WorkerPool {
     this.availableWorkers = []
     this.taskQueue = []
     this.workerTasks.clear()
+  }
+
+  /**
+   * Broadcast a message to all workers and wait for all responses.
+   * Uses a separate message type check to avoid interfering with normal task handling.
+   */
+  async broadcast(message: WorkerTask): Promise<WorkerResult[]> {
+    // Track which response type we expect from this broadcast
+    const expectedResponseType = message.type.replace('SET_', '').replace('_', '_') + '_SET'
+    // e.g., SET_WORLD_TYPE -> WORLD_TYPE_SET
+
+    const promises = this.workers.map(worker => {
+      return new Promise<WorkerResult>((resolve) => {
+        const handler = (event: MessageEvent) => {
+          // Only handle responses that match our broadcast (not chunk generation results)
+          if (event.data.type === 'WORLD_TYPE_SET') {
+            worker.removeEventListener('message', handler)
+            resolve(event.data)
+          }
+          // Other message types will be handled by onWorkerComplete
+        }
+        worker.addEventListener('message', handler)
+        worker.postMessage(message)
+      })
+    })
+    return Promise.all(promises)
   }
 }
