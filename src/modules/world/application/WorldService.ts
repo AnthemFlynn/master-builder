@@ -149,7 +149,7 @@ export class WorldService implements IVoxelQuery {
         const nCoord = new ChunkCoordinate(coord.x + dx, coord.z + dz)
         const nChunk = this.getChunk(nCoord)
         if (nChunk) {
-          neighborVoxels[offsetKey] = nChunk.getRawBuffer()
+          neighborVoxels[offsetKey] = nChunk.getSharedBuffer()
         }
       }
 
