@@ -383,7 +383,7 @@ export class MenuUIManager {
   private ensureSettingsScreen(): SettingsScreenComponent {
     if (!this.settingsScreen) {
       this.settingsScreen = createSettingsScreen({
-        renderDistance: 6,
+        renderDistance: 4,
         fov: 50,
         volume: 0.5,
         onRenderDistanceChange: (value) => {

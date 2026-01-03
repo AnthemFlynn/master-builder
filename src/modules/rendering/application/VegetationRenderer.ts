@@ -24,18 +24,24 @@ const VEGETATION_VERTEX_SHADER = /* glsl */ `
 precision highp float;
 
 // Instance attributes
-attribute vec3 instancePosition;
-attribute float instanceTextureLayer;
-attribute float instanceVariation;
+in vec3 instancePosition;
+in float instanceTextureLayer;
+in float instanceVariation;
 
-// Varyings
-varying vec2 vUv;
-varying float vLayer;
-varying vec3 vWorldPosition;
+// Built-in attributes (GLSL 300 ES)
+in vec3 position;
+in vec2 uv;
+
+// Outputs to fragment shader (GLSL 300 ES)
+out vec2 vUv;
+out float vLayer;
+out vec3 vWorldPosition;
 
 // Uniforms
 uniform float uTime;
 uniform float uWindStrength;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
 
 void main() {
   // Base cross-billboard vertex position (unit quad centered at origin)
@@ -76,9 +82,11 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform bool uUseFog;
 
-varying vec2 vUv;
-varying float vLayer;
-varying vec3 vWorldPosition;
+in vec2 vUv;
+in float vLayer;
+in vec3 vWorldPosition;
+
+out vec4 fragColor;
 
 void main() {
   vec4 texColor = texture(uTextureArray, vec3(vUv, vLayer));
@@ -97,7 +105,7 @@ void main() {
     finalColor = mix(finalColor, uFogColor, fogFactor);
   }
 
-  gl_FragColor = vec4(finalColor, texColor.a);
+  fragColor = vec4(finalColor, texColor.a);
 }
 `
 
