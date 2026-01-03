@@ -66,6 +66,14 @@ export class WorkerVoxelQuery implements IVoxelQuery {
         this.chunks.clear()
     }
 
+    removeChunk(key: string): void {
+        this.chunks.delete(key)
+    }
+
+    getChunkKeys(): string[] {
+        return Array.from(this.chunks.keys())
+    }
+
     /**
      * Check if a block is water (BlockType 16)
      */
