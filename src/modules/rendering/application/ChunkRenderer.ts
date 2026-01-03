@@ -19,6 +19,10 @@ interface ChunkMeshes {
 
 export class ChunkRenderer {
   private meshes = new Map<string, ChunkMeshes>()
+  
+  // Object pools to reduce instantiation churn
+  private meshPool: THREE.Mesh[] = []
+  private groupPool: THREE.Group[] = []
 
   constructor(
     private scene: THREE.Scene,
@@ -50,6 +54,83 @@ export class ChunkRenderer {
   }
 
   /**
+   * Get a group from the pool or create a new one
+   */
+  private getGroup(): THREE.Group {
+    if (this.groupPool.length > 0) {
+      const group = this.groupPool.pop()!
+      group.visible = true
+      group.position.set(0, 0, 0)
+      group.rotation.set(0, 0, 0)
+      group.scale.set(1, 1, 1)
+      group.renderOrder = 0
+      group.clear() // Ensure no children
+      return group
+    }
+    return new THREE.Group()
+  }
+
+  /**
+   * Release a group back to the pool
+   */
+  private releaseGroup(group: THREE.Group): void {
+    // Release all children meshes
+    for (let i = group.children.length - 1; i >= 0; i--) {
+      const child = group.children[i]
+      if (child instanceof THREE.Mesh) {
+        this.releaseMesh(child)
+      }
+    }
+    group.clear()
+    this.scene.remove(group)
+    this.groupPool.push(group)
+  }
+
+  /**
+   * Get a mesh from the pool or create a new one
+   */
+  private getMesh(geometry: THREE.BufferGeometry, material: THREE.Material): THREE.Mesh {
+    if (this.meshPool.length > 0) {
+      const mesh = this.meshPool.pop()!
+      mesh.geometry = geometry
+      mesh.material = material
+      mesh.visible = true
+      mesh.position.set(0, 0, 0)
+      mesh.rotation.set(0, 0, 0)
+      mesh.scale.set(1, 1, 1)
+      mesh.castShadow = false
+      mesh.receiveShadow = false
+      mesh.frustumCulled = true
+      mesh.renderOrder = 0
+      mesh.userData = {}
+      return mesh
+    }
+    return new THREE.Mesh(geometry, material)
+  }
+
+  /**
+   * Release a mesh back to the pool
+   */
+  private releaseMesh(mesh: THREE.Mesh): void {
+    if (mesh.geometry) {
+      mesh.geometry.dispose()
+    }
+    
+    // Dispose material if it's not shared (rare case in this engine, but good for safety)
+    if (mesh.material instanceof THREE.Material) {
+      if (!mesh.material.userData?.shared) {
+        mesh.material.dispose()
+      }
+    }
+
+    // Clear references
+    mesh.geometry = undefined as any
+    mesh.material = undefined as any
+    
+    this.meshPool.push(mesh)
+  }
+
+  /**
    * Update mesh using packed vertex format (SOTA 12-byte vertices)
    */
   private updatePackedMesh(
@@ -62,25 +143,20 @@ export class ChunkRenderer {
     const worldX = coord.x * CHUNK_WIDTH
     const worldZ = coord.z * CHUNK_DEPTH
 
-    // Debug logging
-    const opaqueCount = opaqueGeometryMap.size
-    const transparentCount = transparentGeometryMap.size
-    // Empty meshes are normal for air chunks
-    
     // Dispose old meshes
     const old = this.meshes.get(key)
     if (old) {
-      this.disposeGroup(old.opaque)
-      this.disposeGroup(old.transparent)
+      this.releaseGroup(old.opaque)
+      this.releaseGroup(old.transparent)
     }
 
     // Create OPAQUE group with packed materials
     // Each mesh has a section-specific bounding box for frustum culling
-    const opaqueGroup = new THREE.Group()
+    const opaqueGroup = this.getGroup()
     opaqueGroup.renderOrder = 0
     opaqueGeometryMap.forEach((geometry, materialKey) => {
       const material = this.materialSystem.getPackedOpaqueMaterial()
-      const mesh = new THREE.Mesh(geometry, material)
+      const mesh = this.getMesh(geometry, material)
       mesh.castShadow = true
       mesh.receiveShadow = true
       mesh.frustumCulled = true
@@ -95,11 +171,11 @@ export class ChunkRenderer {
     this.scene.add(opaqueGroup)
 
     // Create TRANSPARENT group with packed materials
-    const transparentGroup = new THREE.Group()
+    const transparentGroup = this.getGroup()
     transparentGroup.renderOrder = 1
     transparentGeometryMap.forEach((geometry, materialKey) => {
       const material = this.materialSystem.getPackedTransparentMaterial()
-      const mesh = new THREE.Mesh(geometry, material)
+      const mesh = this.getMesh(geometry, material)
       mesh.renderOrder = 1
       mesh.castShadow = false
       mesh.receiveShadow = true
@@ -166,24 +242,19 @@ export class ChunkRenderer {
     const worldX = coord.x * CHUNK_WIDTH
     const worldZ = coord.z * CHUNK_DEPTH
 
-    // Debug logging
-    const opaqueCount = opaqueGeometryMap.size
-    const transparentCount = transparentGeometryMap.size
-    // Empty meshes are normal for air chunks
-    
     // Dispose old meshes
     const old = this.meshes.get(key)
     if (old) {
-      this.disposeGroup(old.opaque)
-      this.disposeGroup(old.transparent)
+      this.releaseGroup(old.opaque)
+      this.releaseGroup(old.transparent)
     }
 
     // Create OPAQUE group (renderOrder = 0)
-    const opaqueGroup = new THREE.Group()
+    const opaqueGroup = this.getGroup()
     opaqueGroup.renderOrder = 0
     opaqueGeometryMap.forEach((geometry, materialKey) => {
       const material = this.materialSystem.getOpaqueMaterial(materialKey)
-      const mesh = new THREE.Mesh(geometry, material)
+      const mesh = this.getMesh(geometry, material)
       mesh.castShadow = true
       mesh.receiveShadow = true
       opaqueGroup.add(mesh)
@@ -192,11 +263,11 @@ export class ChunkRenderer {
     this.scene.add(opaqueGroup)
 
     // Create TRANSPARENT group (renderOrder = 1)
-    const transparentGroup = new THREE.Group()
+    const transparentGroup = this.getGroup()
     transparentGroup.renderOrder = 1
     transparentGeometryMap.forEach((geometry, materialKey) => {
       const material = this.materialSystem.getTransparentMaterial(materialKey)
-      const mesh = new THREE.Mesh(geometry, material)
+      const mesh = this.getMesh(geometry, material)
       mesh.renderOrder = 1
       mesh.castShadow = false
       mesh.receiveShadow = true
@@ -208,39 +279,28 @@ export class ChunkRenderer {
     this.meshes.set(key, { opaque: opaqueGroup, transparent: transparentGroup })
   }
 
-  private disposeGroup(group: THREE.Group): void {
-    group.children.forEach(child => {
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose()
-        // Dispose material if it's not shared
-        if (child.material instanceof THREE.Material) {
-          // Only dispose if it's a per-chunk material (packed format)
-          if (!child.material.userData?.shared) {
-            child.material.dispose()
-          }
-        }
-      }
-    })
-    this.scene.remove(group)
-  }
-
   disposeChunk(coord: ChunkCoordinate): void {
     const key = coord.toKey()
     const chunkMeshes = this.meshes.get(key)
 
     if (chunkMeshes) {
-      this.disposeGroup(chunkMeshes.opaque)
-      this.disposeGroup(chunkMeshes.transparent)
+      this.releaseGroup(chunkMeshes.opaque)
+      this.releaseGroup(chunkMeshes.transparent)
       this.meshes.delete(key)
     }
   }
 
   disposeAll(): void {
     for (const chunkMeshes of this.meshes.values()) {
-      this.disposeGroup(chunkMeshes.opaque)
-      this.disposeGroup(chunkMeshes.transparent)
+      this.releaseGroup(chunkMeshes.opaque)
+      this.releaseGroup(chunkMeshes.transparent)
     }
     this.meshes.clear()
+    
+    // Clear pools on global dispose? Maybe not necessary, but pools are light.
+    // We could clear pools if we wanted to free memory completely.
+    // this.meshPool = []
+    // this.groupPool = []
   }
 
   /**
