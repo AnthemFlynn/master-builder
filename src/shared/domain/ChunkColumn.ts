@@ -39,6 +39,13 @@ export class ChunkColumn {
    */
   private metadata: Map<number, any>
 
+  /**
+   * Cached buffer for getSharedBuffer() - avoids 400KB allocation per call
+   * Invalidated when any block/light changes
+   */
+  private cachedBuffer: ArrayBuffer | null = null
+  private bufferDirty: boolean = true
+
   constructor(coord: ChunkCoordinate, buffer?: ArrayBuffer, metadata?: Map<number, any>) {
     this.coord = coord
     this.sections = new Array(SECTIONS_PER_CHUNK).fill(null)
@@ -110,6 +117,7 @@ export class ChunkColumn {
     const sectionIndex = this.getSectionIndex(y)
     const section = this.getOrCreateSection(sectionIndex)
     section.setBlock(x, this.getLocalY(y), z, id)
+    this.bufferDirty = true
   }
 
   // === Light Access ===
@@ -126,6 +134,7 @@ export class ChunkColumn {
     const sectionIndex = this.getSectionIndex(y)
     const section = this.getOrCreateSection(sectionIndex)
     section.setSkyLight(x, this.getLocalY(y), z, light)
+    this.bufferDirty = true
   }
 
   getBlockLight(x: number, y: number, z: number): { r: number; g: number; b: number } {
@@ -140,6 +149,7 @@ export class ChunkColumn {
     const sectionIndex = this.getSectionIndex(y)
     const section = this.getOrCreateSection(sectionIndex)
     section.setBlockLight(x, this.getLocalY(y), z, r, g, b)
+    this.bufferDirty = true
   }
 
   // === Metadata Access ===
@@ -205,10 +215,30 @@ export class ChunkColumn {
   // === Buffer Serialization (backward compatibility with ChunkData) ===
 
   /**
-   * Get raw buffer in ChunkData-compatible format (Uint32Array)
-   * This is for backward compatibility with existing code that expects flat buffers
+   * Get raw buffer - ALLOCATES NEW 400KB BUFFER EVERY CALL
+   * @deprecated Use getSharedBuffer() for read-only access to avoid memory churn
    */
   getRawBuffer(): ArrayBuffer {
+    return this.buildBuffer()
+  }
+
+  /**
+   * Get shared buffer for read-only access (Physics, Meshing neighbors)
+   * Returns cached buffer, only rebuilds when chunk data changes.
+   * WARNING: Do not modify the returned buffer - it's shared!
+   */
+  getSharedBuffer(): ArrayBuffer {
+    if (this.bufferDirty || !this.cachedBuffer) {
+      this.cachedBuffer = this.buildBuffer()
+      this.bufferDirty = false
+    }
+    return this.cachedBuffer
+  }
+
+  /**
+   * Internal: Build the flat buffer representation
+   */
+  private buildBuffer(): ArrayBuffer {
     const length = this.size * this.depth * this.height
     const buffer = new ArrayBuffer(length * 4)
     const data = new Uint32Array(buffer)
@@ -281,6 +311,10 @@ export class ChunkColumn {
         }
       }
     }
+
+    // Cache the buffer we just loaded (avoid rebuilding on first getSharedBuffer call)
+    this.cachedBuffer = buffer.slice(0)  // Clone to ensure we own it
+    this.bufferDirty = false
   }
 
   // === Native Section Serialization (more efficient) ===

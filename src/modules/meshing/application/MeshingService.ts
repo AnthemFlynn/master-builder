@@ -65,7 +65,7 @@ export class MeshingService {
       const c = new ChunkCoordinate(coord.x + dx, coord.z + dz)
       const chunk = this.voxels.getChunk(c)
       if (chunk) {
-        neighborVoxels[key] = chunk.getRawBuffer()
+        neighborVoxels[key] = chunk.getSharedBuffer()
       }
     }
 

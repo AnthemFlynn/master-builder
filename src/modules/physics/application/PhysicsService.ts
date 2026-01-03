@@ -45,7 +45,7 @@ export class PhysicsService {
         const coord = new ChunkCoordinate(playerChunkCoord.x + x, playerChunkCoord.z + z)
         const chunk = this.voxels.getChunk(coord)
         if (chunk) {
-          worldVoxels[coord.toKey()] = chunk.getRawBuffer()
+          worldVoxels[coord.toKey()] = chunk.getSharedBuffer()
         }
       }
     }
