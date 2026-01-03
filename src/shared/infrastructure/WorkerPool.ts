@@ -1,6 +1,7 @@
 export interface WorkerTask {
   type: string
   priority?: number  // Optional for backward compatibility (default = lowest priority)
+  _transferList?: ArrayBuffer[]  // Buffers to transfer (zero-copy) instead of clone
   [key: string]: any
 }
 
@@ -80,7 +81,14 @@ export class WorkerPool {
   private executeTask(pendingTask: PendingTask): void {
     const worker = this.availableWorkers.shift()!
     this.workerTasks.set(worker, pendingTask)
-    worker.postMessage(pendingTask.task)
+
+    // Use transfer list for zero-copy if provided
+    const transferList = pendingTask.task._transferList
+    if (transferList && transferList.length > 0) {
+      worker.postMessage(pendingTask.task, transferList)
+    } else {
+      worker.postMessage(pendingTask.task)
+    }
   }
 
   private onWorkerComplete(worker: Worker, result: WorkerResult): void {
@@ -100,7 +108,14 @@ export class WorkerPool {
       const nextTask = this.taskQueue.shift()!
       // Reuse this worker for the next task
       this.workerTasks.set(worker, nextTask)
-      worker.postMessage(nextTask.task)
+
+      // Use transfer list for zero-copy if provided
+      const transferList = nextTask.task._transferList
+      if (transferList && transferList.length > 0) {
+        worker.postMessage(nextTask.task, transferList)
+      } else {
+        worker.postMessage(nextTask.task)
+      }
     } else {
       this.availableWorkers.push(worker)
     }

@@ -6,7 +6,7 @@
  * Outputs packed geometry for efficient GPU transfer.
  */
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
-import { ChunkData } from '../../../shared/domain/ChunkData'
+import { ChunkData, ChunkColumn } from '../../../shared/domain/ChunkData'
 import { ChunkMesher } from '../application/ChunkMesher'
 import { VertexBuilder } from '../application/VertexBuilder'
 import { WorkerMessage, MainMessage, PackedGeometryBuffers } from './types'
@@ -67,7 +67,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     if (msg.type === 'GEN_MESH') {
       const startTime = performance.now()
 
-      const { x, z, neighborVoxels, textureLayerMap, lodLevel = 0 } = msg
+      const { x, z, neighborVoxels, textureLayerMap, lodLevel = 0, useNativeFormat = false } = msg
       const coord = new ChunkCoordinate(x, z)
 
       // Hydrate Voxels (ChunkData includes light data)
@@ -75,7 +75,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
       for (const [key, buffer] of Object.entries(neighborVoxels)) {
         const [dx, dz] = key.split(',').map(Number)
         const c = new ChunkCoordinate(x + dx, z + dz)
-        const chunk = new ChunkData(c, buffer)
+
+        // Use native format deserialization if flag is set (compact, only non-empty sections)
+        const chunk = useNativeFormat
+          ? ChunkColumn.deserializeNative(c, buffer)
+          : new ChunkData(c, buffer)
+
         voxelQuery.addChunk(chunk)
       }
 

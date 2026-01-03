@@ -10,6 +10,8 @@ interface MeshingTask {
   neighborVoxels: Record<string, ArrayBuffer>
   neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
   textureLayerMap?: Record<string, number>
+  useNativeFormat?: boolean
+  _transferList?: ArrayBuffer[]  // For zero-copy buffer transfer
 }
 
 interface MeshingResult {
@@ -39,7 +41,8 @@ export class MeshingWorkerPool {
     neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>,
     textureLayerMap?: Record<string, number>,
     lodLevel: 0 | 1 | 2 | 3 = 0,
-    priority: number = 0
+    priority: number = 0,
+    options?: { useNativeFormat?: boolean; transferList?: ArrayBuffer[] }
   ): Promise<MeshingResult> {
     const task: MeshingTask = {
       type: 'GEN_MESH',
@@ -49,7 +52,9 @@ export class MeshingWorkerPool {
       priority,
       neighborVoxels,
       neighborLight,
-      textureLayerMap
+      textureLayerMap,
+      useNativeFormat: options?.useNativeFormat,
+      _transferList: options?.transferList
     }
 
     return this.pool.execute(task) as Promise<MeshingResult>

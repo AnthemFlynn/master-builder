@@ -56,8 +56,10 @@ export class MeshingService {
     const centerChunk = this.voxels.getChunk(coord)
     if (!centerChunk) return
 
-    // Collect neighbor voxel data
+    // Collect neighbor voxel data using compact native format
+    // serializeNative() only includes non-empty sections (much smaller than full 400KB buffer)
     const neighborVoxels: Record<string, ArrayBuffer> = {}
+    const transferList: ArrayBuffer[] = []
     const offsets = ['0,0', '1,0', '-1,0', '0,1', '0,-1']
 
     for (const key of offsets) {
@@ -65,20 +67,25 @@ export class MeshingService {
       const c = new ChunkCoordinate(coord.x + dx, coord.z + dz)
       const chunk = this.voxels.getChunk(c)
       if (chunk) {
-        neighborVoxels[key] = chunk.getSharedBuffer()
+        // Use serializeNative() for compact format (only non-empty sections)
+        const buffer = chunk.serializeNative()
+        neighborVoxels[key] = buffer
+        transferList.push(buffer)
       }
     }
 
     // Get texture layer map for worker
     const textureLayerMap = textureArrayLoader.getLayerMapAsObject()
 
-    // Send to worker pool with LOD level
+    // Send to worker pool with LOD level and transfer list for zero-copy
     const result = await this.meshingWorkerPool.generateMesh(
       coord,
       neighborVoxels,
       {},
       textureLayerMap,
-      lodLevel
+      lodLevel,
+      0,  // priority
+      { useNativeFormat: true, transferList }
     )
 
     // Track LOD level for this chunk
