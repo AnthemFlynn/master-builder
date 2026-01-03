@@ -115,7 +115,7 @@ export function createGameServices(
   const worldService = new WorldService(eventBus)
   const renderingService = new RenderingService(scene, eventBus)
   const playerService = new PlayerService(eventBus)
-  const physicsService = new PhysicsService(worldService, playerService)
+  const physicsService = new PhysicsService(worldService, playerService, eventBus)
   const inputService = new InputService(eventBus)
   const inventoryService = new InventoryService(eventBus)
 
