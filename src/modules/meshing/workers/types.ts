@@ -9,6 +9,7 @@ export type MeshingRequest =
       neighborVoxels: Record<string, ArrayBuffer>
       neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
       textureLayerMap?: Record<string, number>
+      useNativeFormat?: boolean  // If true, neighborVoxels are in serializeNative() format
     }
 
 /**
