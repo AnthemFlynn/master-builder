@@ -202,10 +202,12 @@ export class VertexBuilder {
     faceIndex: number
   ): void {
     // Section-based key for per-section frustum culling
+    // SOTA: Merge all blocks into one buffer per section (opaque vs transparent)
+    // Texture layer is packed into vertex data, shader handles texture selection
     const sectionIndex = this.getSectionIndex(y)
-    const materialKey = `${sectionIndex}:${blockType}:${faceIndex}`
     const blockDef = blockRegistry.get(blockType)
     const isTransparent = blockDef?.transparent ?? false
+    const materialKey = `${sectionIndex}:${isTransparent ? 'transparent' : 'opaque'}`
     const buffer = this.getBuffer(materialKey, isTransparent)
 
     const vertices = this.getQuadVertices(x, y, z, width, height, axis, direction)

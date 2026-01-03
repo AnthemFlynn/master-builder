@@ -67,7 +67,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     if (msg.type === 'GEN_MESH') {
       const startTime = performance.now()
 
-      const { x, z, neighborVoxels, textureLayerMap } = msg
+      const { x, z, neighborVoxels, textureLayerMap, lodLevel = 0 } = msg
       const coord = new ChunkCoordinate(x, z)
 
       // Hydrate Voxels (ChunkData includes light data)
@@ -88,6 +88,13 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
       // Set texture layer lookup if provided
       if (textureLayerMap) {
         vertexBuilder.setTextureLayerLookup(name => textureLayerMap[name] ?? 0)
+      }
+
+      // LOD Level optimizations:
+      // Level 0: Full detail (AO enabled)
+      // Level 1+: Skip AO calculation for faster meshing
+      if (lodLevel >= 1) {
+        vertexBuilder.setSkipAO(true)
       }
 
       const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
@@ -140,6 +147,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         type: 'MESH_GENERATED',
         x,
         z,
+        lodLevel,
         opaquePackedGeometry,
         transparentPackedGeometry,
         nonEmptySections: Array.from(nonEmptySections),

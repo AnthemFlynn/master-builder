@@ -23,6 +23,9 @@ export class MeshingService {
   private inFlightMeshes = new Set<string>()
   private maxConcurrentMeshes = 4
 
+  // LOD level tracking per chunk
+  private chunkLODLevels = new Map<string, 0 | 1 | 2 | 3>()
+
   constructor(
     private voxels: IVoxelQuery & { getChunk: any },
     private lighting: ILightingQuery & ILightStorage,
@@ -49,7 +52,7 @@ export class MeshingService {
     })
   }
 
-  async buildMesh(coord: ChunkCoordinate): Promise<void> {
+  async buildMesh(coord: ChunkCoordinate, lodLevel: 0 | 1 | 2 | 3 = 0): Promise<void> {
     const centerChunk = this.voxels.getChunk(coord)
     if (!centerChunk) return
 
@@ -69,13 +72,17 @@ export class MeshingService {
     // Get texture layer map for worker
     const textureLayerMap = textureArrayLoader.getLayerMapAsObject()
 
-    // Send to worker pool
+    // Send to worker pool with LOD level
     const result = await this.meshingWorkerPool.generateMesh(
       coord,
       neighborVoxels,
       {},
-      textureLayerMap
+      textureLayerMap,
+      lodLevel
     )
+
+    // Track LOD level for this chunk
+    this.chunkLODLevels.set(coord.toKey(), lodLevel)
 
     const { x, z, opaquePackedGeometry, transparentPackedGeometry, nonEmptySections, vegetationInstances, vegetationCount } = result
     const resultCoord = new ChunkCoordinate(x, z)
@@ -172,7 +179,10 @@ export class MeshingService {
       const coord = ChunkCoordinate.fromKey(key)
       this.inFlightMeshes.add(key)
 
-      this.buildMesh(coord)
+      // Use stored LOD level or default to 0 (full detail)
+      const lodLevel = this.chunkLODLevels.get(key) ?? 0
+
+      this.buildMesh(coord, lodLevel)
         .catch((error) => {
           console.error(`[MeshingService] Failed to build mesh for chunk (${coord.x}, ${coord.z}):`, error)
           this.markDirty(coord, reason)
@@ -197,5 +207,29 @@ export class MeshingService {
 
   getWorkerUtilization(): { busy: number; total: number } {
     return this.meshingWorkerPool.getUtilization()
+  }
+
+  // LOD Management
+  setChunkLODLevel(coord: ChunkCoordinate, level: 0 | 1 | 2 | 3): void {
+    const key = coord.toKey()
+    const currentLevel = this.chunkLODLevels.get(key)
+
+    if (currentLevel !== level) {
+      this.chunkLODLevels.set(key, level)
+      // Mark dirty to rebuild at new LOD level
+      this.markDirty(coord, 'global')
+    }
+  }
+
+  getChunkLODLevel(coord: ChunkCoordinate): 0 | 1 | 2 | 3 | undefined {
+    return this.chunkLODLevels.get(coord.toKey())
+  }
+
+  getChunkLODLevels(): Map<string, 0 | 1 | 2 | 3> {
+    return this.chunkLODLevels
+  }
+
+  clearChunkLODLevel(coord: ChunkCoordinate): void {
+    this.chunkLODLevels.delete(coord.toKey())
   }
 }

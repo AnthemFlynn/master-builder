@@ -29,6 +29,7 @@ import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstan
 import { WorldLoadingManager } from './WorldLoadingManager'
 import { InputSetupManager } from './InputSetupManager'
 import { SessionStateCoordinator } from './SessionStateCoordinator'
+import { PerformanceConfig } from '../infrastructure/PerformanceConfig'
 
 export class GameOrchestrator {
   // Infrastructure (public for external access)
@@ -56,6 +57,11 @@ export class GameOrchestrator {
   // FPS smoothing
   private frameTimeHistory: number[] = []
   private readonly FPS_SAMPLE_SIZE = 60
+
+  // LOD configuration
+  private performanceConfig = new PerformanceConfig()
+  private lastLODUpdateTime = 0
+  private lodUpdateInterval = 500 // Update LOD levels every 500ms
 
   constructor(
     private scene: THREE.Scene,
@@ -238,6 +244,12 @@ export class GameOrchestrator {
       this.lastChunkFillTime = now
     }
 
+    // Periodically update LOD levels for all loaded chunks
+    if (now - this.lastLODUpdateTime > this.lodUpdateInterval) {
+      this.updateChunkLODLevels()
+      this.lastLODUpdateTime = now
+    }
+
     // Process meshing queue
     const meshingResult = this.services.meshingService.processDirtyQueue()
     this.recordFrameMetrics(frameStart, meshingResult)
@@ -335,6 +347,71 @@ export class GameOrchestrator {
       }
     }
     return false
+  }
+
+  /**
+   * Update LOD levels for all loaded chunks based on distance from camera.
+   * Uses hysteresis to prevent thrashing at LOD boundaries.
+   */
+  private updateChunkLODLevels(): void {
+    // Get camera chunk position
+    const cameraChunkX = Math.floor(this.camera.position.x / CHUNK_WIDTH)
+    const cameraChunkZ = Math.floor(this.camera.position.z / CHUNK_DEPTH)
+
+    // LOD thresholds from config
+    const lod0Max = this.performanceConfig.lodLevel0Max
+    const lod1Max = this.performanceConfig.lodLevel1Max
+    const lod2Max = this.performanceConfig.lodLevel2Max
+    const hysteresis = this.performanceConfig.lodHysteresis
+
+    // Iterate all loaded chunks
+    const chunks = this.services.worldService.getAllChunks()
+    for (const chunk of chunks) {
+      const coord = chunk.coord
+
+      // Calculate distance in chunks (Chebyshev distance for chunk grid)
+      const dx = Math.abs(coord.x - cameraChunkX)
+      const dz = Math.abs(coord.z - cameraChunkZ)
+      const distance = Math.max(dx, dz)
+
+      // Get current LOD level
+      const currentLevel = this.services.meshingService.getChunkLODLevel(coord) ?? 0
+
+      // Determine target LOD level with hysteresis
+      // When moving away (increasing LOD), use threshold
+      // When moving closer (decreasing LOD), use threshold + hysteresis
+      let targetLevel: 0 | 1 | 2 | 3
+
+      if (distance <= lod0Max) {
+        targetLevel = 0
+      } else if (distance <= lod1Max) {
+        // Check hysteresis when transitioning from 0 to 1
+        if (currentLevel === 0 && distance < lod0Max + hysteresis) {
+          targetLevel = 0
+        } else {
+          targetLevel = 1
+        }
+      } else if (distance <= lod2Max) {
+        // Check hysteresis when transitioning from 1 to 2
+        if (currentLevel === 1 && distance < lod1Max + hysteresis) {
+          targetLevel = 1
+        } else {
+          targetLevel = 2
+        }
+      } else {
+        // Check hysteresis when transitioning from 2 to 3
+        if (currentLevel === 2 && distance < lod2Max + hysteresis) {
+          targetLevel = 2
+        } else {
+          targetLevel = 3
+        }
+      }
+
+      // Only update if level changed
+      if (targetLevel !== currentLevel) {
+        this.services.meshingService.setChunkLODLevel(coord, targetLevel)
+      }
+    }
   }
 
   // === Public Getters ===

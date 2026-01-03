@@ -5,6 +5,7 @@ export type MeshingRequest =
       type: 'GEN_MESH'
       x: number
       z: number
+      lodLevel?: 0 | 1 | 2 | 3  // LOD level (0 = full detail, 3 = lowest detail)
       neighborVoxels: Record<string, ArrayBuffer>
       neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
       textureLayerMap?: Record<string, number>
@@ -112,6 +113,7 @@ export type MeshingResponse =
       type: 'MESH_GENERATED'
       x: number
       z: number
+      lodLevel: 0 | 1 | 2 | 3  // LOD level this mesh was built at
       // New packed format (keys are "sectionIndex:blockType:faceIndex")
       opaquePackedGeometry: Record<string, PackedGeometryBuffers>
       transparentPackedGeometry: Record<string, PackedGeometryBuffers>
