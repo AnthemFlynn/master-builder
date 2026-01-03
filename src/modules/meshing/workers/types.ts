@@ -7,6 +7,7 @@ export type MeshingRequest =
       z: number
       neighborVoxels: Record<string, ArrayBuffer>
       neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
+      textureLayerMap?: Record<string, number>
     }
 
 /**

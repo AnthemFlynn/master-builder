@@ -9,6 +9,7 @@ interface MeshingTask {
   priority: number
   neighborVoxels: Record<string, ArrayBuffer>
   neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>
+  textureLayerMap?: Record<string, number>
 }
 
 interface MeshingResult {
@@ -36,8 +37,9 @@ export class MeshingWorkerPool {
     coord: ChunkCoordinate,
     neighborVoxels: Record<string, ArrayBuffer>,
     neighborLight: Record<string, { sky: ArrayBuffer, block: ArrayBuffer }>,
-    lodLevel: 0 | 1 | 2 | 3,
-    priority: number
+    textureLayerMap?: Record<string, number>,
+    lodLevel: 0 | 1 | 2 | 3 = 0,
+    priority: number = 0
   ): Promise<MeshingResult> {
     const task: MeshingTask = {
       type: 'GEN_MESH',
@@ -46,7 +48,8 @@ export class MeshingWorkerPool {
       lodLevel,
       priority,
       neighborVoxels,
-      neighborLight
+      neighborLight,
+      textureLayerMap
     }
 
     return this.pool.execute(task) as Promise<MeshingResult>

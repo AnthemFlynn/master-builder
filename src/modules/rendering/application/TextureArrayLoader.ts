@@ -147,6 +147,13 @@ export class TextureArrayLoader {
   }
 
   /**
+   * Get the layer map as a plain object (for serialization to workers)
+   */
+  getLayerMapAsObject(): Record<string, number> {
+    return Object.fromEntries(this.layerMap)
+  }
+
+  /**
    * Get texture name for a layer index
    */
   getTextureName(layerIndex: number): string | undefined {

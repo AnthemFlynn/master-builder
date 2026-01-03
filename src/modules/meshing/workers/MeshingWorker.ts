@@ -67,7 +67,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     if (msg.type === 'GEN_MESH') {
       const startTime = performance.now()
 
-      const { x, z, neighborVoxels } = msg
+      const { x, z, neighborVoxels, textureLayerMap } = msg
       const coord = new ChunkCoordinate(x, z)
 
       // Hydrate Voxels (ChunkData includes light data)
@@ -84,6 +84,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 
       // Meshing with packed vertex format
       const vertexBuilder = new VertexBuilder(voxelQuery, lightingQuery, x, z)
+
+      // Set texture layer lookup if provided
+      if (textureLayerMap) {
+        vertexBuilder.setTextureLayerLookup(name => textureLayerMap[name] ?? 0)
+      }
+
       const mesher = new ChunkMesher(voxelQuery, lightingQuery, coord)
       mesher.buildMesh(vertexBuilder)
 

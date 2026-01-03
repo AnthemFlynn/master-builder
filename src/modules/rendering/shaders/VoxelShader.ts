@@ -21,15 +21,12 @@ attribute uint aPackedPosNormal;  // Position + Normal + AO
 attribute uint aPackedUVTex;      // UV + Texture layer
 attribute uint aPackedColor;      // RGB8 color
 
-// Uniforms
-uniform vec3 uChunkOffset;  // World position of chunk origin
-
-// Varyings to fragment shader
-varying vec2 vUv;
-varying vec3 vColor;
-varying float vLayer;
-varying vec3 vWorldPosition;
-varying vec3 vNormal;
+// Outputs to fragment shader (GLSL 300 ES uses 'out' instead of 'varying')
+out vec2 vUv;
+out vec3 vColor;
+out float vLayer;
+out vec3 vWorldPosition;
+out vec3 vNormal;
 
 // Normal vectors lookup table
 const vec3 NORMALS[6] = vec3[6](
@@ -66,8 +63,7 @@ void main() {
 
   // Reconstruct position
   vec3 localPos = vec3(x, y, z);
-  vec3 worldPos = localPos + uChunkOffset;
-
+  
   // Get normal from lookup table
   vec3 normal = normalIdx < 6u ? NORMALS[normalIdx] : vec3(0.0, 1.0, 0.0);
 
@@ -76,25 +72,37 @@ void main() {
   vColor = vec3(r, g, b);
   vLayer = texLayer;
   vNormal = normalize(normalMatrix * normal);
-  vWorldPosition = worldPos;
+  
+  vec4 worldPos = modelMatrix * vec4(localPos, 1.0);
+  vWorldPosition = worldPos.xyz;
 
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPos, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * worldPos;
 }
 `
 
-// Legacy vertex shader for backwards compatibility
+// Legacy vertex shader (GLSL 300 ES for sampler2DArray compatibility)
 export const voxelVertexShader = /* glsl */ `
 precision highp float;
 
-// Vertex attributes
-attribute float aLayer;  // Texture layer index
+// Vertex attributes (GLSL 300 ES uses 'in' instead of 'attribute')
+in vec3 position;
+in vec3 normal;
+in vec2 uv;
+in vec3 color;
+in float aLayer;  // Texture layer index
 
-// Varyings to fragment shader
-varying vec2 vUv;
-varying vec3 vColor;
-varying float vLayer;
-varying vec3 vWorldPosition;
-varying vec3 vNormal;
+// Outputs to fragment shader
+out vec2 vUv;
+out vec3 vColor;
+out float vLayer;
+out vec3 vWorldPosition;
+out vec3 vNormal;
+
+// THREE.js built-in uniforms
+uniform mat4 modelMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat3 normalMatrix;
 
 void main() {
   vUv = uv;
@@ -109,6 +117,7 @@ void main() {
 }
 `
 
+// GLSL 300 ES fragment shader (for packed vertex format)
 export const voxelFragmentShader = /* glsl */ `
 precision highp float;
 precision highp sampler2DArray;
@@ -123,12 +132,15 @@ uniform bool uUseFog;
 uniform vec3 uEmissive;
 uniform float uEmissiveIntensity;
 
-// Varyings from vertex shader
-varying vec2 vUv;
-varying vec3 vColor;
-varying float vLayer;
-varying vec3 vWorldPosition;
-varying vec3 vNormal;
+// Inputs from vertex shader (GLSL 300 ES uses 'in' instead of 'varying')
+in vec2 vUv;
+in vec3 vColor;
+in float vLayer;
+in vec3 vWorldPosition;
+in vec3 vNormal;
+
+// Output (GLSL 300 ES requires explicit output declaration)
+out vec4 fragColor;
 
 void main() {
   // Sample texture array
@@ -152,9 +164,10 @@ void main() {
     finalColor = mix(finalColor, uFogColor, fogFactor);
   }
 
-  gl_FragColor = vec4(finalColor, texColor.a);
+  fragColor = vec4(finalColor, texColor.a);
 }
 `
+
 
 // Underwater fragment shader variant
 export const voxelFragmentShaderUnderwater = /* glsl */ `
@@ -166,11 +179,15 @@ uniform float uAlphaTest;
 uniform vec3 uWaterTint;
 uniform float uWaterFogDensity;
 
-varying vec2 vUv;
-varying vec3 vColor;
-varying float vLayer;
-varying vec3 vWorldPosition;
-varying vec3 vNormal;
+// Inputs from vertex shader (GLSL 300 ES)
+in vec2 vUv;
+in vec3 vColor;
+in float vLayer;
+in vec3 vWorldPosition;
+in vec3 vNormal;
+
+// Output (GLSL 300 ES)
+out vec4 fragColor;
 
 void main() {
   vec4 texColor = texture(uTextureArray, vec3(vUv, vLayer));
@@ -186,7 +203,7 @@ void main() {
   float fogFactor = 1.0 - exp(-uWaterFogDensity * depth);
   finalColor = mix(finalColor, uWaterTint, clamp(fogFactor, 0.0, 0.8));
 
-  gl_FragColor = vec4(finalColor, texColor.a);
+  fragColor = vec4(finalColor, texColor.a);
 }
 `
 
@@ -225,7 +242,7 @@ export function createVoxelMaterial(options: VoxelMaterialOptions): THREE.Shader
 
   const material = new THREE.ShaderMaterial({
     vertexShader: usePacked ? packedVoxelVertexShader : voxelVertexShader,
-    fragmentShader: voxelFragmentShader,
+    fragmentShader: voxelFragmentShader,  // Same GLSL 300 ES shader for both
     uniforms: {
       uTextureArray: { value: textureArray },
       uAlphaTest: { value: alphaTest },
@@ -240,8 +257,8 @@ export function createVoxelMaterial(options: VoxelMaterialOptions): THREE.Shader
     transparent,
     depthWrite,
     side,
-    vertexColors: !usePacked,  // Legacy format uses vertex colors attribute
-    glslVersion: usePacked ? THREE.GLSL3 : undefined  // GLSL3 for uint attributes
+    vertexColors: false,  // We handle colors in shader
+    glslVersion: THREE.GLSL3  // Always GLSL3 (required for sampler2DArray)
   })
 
   return material
@@ -293,6 +310,25 @@ export function createTransparentMaterial(textureArray: THREE.DataArrayTexture):
     side: THREE.FrontSide,
     fog: true,
     usePacked: false
+  })
+}
+
+/**
+ * Create material for transparent blocks (packed format)
+ */
+export function createPackedTransparentMaterial(
+  textureArray: THREE.DataArrayTexture,
+  chunkOffset: THREE.Vector3
+): THREE.ShaderMaterial {
+  return createVoxelMaterial({
+    textureArray,
+    transparent: true,
+    alphaTest: 0.0,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    fog: true,
+    usePacked: true,
+    chunkOffset
   })
 }
 

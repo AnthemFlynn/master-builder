@@ -13,14 +13,19 @@ import {
   createTransparentMaterial,
   createVegetationMaterial,
   createPackedOpaqueMaterial,
+  createPackedTransparentMaterial,
   updateFogUniforms
 } from '../shaders/VoxelShader'
 
 export class MaterialSystem {
-  // Legacy shared materials (for backwards compatibility)
+  // Legacy shared materials
   private opaqueMaterial: THREE.ShaderMaterial | null = null
   private transparentMaterial: THREE.ShaderMaterial | null = null
   private vegetationMaterial: THREE.ShaderMaterial | null = null
+
+  // Packed shared materials (SOTA)
+  private packedOpaqueMaterial: THREE.ShaderMaterial | null = null
+  private packedTransparentMaterial: THREE.ShaderMaterial | null = null
 
   // Fallback materials
   private fallbackOpaque: THREE.MeshBasicMaterial
@@ -70,10 +75,16 @@ export class MaterialSystem {
     this.transparentMaterial = createTransparentMaterial(this.textureArray)
     this.vegetationMaterial = createVegetationMaterial(this.textureArray)
 
-    // Mark legacy materials as shared (don't dispose per-chunk)
+    // Create packed shared materials (using 0,0,0 offset as base)
+    this.packedOpaqueMaterial = createPackedOpaqueMaterial(this.textureArray, new THREE.Vector3(0, 0, 0))
+    this.packedTransparentMaterial = createPackedTransparentMaterial(this.textureArray, new THREE.Vector3(0, 0, 0))
+
+    // Mark all as shared
     this.opaqueMaterial.userData.shared = true
     this.transparentMaterial.userData.shared = true
     this.vegetationMaterial.userData.shared = true
+    this.packedOpaqueMaterial.userData.shared = true
+    this.packedTransparentMaterial.userData.shared = true
 
     this.isInitialized = true
     console.log('✅ MaterialSystem: Texture array materials ready (legacy + packed)')
@@ -102,136 +113,12 @@ export class MaterialSystem {
 
   // === Packed Material Methods (SOTA 12-byte vertices) ===
 
-  /**
-   * Create a packed opaque material with chunk offset uniform
-   * Each chunk gets its own material instance (for uChunkOffset uniform)
-   */
-  getPackedOpaqueMaterial(chunkOffset: THREE.Vector3): THREE.Material {
-    if (!this.isInitialized || !this.textureArray) {
-      return this.fallbackOpaque
-    }
-
-    // Create new material instance with chunk-specific offset
-    const material = createPackedOpaqueMaterial(this.textureArray, chunkOffset)
-    // Mark as NOT shared (will be disposed with chunk)
-    material.userData.shared = false
-    return material
+  getPackedOpaqueMaterial(): THREE.Material {
+    return this.packedOpaqueMaterial || this.fallbackOpaque
   }
 
-  /**
-   * Create a packed transparent material with chunk offset uniform
-   */
-  getPackedTransparentMaterial(chunkOffset: THREE.Vector3): THREE.Material {
-    if (!this.isInitialized || !this.textureArray) {
-      return this.fallbackTransparent
-    }
-
-    // Create new material for transparent with packed format
-    const material = new THREE.ShaderMaterial({
-      vertexShader: `
-precision highp float;
-precision highp int;
-
-attribute uint aPackedPosNormal;
-attribute uint aPackedUVTex;
-attribute uint aPackedColor;
-
-uniform vec3 uChunkOffset;
-
-varying vec2 vUv;
-varying vec3 vColor;
-varying float vLayer;
-varying vec3 vWorldPosition;
-varying vec3 vNormal;
-
-const vec3 NORMALS[6] = vec3[6](
-  vec3(1.0, 0.0, 0.0),
-  vec3(-1.0, 0.0, 0.0),
-  vec3(0.0, 1.0, 0.0),
-  vec3(0.0, -1.0, 0.0),
-  vec3(0.0, 0.0, 1.0),
-  vec3(0.0, 0.0, -1.0)
-);
-
-void main() {
-  float x = float(aPackedPosNormal & 0x1Fu);
-  float z = float((aPackedPosNormal >> 5u) & 0x1Fu);
-  float y = float((aPackedPosNormal >> 10u) & 0x1FFu);
-  uint normalIdx = (aPackedPosNormal >> 19u) & 0x7u;
-
-  float u = float(aPackedUVTex & 0xFFu) / 16.0;
-  float v = float((aPackedUVTex >> 8u) & 0xFFu) / 16.0;
-  float texLayer = float((aPackedUVTex >> 16u) & 0xFFFu);
-
-  float r = float(aPackedColor & 0xFFu) / 255.0;
-  float g = float((aPackedColor >> 8u) & 0xFFu) / 255.0;
-  float b = float((aPackedColor >> 16u) & 0xFFu) / 255.0;
-
-  vec3 localPos = vec3(x, y, z);
-  vec3 worldPos = localPos + uChunkOffset;
-  vec3 normal = normalIdx < 6u ? NORMALS[normalIdx] : vec3(0.0, 1.0, 0.0);
-
-  vUv = vec2(u, v);
-  vColor = vec3(r, g, b);
-  vLayer = texLayer;
-  vNormal = normalize(normalMatrix * normal);
-  vWorldPosition = worldPos;
-
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPos, 1.0);
-}
-`,
-      fragmentShader: `
-precision highp float;
-precision highp sampler2DArray;
-
-uniform sampler2DArray uTextureArray;
-uniform float uAlphaTest;
-uniform vec3 uFogColor;
-uniform float uFogNear;
-uniform float uFogFar;
-uniform bool uUseFog;
-
-varying vec2 vUv;
-varying vec3 vColor;
-varying float vLayer;
-varying vec3 vWorldPosition;
-varying vec3 vNormal;
-
-void main() {
-  vec4 texColor = texture(uTextureArray, vec3(vUv, vLayer));
-
-  if (texColor.a < uAlphaTest) {
-    discard;
-  }
-
-  vec3 finalColor = texColor.rgb * vColor;
-
-  if (uUseFog) {
-    float depth = gl_FragCoord.z / gl_FragCoord.w;
-    float fogFactor = smoothstep(uFogNear, uFogFar, depth);
-    finalColor = mix(finalColor, uFogColor, fogFactor);
-  }
-
-  gl_FragColor = vec4(finalColor, texColor.a);
-}
-`,
-      uniforms: {
-        uTextureArray: { value: this.textureArray },
-        uAlphaTest: { value: 0.5 },
-        uFogColor: { value: new THREE.Color(0xcccccc) },
-        uFogNear: { value: 50 },
-        uFogFar: { value: 200 },
-        uUseFog: { value: true },
-        uChunkOffset: { value: chunkOffset }
-      },
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      glslVersion: THREE.GLSL3
-    })
-
-    material.userData.shared = false
-    return material
+  getPackedTransparentMaterial(): THREE.Material {
+    return this.packedTransparentMaterial || this.fallbackTransparent
   }
 
   // === Utility Methods ===

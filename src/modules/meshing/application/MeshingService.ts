@@ -14,25 +14,21 @@ import { ILightStorage } from '../../../shared/ports/ILightStorage'
 import { MainMessage, PackedGeometryBuffers, PACKED_VERTEX_UINT32S } from '../workers/types'
 import { MeshingWorkerPool } from '../infrastructure/MeshingWorkerPool'
 import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstants'
+import { textureArrayLoader } from '../../rendering/application/TextureArrayLoader'
 
 export class MeshingService {
   private dirtyQueue = new Map<string, 'block' | 'light' | 'global'>()
-  private rebuildBudgetMs = 3
+  private rebuildBudgetMs = 5
   private meshingWorkerPool: MeshingWorkerPool
   private inFlightMeshes = new Set<string>()
   private maxConcurrentMeshes = 4
-
-  // Startup boost
-  private boostMode = true
-  private readonly BOOST_CONCURRENT = 12
-  private readonly NORMAL_CONCURRENT = 4
 
   constructor(
     private voxels: IVoxelQuery & { getChunk: any },
     private lighting: ILightingQuery & ILightStorage,
     private eventBus: EventBus
   ) {
-    this.meshingWorkerPool = new MeshingWorkerPool(6)
+    this.meshingWorkerPool = new MeshingWorkerPool(4)
     this.setupEventListeners()
   }
 
@@ -70,11 +66,15 @@ export class MeshingService {
       }
     }
 
+    // Get texture layer map for worker
+    const textureLayerMap = textureArrayLoader.getLayerMapAsObject()
+
     // Send to worker pool
     const result = await this.meshingWorkerPool.generateMesh(
       coord,
       neighborVoxels,
-      {}
+      {},
+      textureLayerMap
     )
 
     const { x, z, opaquePackedGeometry, transparentPackedGeometry, nonEmptySections, vegetationInstances, vegetationCount } = result
@@ -94,28 +94,16 @@ export class MeshingService {
       for (const [key, buffers] of Object.entries(geometryRecord)) {
         const geo = new THREE.BufferGeometry()
 
-        // Create Uint32Array views from ArrayBuffers
+        // Use InterleavedBuffer to avoid redundant copies of packed data
         const packedVertices = new Uint32Array(buffers.packedVertices)
         const indices = new Uint32Array(buffers.indices)
 
-        const vertexCount = packedVertices.length / PACKED_VERTEX_UINT32S
-
-        // Extract the 3 packed uint32s into separate attributes
-        // Each vertex has: [posNormal, uvTex, color] = 3 uint32s
-        const posNormalData = new Uint32Array(vertexCount)
-        const uvTexData = new Uint32Array(vertexCount)
-        const colorData = new Uint32Array(vertexCount)
-
-        for (let i = 0; i < vertexCount; i++) {
-          posNormalData[i] = packedVertices[i * 3 + 0]
-          uvTexData[i] = packedVertices[i * 3 + 1]
-          colorData[i] = packedVertices[i * 3 + 2]
-        }
-
-        // Set packed attributes (GLSL3 uint)
-        geo.setAttribute('aPackedPosNormal', new THREE.Uint32BufferAttribute(posNormalData, 1))
-        geo.setAttribute('aPackedUVTex', new THREE.Uint32BufferAttribute(uvTexData, 1))
-        geo.setAttribute('aPackedColor', new THREE.Uint32BufferAttribute(colorData, 1))
+        const interleavedBuffer = new THREE.InterleavedBuffer(packedVertices, 3)
+        
+        // Set packed attributes directly from the interleaved buffer
+        geo.setAttribute('aPackedPosNormal', new THREE.InterleavedBufferAttribute(interleavedBuffer, 1, 0))
+        geo.setAttribute('aPackedUVTex', new THREE.InterleavedBufferAttribute(interleavedBuffer, 1, 1))
+        geo.setAttribute('aPackedColor', new THREE.InterleavedBufferAttribute(interleavedBuffer, 1, 2))
 
         // Set indices
         geo.setIndex(new THREE.Uint32BufferAttribute(indices, 1))
@@ -162,17 +150,13 @@ export class MeshingService {
     const startTime = performance.now()
     let chunksProcessed = 0
 
-    const effectiveBudgetMs = budgetOverrideMs ?? (this.boostMode ? 10 : this.rebuildBudgetMs)
-    const effectiveMaxConcurrent = this.boostMode ? this.BOOST_CONCURRENT : this.maxConcurrentMeshes
+    const effectiveBudgetMs = budgetOverrideMs ?? this.rebuildBudgetMs
 
     if (this.dirtyQueue.size === 0) {
-      if (this.boostMode && this.inFlightMeshes.size === 0) {
-        this.disableBoostMode()
-      }
       return { budgetUsedMs: 0, chunksProcessed: 0 }
     }
 
-    if (this.inFlightMeshes.size >= effectiveMaxConcurrent) {
+    if (this.inFlightMeshes.size >= this.maxConcurrentMeshes) {
       return { budgetUsedMs: 0, chunksProcessed: 0 }
     }
 
@@ -182,7 +166,7 @@ export class MeshingService {
       const elapsed = performance.now() - startTime
 
       if (elapsed >= effectiveBudgetMs) break
-      if (this.inFlightMeshes.size >= effectiveMaxConcurrent) break
+      if (this.inFlightMeshes.size >= this.maxConcurrentMeshes) break
       if (this.inFlightMeshes.has(key)) continue
 
       const coord = ChunkCoordinate.fromKey(key)
@@ -213,17 +197,5 @@ export class MeshingService {
 
   getWorkerUtilization(): { busy: number; total: number } {
     return this.meshingWorkerPool.getUtilization()
-  }
-
-  disableBoostMode(): void {
-    if (this.boostMode) {
-      this.boostMode = false
-      this.maxConcurrentMeshes = this.NORMAL_CONCURRENT
-      console.log('🚀 Startup boost disabled, switching to normal meshing rate')
-    }
-  }
-
-  isBoostMode(): boolean {
-    return this.boostMode
   }
 }
