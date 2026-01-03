@@ -45,10 +45,11 @@ export class GameOrchestrator {
 
   // Game state
   private previousChunk = new ChunkCoordinate(0, 0)
-  private renderDistance = 4
+  private renderDistance = 8  // Increased from 4 for larger visible world
+  private unloadDistance = 12 // Unload chunks further out than render distance
   private lastUpdateTime = performance.now()
   private lastChunkUnloadTime = performance.now()
-  private chunkUnloadInterval = 10000
+  private chunkUnloadInterval = 30000 // Increased from 10s to 30s - less aggressive
   private lastChunkFillTime = performance.now()
   private chunkFillInterval = 30000
 
@@ -220,11 +221,11 @@ export class GameOrchestrator {
       this.previousChunk = newChunk
     }
 
-    // Periodically unload distant chunks
+    // Periodically unload distant chunks (use larger unload distance to reduce popping)
     if (now - this.lastChunkUnloadTime > this.chunkUnloadInterval) {
-      const unloadedCount = this.services.worldService.unloadChunksOutsideRadius(newChunk, this.renderDistance)
+      const unloadedCount = this.services.worldService.unloadChunksOutsideRadius(newChunk, this.unloadDistance)
       if (unloadedCount > 0) {
-        console.log('Unloaded ' + unloadedCount + ' chunks')
+        console.log('Unloaded ' + unloadedCount + ' chunks outside distance ' + this.unloadDistance)
       }
       this.lastChunkUnloadTime = now
     }
