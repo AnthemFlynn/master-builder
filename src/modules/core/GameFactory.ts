@@ -41,6 +41,7 @@ import { LoadGameHandler } from '../persistence/application/handlers/LoadGameHan
 import { SessionManager, SessionManagerCallbacks } from '../persistence/application/SessionManager'
 import { WorldManager } from '../persistence/application/WorldManager'
 import { ThumbnailCapture } from '../persistence/application/ThumbnailCapture'
+import { PerformanceConfig } from './infrastructure/PerformanceConfig'
 
 /**
  * All services and infrastructure created by the factory
@@ -98,7 +99,8 @@ export interface OrchestratorCallbacks {
 export function createGameServices(
   scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
-  callbacks: OrchestratorCallbacks
+  callbacks: OrchestratorCallbacks,
+  performanceConfig?: PerformanceConfig
 ): GameServices {
   // Create camera controls
   const cameraControls = new PointerLockControls(camera, document.body)
@@ -112,7 +114,9 @@ export function createGameServices(
   const modificationTracker = new ModificationTracker(eventBus)
 
   // Create core services (in dependency order)
-  const worldService = new WorldService(eventBus)
+  // Pass worker pool size from config (or use hardware-based default)
+  const workerPoolSize = performanceConfig?.workerPoolSize ?? PerformanceConfig.getOptimalWorkerCount()
+  const worldService = new WorldService(eventBus, workerPoolSize)
   const renderingService = new RenderingService(scene, eventBus)
   const playerService = new PlayerService(eventBus)
   const physicsService = new PhysicsService(worldService, playerService, eventBus)

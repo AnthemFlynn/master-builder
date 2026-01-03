@@ -67,7 +67,7 @@ export class GameOrchestrator {
     private scene: THREE.Scene,
     private camera: THREE.PerspectiveCamera
   ) {
-    // Create all services via factory
+    // Create all services via factory (pass performance config for worker pool sizing)
     this.services = createGameServices(scene, camera, {
       requestPointerLock: () => this.services.cameraControls.lock(),
       exitPointerLock: () => this.services.cameraControls.unlock(),
@@ -96,7 +96,7 @@ export class GameOrchestrator {
         hasLoadedChunks: () => this.services.worldService.getLoadedChunkCount() > 0,
         getCurrentWorldId: () => 'default'
       }
-    })
+    }, this.performanceConfig)
 
     // Expose buses for external access
     this.commandBus = this.services.commandBus

@@ -33,9 +33,12 @@ export class ChunkGenerator {
     this.chunkStorage = deps.chunkStorage
     this.eventBus = deps.eventBus
 
-    // Use worker pool with configurable worker count (default 6)
-    const workerCount = deps.workerCount ?? 6
+    // Use worker pool with configurable worker count
+    // Default: hardware-based (navigator.hardwareConcurrency - 2, clamped to 2-8)
+    const workerCount = deps.workerCount ?? 4  // Fallback if not provided
     this.workerPool = new ChunkWorkerPool(workerCount)
+
+    console.log(`🔧 ChunkGenerator initialized with ${workerCount} workers`)
   }
 
   /**

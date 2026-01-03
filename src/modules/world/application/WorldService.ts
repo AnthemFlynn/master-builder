@@ -31,12 +31,13 @@ export class WorldService implements IVoxelQuery {
   private lightingDebounceTimer: ReturnType<typeof setTimeout> | null = null
   private readonly LIGHTING_DEBOUNCE_MS = 50 // Batch lighting updates
 
-  constructor(private eventBus?: EventBus) {
+  constructor(private eventBus?: EventBus, workerPoolSize?: number) {
     // Create extracted components
     this.chunkStorage = new ChunkStorage(eventBus)
     this.chunkGenerator = new ChunkGenerator({
       chunkStorage: this.chunkStorage,
-      eventBus: eventBus!
+      eventBus: eventBus!,
+      workerCount: workerPoolSize
     })
 
     // Wire up lighting callback

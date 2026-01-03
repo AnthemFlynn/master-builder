@@ -12,9 +12,25 @@ interface ConfigData {
   lodHysteresis?: number
 }
 
+/**
+ * Calculate optimal worker pool size based on hardware
+ * Uses navigator.hardwareConcurrency with safe defaults
+ */
+function getOptimalWorkerCount(): number {
+  // Default to 4 if hardwareConcurrency not available
+  const cores = typeof navigator !== 'undefined' && navigator.hardwareConcurrency
+    ? navigator.hardwareConcurrency
+    : 4
+
+  // Reserve 2 cores for main thread and other tasks
+  // Minimum 2 workers, maximum 8 (diminishing returns beyond this)
+  return Math.min(8, Math.max(2, cores - 2))
+}
+
 export class PerformanceConfig {
   // Worker pool settings
-  workerPoolSize: number = 6
+  // Smart default: uses navigator.hardwareConcurrency - 2 (reserves cores for main thread)
+  workerPoolSize: number = getOptimalWorkerCount()
   frameBudgetMs: number = 3
 
   // LOD distance thresholds (in chunks)
@@ -88,7 +104,7 @@ export class PerformanceConfig {
   }
 
   resetToDefaults(): void {
-    this.workerPoolSize = 6
+    this.workerPoolSize = getOptimalWorkerCount()
     this.frameBudgetMs = 3
     this.lodLevel0Max = 2.0
     this.lodLevel1Max = 4.0
@@ -97,5 +113,21 @@ export class PerformanceConfig {
     this.lodCacheSize = 30
     this.lodHysteresis = 0.5
     this.save()
+  }
+
+  /**
+   * Get the optimal worker count for this hardware (for display in settings)
+   */
+  static getOptimalWorkerCount(): number {
+    return getOptimalWorkerCount()
+  }
+
+  /**
+   * Get available CPU core count (for display in settings)
+   */
+  static getHardwareCores(): number {
+    return typeof navigator !== 'undefined' && navigator.hardwareConcurrency
+      ? navigator.hardwareConcurrency
+      : 4
   }
 }
