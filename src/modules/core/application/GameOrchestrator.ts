@@ -203,8 +203,11 @@ export class GameOrchestrator {
       return
     }
 
-    // Update physics and player movement
-    this.updatePlayerMovement(deltaTime)
+    // Skip physics during world loading - chunks aren't ready for collision detection
+    // Player position is set by placePlayerOnGround() once spawn chunk mesh is built
+    if (!this.isLoadingWorld) {
+      this.updatePlayerMovement(deltaTime)
+    }
     this.services.interactionService.updateHighlight(this.camera)
     this.services.environmentService.update()
 
