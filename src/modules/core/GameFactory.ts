@@ -233,21 +233,25 @@ export async function initializeAsyncServices(
   // Initialize WorldManager (uses same DB, handles migration)
   await services.worldManager.initialize()
 
+  // Wire up UI services immediately after persistence is ready
+  // (before rendering, so UI works even if rendering fails)
+  services.uiService.setPersistence(services.commandBus, services.persistenceService)
+  services.uiService.setWorldManager(services.worldManager)
+
   // Initialize rendering (loads texture arrays)
-  await services.renderingService.initialize()
-  console.log('✅ RenderingService initialized (texture arrays loaded)')
+  // Wrapped in try-catch so rendering failures don't break the game
+  try {
+    await services.renderingService.initialize()
+    console.log('✅ RenderingService initialized (texture arrays loaded)')
+  } catch (error) {
+    console.error('⚠️ RenderingService initialization failed (game will continue):', error)
+  }
 
   // Set up thumbnail capture with renderer
   if (renderer) {
     services.thumbnailCapture.setRenderer(renderer)
     console.log('✅ ThumbnailCapture initialized')
   }
-
-  // Wire up save/load modal now that persistence is ready
-  services.uiService.setPersistence(services.commandBus, services.persistenceService)
-
-  // Wire WorldManager to UIService for new menu system
-  services.uiService.setWorldManager(services.worldManager)
 
   // Start auto-save
   services.autoSaveManager.start()
