@@ -240,17 +240,59 @@ export class VegetationRenderer {
     }
 
     const key = coord.toKey()
-
-    // Dispose old vegetation
     const old = this.vegetationMeshes.get(key)
+
+    if (count === 0) {
+      if (old) {
+        this.scene.remove(old.instancedMesh)
+        old.instancedMesh.dispose()
+        this.vegetationMeshes.delete(key)
+      }
+      return
+    }
+
+    // Check if we can reuse the existing mesh
+    if (old && old.instancedMesh.geometry.attributes.instancePosition.count >= count) {
+      const mesh = old.instancedMesh
+      
+      // Update attributes
+      const positionAttr = mesh.geometry.attributes.instancePosition as THREE.InstancedBufferAttribute
+      const layerAttr = mesh.geometry.attributes.instanceTextureLayer as THREE.InstancedBufferAttribute
+      const variationAttr = mesh.geometry.attributes.instanceVariation as THREE.InstancedBufferAttribute
+
+      for (let i = 0; i < count; i++) {
+        const baseIndex = i * 4
+        const x = instanceData[baseIndex + 0]
+        const y = instanceData[baseIndex + 1]
+        const z = instanceData[baseIndex + 2]
+        const layer = instanceData[baseIndex + 3]
+
+        positionAttr.setXYZ(i, x, y, z)
+        layerAttr.setX(i, layer)
+        
+        // Variation
+        variationAttr.setX(i, this.hashPosition(x, z))
+      }
+
+      // Update ranges and flags
+      positionAttr.needsUpdate = true
+      layerAttr.needsUpdate = true
+      variationAttr.needsUpdate = true
+      
+      // Update visible count
+      mesh.count = count
+      
+      // Update stored count
+      old.instanceCount = count
+      return
+    }
+
+    // --- Create NEW Mesh (if no old mesh or capacity too small) ---
+
+    // Dispose old if it exists (capacity too small)
     if (old) {
       this.scene.remove(old.instancedMesh)
       old.instancedMesh.dispose()
-    }
-
-    if (count === 0) {
-      this.vegetationMeshes.delete(key)
-      return
     }
 
     // Create new InstancedMesh
