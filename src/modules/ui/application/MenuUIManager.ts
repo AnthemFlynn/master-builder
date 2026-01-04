@@ -25,7 +25,7 @@ import {
 } from '../components/screens'
 import { showDeleteConfirm } from '../components/base/ConfirmDialog'
 
-import { QualityPreset } from '../components/screens'
+import { QualityPreset, PostProcessingSettings } from '../components/screens'
 
 /**
  * Callbacks for game actions
@@ -48,7 +48,8 @@ export interface MenuUICallbacks {
   onFovChange?: (value: number) => void
   onVolumeChange?: (value: number) => void
   onQualityPresetChange?: (value: QualityPreset) => void
-  onBloomStrengthChange?: (value: number) => void
+  /** Post-processing setting changed */
+  onPostProcessingChange?: (key: keyof PostProcessingSettings, value: number | boolean) => void
 }
 
 /**
@@ -391,7 +392,18 @@ export class MenuUIManager {
         fov: 50,
         volume: 0.5,
         qualityPreset: 'high',
-        bloomStrength: 1.6,
+        postProcessing: {
+          enabled: true,
+          bloomStrength: 0.4,
+          bloomThreshold: 0.9,
+          ssaoEnabled: true,
+          ssaoIntensity: 12,
+          volumetricEnabled: true,
+          volumetricExposure: 0.08,
+          saturation: 1.1,
+          contrast: 1.05,
+          brightness: 1.0
+        },
         onRenderDistanceChange: (value) => {
           this.callbacks.onRenderDistanceChange?.(value)
         },
@@ -404,8 +416,8 @@ export class MenuUIManager {
         onQualityPresetChange: (value) => {
           this.callbacks.onQualityPresetChange?.(value)
         },
-        onBloomStrengthChange: (value) => {
-          this.callbacks.onBloomStrengthChange?.(value)
+        onPostProcessingChange: (key, value) => {
+          this.callbacks.onPostProcessingChange?.(key, value)
         },
         onBack: () => this.goBack()
       })

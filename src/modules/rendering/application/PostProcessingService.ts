@@ -254,32 +254,78 @@ export class PostProcessingService {
     return this.enabled
   }
 
-  /**
-   * Set bloom strength (for UI slider)
-   */
+  // === Bloom Controls ===
   setBloomStrength(strength: number): void {
     this.bloomPass.strength = strength
   }
-
-  /**
-   * Get bloom strength
-   */
   getBloomStrength(): number {
     return this.bloomPass.strength
   }
+  setBloomThreshold(threshold: number): void {
+    this.bloomPass.threshold = threshold
+  }
+  getBloomThreshold(): number {
+    return this.bloomPass.threshold
+  }
+  setBloomRadius(radius: number): void {
+    this.bloomPass.radius = radius
+  }
+  getBloomRadius(): number {
+    return this.bloomPass.radius
+  }
 
-  /**
-   * Set color grading saturation
-   */
+  // === SSAO Controls ===
+  setSSAOEnabled(enabled: boolean): void {
+    if (this.ssaoPass) this.ssaoPass.enabled = enabled
+  }
+  getSSAOEnabled(): boolean {
+    return this.ssaoPass?.enabled ?? false
+  }
+  setSSAOIntensity(intensity: number): void {
+    if (this.ssaoPass) this.ssaoPass.kernelRadius = intensity
+  }
+  getSSAOIntensity(): number {
+    return this.ssaoPass?.kernelRadius ?? 0
+  }
+
+  // === Volumetric Controls ===
+  setVolumetricEnabled(enabled: boolean): void {
+    if (this.volumetricPass) this.volumetricPass.enabled = enabled
+  }
+  getVolumetricEnabled(): boolean {
+    return this.volumetricPass?.enabled ?? false
+  }
+  setVolumetricExposure(exposure: number): void {
+    if (this.volumetricPass) this.volumetricPass.uniforms.exposure.value = exposure
+  }
+  getVolumetricExposure(): number {
+    return this.volumetricPass?.uniforms.exposure.value ?? 0
+  }
+  setVolumetricDensity(density: number): void {
+    if (this.volumetricPass) this.volumetricPass.uniforms.density.value = density
+  }
+  getVolumetricDensity(): number {
+    return this.volumetricPass?.uniforms.density.value ?? 0
+  }
+
+  // === Color Grading Controls ===
   setSaturation(saturation: number): void {
     this.colorGradingPass.uniforms.saturation.value = saturation
   }
-
-  /**
-   * Get saturation
-   */
   getSaturation(): number {
     return this.colorGradingPass.uniforms.saturation.value
+  }
+  setContrast(contrast: number): void {
+    this.colorGradingPass.uniforms.contrast.value = contrast
+  }
+  getContrast(): number {
+    return this.colorGradingPass.uniforms.contrast.value
+  }
+  setBrightness(brightness: number): void {
+    this.colorGradingPass.uniforms.brightness.value = brightness
+  }
+  getBrightness(): number {
+    return this.colorGradingPass.uniforms.brightness.value
   }
 
   /**

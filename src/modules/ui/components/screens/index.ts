@@ -6,4 +6,4 @@ export { createWorldSelectScreen, type WorldSelectScreenOptions, type WorldSelec
 export { createCreateWorldScreen, type CreateWorldScreenOptions, type CreateWorldScreenComponent } from './CreateWorldScreen'
 export { createPauseScreen, type PauseScreenOptions, type PauseScreenComponent } from './PauseScreen'
 export { createLoadingScreen, type LoadingScreenOptions, type LoadingScreenComponent } from './LoadingScreen'
-export { createSettingsScreen, type SettingsScreenOptions, type SettingsScreenComponent, type QualityPreset } from './SettingsScreen'
+export { createSettingsScreen, type SettingsScreenOptions, type SettingsScreenComponent, type QualityPreset, type PostProcessingSettings } from './SettingsScreen'

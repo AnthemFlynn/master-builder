@@ -16,6 +16,19 @@ import { createRibbonTitle } from '../base/RibbonTitle'
 
 export type QualityPreset = 'ultra' | 'high' | 'medium' | 'low'
 
+export interface PostProcessingSettings {
+  enabled: boolean
+  bloomStrength: number
+  bloomThreshold: number
+  ssaoEnabled: boolean
+  ssaoIntensity: number
+  volumetricEnabled: boolean
+  volumetricExposure: number
+  saturation: number
+  contrast: number
+  brightness: number
+}
+
 export interface SettingsScreenOptions {
   /** Initial render distance */
   renderDistance?: number
@@ -25,8 +38,8 @@ export interface SettingsScreenOptions {
   volume?: number
   /** Initial quality preset */
   qualityPreset?: QualityPreset
-  /** Initial bloom strength */
-  bloomStrength?: number
+  /** Initial post-processing settings */
+  postProcessing?: Partial<PostProcessingSettings>
   /** Called when render distance changes */
   onRenderDistanceChange?: (value: number) => void
   /** Called when FOV changes */
@@ -35,8 +48,8 @@ export interface SettingsScreenOptions {
   onVolumeChange?: (value: number) => void
   /** Called when quality preset changes */
   onQualityPresetChange?: (value: QualityPreset) => void
-  /** Called when bloom strength changes */
-  onBloomStrengthChange?: (value: number) => void
+  /** Called when any post-processing setting changes */
+  onPostProcessingChange?: (key: keyof PostProcessingSettings, value: number | boolean) => void
   /** Called when Controls button clicked */
   onControls?: () => void
   /** Called when back/close */
@@ -52,7 +65,7 @@ export interface SettingsScreenComponent {
   setFov: (value: number) => void
   setVolume: (value: number) => void
   setQualityPreset: (value: QualityPreset) => void
-  setBloomStrength: (value: number) => void
+  setPostProcessing: (settings: Partial<PostProcessingSettings>) => void
 }
 
 export function createSettingsScreen(options: SettingsScreenOptions): SettingsScreenComponent {
@@ -61,12 +74,12 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     fov: initialFov = 50,
     volume: initialVolume = 0.5,
     qualityPreset: initialQualityPreset = 'high',
-    bloomStrength: initialBloomStrength = 1.6,
+    postProcessing: initialPostProcessing = {},
     onRenderDistanceChange,
     onFovChange,
     onVolumeChange,
     onQualityPresetChange,
-    onBloomStrengthChange,
+    onPostProcessingChange,
     onControls,
     onBack
   } = options
@@ -75,7 +88,21 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
   let fov = initialFov
   let volume = initialVolume
   let qualityPreset = initialQualityPreset
-  let bloomStrength = initialBloomStrength
+
+  // Post-processing defaults
+  const ppDefaults: PostProcessingSettings = {
+    enabled: true,
+    bloomStrength: 0.4,
+    bloomThreshold: 0.9,
+    ssaoEnabled: true,
+    ssaoIntensity: 12,
+    volumetricEnabled: true,
+    volumetricExposure: 0.08,
+    saturation: 1.1,
+    contrast: 1.05,
+    brightness: 1.0
+  }
+  let pp: PostProcessingSettings = { ...ppDefaults, ...initialPostProcessing }
 
   // Container
   const container = document.createElement('div')
@@ -192,22 +219,150 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
   })
   graphicsSection.appendChild(qualityRow.element)
 
-  // Bloom Strength Slider
-  const bloomRow = createSliderRow({
-    label: 'Bloom Intensity',
-    value: bloomStrength * 10,  // Scale for UI (0.5-2.5 -> 5-25)
-    min: 5,
-    max: 25,
-    step: 1,
-    formatValue: (v) => `${(v / 10).toFixed(1)}`,
+  settingsContainer.appendChild(graphicsSection)
+
+  // === Post-Processing Section ===
+  const ppSection = createSection('Post-Processing')
+
+  // Post-Processing Enable Toggle
+  const ppEnabledRow = createToggleRow({
+    label: 'Enable Post-Processing',
+    value: pp.enabled,
     onChange: (v) => {
-      bloomStrength = v / 10
-      onBloomStrengthChange?.(bloomStrength)
+      pp.enabled = v
+      onPostProcessingChange?.('enabled', v)
     }
   })
-  graphicsSection.appendChild(bloomRow.element)
+  ppSection.appendChild(ppEnabledRow.element)
 
-  settingsContainer.appendChild(graphicsSection)
+  // SSAO Toggle
+  const ssaoEnabledRow = createToggleRow({
+    label: 'SSAO (Ambient Occlusion)',
+    value: pp.ssaoEnabled,
+    onChange: (v) => {
+      pp.ssaoEnabled = v
+      onPostProcessingChange?.('ssaoEnabled', v)
+    }
+  })
+  ppSection.appendChild(ssaoEnabledRow.element)
+
+  // SSAO Intensity
+  const ssaoIntensityRow = createSliderRow({
+    label: 'SSAO Intensity',
+    value: pp.ssaoIntensity,
+    min: 0,
+    max: 32,
+    step: 1,
+    formatValue: (v) => `${v}`,
+    onChange: (v) => {
+      pp.ssaoIntensity = v
+      onPostProcessingChange?.('ssaoIntensity', v)
+    }
+  })
+  ppSection.appendChild(ssaoIntensityRow.element)
+
+  // Volumetric Toggle
+  const volumetricEnabledRow = createToggleRow({
+    label: 'Volumetric Lighting (God Rays)',
+    value: pp.volumetricEnabled,
+    onChange: (v) => {
+      pp.volumetricEnabled = v
+      onPostProcessingChange?.('volumetricEnabled', v)
+    }
+  })
+  ppSection.appendChild(volumetricEnabledRow.element)
+
+  // Volumetric Exposure
+  const volumetricExposureRow = createSliderRow({
+    label: 'Volumetric Exposure',
+    value: pp.volumetricExposure * 100,
+    min: 0,
+    max: 50,
+    step: 1,
+    formatValue: (v) => `${(v / 100).toFixed(2)}`,
+    onChange: (v) => {
+      pp.volumetricExposure = v / 100
+      onPostProcessingChange?.('volumetricExposure', v / 100)
+    }
+  })
+  ppSection.appendChild(volumetricExposureRow.element)
+
+  // Bloom Strength
+  const bloomStrengthRow = createSliderRow({
+    label: 'Bloom Strength',
+    value: pp.bloomStrength * 100,
+    min: 0,
+    max: 100,
+    step: 1,
+    formatValue: (v) => `${(v / 100).toFixed(2)}`,
+    onChange: (v) => {
+      pp.bloomStrength = v / 100
+      onPostProcessingChange?.('bloomStrength', v / 100)
+    }
+  })
+  ppSection.appendChild(bloomStrengthRow.element)
+
+  // Bloom Threshold
+  const bloomThresholdRow = createSliderRow({
+    label: 'Bloom Threshold',
+    value: pp.bloomThreshold * 100,
+    min: 50,
+    max: 100,
+    step: 1,
+    formatValue: (v) => `${(v / 100).toFixed(2)}`,
+    onChange: (v) => {
+      pp.bloomThreshold = v / 100
+      onPostProcessingChange?.('bloomThreshold', v / 100)
+    }
+  })
+  ppSection.appendChild(bloomThresholdRow.element)
+
+  // Saturation
+  const saturationRow = createSliderRow({
+    label: 'Saturation',
+    value: pp.saturation * 100,
+    min: 0,
+    max: 200,
+    step: 5,
+    formatValue: (v) => `${(v / 100).toFixed(2)}`,
+    onChange: (v) => {
+      pp.saturation = v / 100
+      onPostProcessingChange?.('saturation', v / 100)
+    }
+  })
+  ppSection.appendChild(saturationRow.element)
+
+  // Contrast
+  const contrastRow = createSliderRow({
+    label: 'Contrast',
+    value: pp.contrast * 100,
+    min: 50,
+    max: 150,
+    step: 1,
+    formatValue: (v) => `${(v / 100).toFixed(2)}`,
+    onChange: (v) => {
+      pp.contrast = v / 100
+      onPostProcessingChange?.('contrast', v / 100)
+    }
+  })
+  ppSection.appendChild(contrastRow.element)
+
+  // Brightness
+  const brightnessRow = createSliderRow({
+    label: 'Brightness',
+    value: pp.brightness * 100,
+    min: 50,
+    max: 150,
+    step: 1,
+    formatValue: (v) => `${(v / 100).toFixed(2)}`,
+    onChange: (v) => {
+      pp.brightness = v / 100
+      onPostProcessingChange?.('brightness', v / 100)
+    }
+  })
+  ppSection.appendChild(brightnessRow.element)
+
+  settingsContainer.appendChild(ppSection)
 
   // === Audio Section ===
   const audioSection = createSection('Audio')
@@ -321,9 +476,18 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     qualityRow.setValue(value)
   }
 
-  const setBloomStrength = (value: number) => {
-    bloomStrength = value
-    bloomRow.setValue(value * 10)
+  const setPostProcessing = (settings: Partial<PostProcessingSettings>) => {
+    pp = { ...pp, ...settings }
+    if (settings.enabled !== undefined) ppEnabledRow.setValue(settings.enabled)
+    if (settings.ssaoEnabled !== undefined) ssaoEnabledRow.setValue(settings.ssaoEnabled)
+    if (settings.ssaoIntensity !== undefined) ssaoIntensityRow.setValue(settings.ssaoIntensity)
+    if (settings.volumetricEnabled !== undefined) volumetricEnabledRow.setValue(settings.volumetricEnabled)
+    if (settings.volumetricExposure !== undefined) volumetricExposureRow.setValue(settings.volumetricExposure * 100)
+    if (settings.bloomStrength !== undefined) bloomStrengthRow.setValue(settings.bloomStrength * 100)
+    if (settings.bloomThreshold !== undefined) bloomThresholdRow.setValue(settings.bloomThreshold * 100)
+    if (settings.saturation !== undefined) saturationRow.setValue(settings.saturation * 100)
+    if (settings.contrast !== undefined) contrastRow.setValue(settings.contrast * 100)
+    if (settings.brightness !== undefined) brightnessRow.setValue(settings.brightness * 100)
   }
 
   return {
@@ -335,7 +499,7 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     setFov,
     setVolume,
     setQualityPreset,
-    setBloomStrength
+    setPostProcessing
   }
 }
 
@@ -602,6 +766,94 @@ function createDropdownRow(options: DropdownRowOptions): DropdownRowComponent {
     setValue: (v: string) => {
       value = v
       select.value = v
+    }
+  }
+}
+
+interface ToggleRowOptions {
+  label: string
+  value: boolean
+  onChange?: (value: boolean) => void
+}
+
+interface ToggleRowComponent {
+  element: HTMLElement
+  setValue: (value: boolean) => void
+}
+
+function createToggleRow(options: ToggleRowOptions): ToggleRowComponent {
+  const {
+    label,
+    value: initialValue,
+    onChange
+  } = options
+
+  let value = initialValue
+
+  const row = document.createElement('div')
+  row.className = 'kb-settings-row'
+  row.style.cssText = `
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-xs) 0;
+  `
+
+  const labelEl = document.createElement('span')
+  labelEl.textContent = label
+  labelEl.style.cssText = `
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--text-light);
+  `
+
+  // Toggle switch container
+  const toggleContainer = document.createElement('div')
+  toggleContainer.style.cssText = `
+    width: 48px;
+    height: 24px;
+    background: ${value ? 'var(--button-green)' : 'var(--wood-dark)'};
+    border: 2px solid ${value ? 'var(--button-green-dark)' : 'var(--wood-medium)'};
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s, border-color 0.2s;
+  `
+
+  const toggleKnob = document.createElement('div')
+  toggleKnob.style.cssText = `
+    width: 16px;
+    height: 16px;
+    background: var(--text-light);
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: ${value ? '26px' : '2px'};
+    transition: left 0.2s;
+  `
+
+  toggleContainer.appendChild(toggleKnob)
+
+  const updateVisual = () => {
+    toggleContainer.style.background = value ? 'var(--button-green)' : 'var(--wood-dark)'
+    toggleContainer.style.borderColor = value ? 'var(--button-green-dark)' : 'var(--wood-medium)'
+    toggleKnob.style.left = value ? '26px' : '2px'
+  }
+
+  toggleContainer.addEventListener('click', () => {
+    value = !value
+    updateVisual()
+    onChange?.(value)
+  })
+
+  row.appendChild(labelEl)
+  row.appendChild(toggleContainer)
+
+  return {
+    element: row,
+    setValue: (v: boolean) => {
+      value = v
+      updateVisual()
     }
   }
 }

@@ -309,7 +309,16 @@ export class UIService implements IUIQuery {
    */
   setPostProcessingService(postProcessingService: {
     setQualityPreset: (preset: 'ultra' | 'high' | 'medium' | 'low') => void
+    setEnabled: (enabled: boolean) => void
     setBloomStrength: (strength: number) => void
+    setBloomThreshold: (threshold: number) => void
+    setSSAOEnabled: (enabled: boolean) => void
+    setSSAOIntensity: (intensity: number) => void
+    setVolumetricEnabled: (enabled: boolean) => void
+    setVolumetricExposure: (exposure: number) => void
+    setSaturation: (saturation: number) => void
+    setContrast: (contrast: number) => void
+    setBrightness: (brightness: number) => void
   }): void {
     // Update MenuUIManager callbacks to wire to PostProcessingService
     const manager = this.menuUIManager as any
@@ -317,8 +326,40 @@ export class UIService implements IUIQuery {
       manager.callbacks.onQualityPresetChange = (value: 'ultra' | 'high' | 'medium' | 'low') => {
         postProcessingService.setQualityPreset(value)
       }
-      manager.callbacks.onBloomStrengthChange = (value: number) => {
-        postProcessingService.setBloomStrength(value)
+      manager.callbacks.onPostProcessingChange = (key: string, value: number | boolean) => {
+        switch (key) {
+          case 'enabled':
+            postProcessingService.setEnabled(value as boolean)
+            break
+          case 'bloomStrength':
+            postProcessingService.setBloomStrength(value as number)
+            break
+          case 'bloomThreshold':
+            postProcessingService.setBloomThreshold(value as number)
+            break
+          case 'ssaoEnabled':
+            postProcessingService.setSSAOEnabled(value as boolean)
+            break
+          case 'ssaoIntensity':
+            postProcessingService.setSSAOIntensity(value as number)
+            break
+          case 'volumetricEnabled':
+            postProcessingService.setVolumetricEnabled(value as boolean)
+            break
+          case 'volumetricExposure':
+            postProcessingService.setVolumetricExposure(value as number)
+            break
+          case 'saturation':
+            postProcessingService.setSaturation(value as number)
+            break
+          case 'contrast':
+            postProcessingService.setContrast(value as number)
+            break
+          case 'brightness':
+            postProcessingService.setBrightness(value as number)
+            break
+        }
+        console.log(`🎨 Post-processing: ${key} = ${value}`)
       }
     }
     console.log('✅ Graphics settings wired to PostProcessingService')
