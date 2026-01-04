@@ -262,6 +262,9 @@ export async function initializeAsyncServices(
     console.log('✅ ThumbnailCapture initialized')
   }
 
+  // Wire graphics settings to PostProcessingService
+  services.uiService.setPostProcessingService(services.postProcessingService)
+
   // Start auto-save
   services.autoSaveManager.start()
 }

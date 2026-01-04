@@ -25,6 +25,8 @@ import {
 } from '../components/screens'
 import { showDeleteConfirm } from '../components/base/ConfirmDialog'
 
+import { QualityPreset } from '../components/screens'
+
 /**
  * Callbacks for game actions
  */
@@ -45,6 +47,8 @@ export interface MenuUICallbacks {
   onRenderDistanceChange?: (value: number) => void
   onFovChange?: (value: number) => void
   onVolumeChange?: (value: number) => void
+  onQualityPresetChange?: (value: QualityPreset) => void
+  onBloomStrengthChange?: (value: number) => void
 }
 
 /**
@@ -386,6 +390,8 @@ export class MenuUIManager {
         renderDistance: 4,
         fov: 50,
         volume: 0.5,
+        qualityPreset: 'high',
+        bloomStrength: 1.6,
         onRenderDistanceChange: (value) => {
           this.callbacks.onRenderDistanceChange?.(value)
         },
@@ -394,6 +400,12 @@ export class MenuUIManager {
         },
         onVolumeChange: (value) => {
           this.callbacks.onVolumeChange?.(value)
+        },
+        onQualityPresetChange: (value) => {
+          this.callbacks.onQualityPresetChange?.(value)
+        },
+        onBloomStrengthChange: (value) => {
+          this.callbacks.onBloomStrengthChange?.(value)
         },
         onBack: () => this.goBack()
       })
