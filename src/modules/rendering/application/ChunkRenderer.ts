@@ -88,8 +88,18 @@ export class ChunkRenderer {
 
   /**
    * Get a mesh from the pool or create a new one
+   *
+   * Tracks geometry reference count in userData for safe disposal.
+   * Currently geometry is unique per section, but refCount enables
+   * future LOD sharing without disposal bugs.
    */
   private getMesh(geometry: THREE.BufferGeometry, material: THREE.Material): THREE.Mesh {
+    // Track geometry reference count for safe disposal
+    if (geometry.userData.refCount === undefined) {
+      geometry.userData.refCount = 0
+    }
+    geometry.userData.refCount++
+
     if (this.meshPool.length > 0) {
       const mesh = this.meshPool.pop()!
       mesh.geometry = geometry
@@ -110,12 +120,22 @@ export class ChunkRenderer {
 
   /**
    * Release a mesh back to the pool
+   *
+   * Safely disposes geometry only when no other meshes reference it.
+   * Uses refCount in geometry.userData to track shared geometry (e.g., LODs).
    */
   private releaseMesh(mesh: THREE.Mesh): void {
     if (mesh.geometry) {
-      mesh.geometry.dispose()
+      // Decrement reference count and only dispose when no references remain
+      const refCount = mesh.geometry.userData?.refCount ?? 1
+      if (refCount > 1) {
+        mesh.geometry.userData.refCount = refCount - 1
+      } else {
+        // Last reference - safe to dispose
+        mesh.geometry.dispose()
+      }
     }
-    
+
     // Dispose material if it's not shared (rare case in this engine, but good for safety)
     if (mesh.material instanceof THREE.Material) {
       if (!mesh.material.userData?.shared) {
@@ -126,7 +146,7 @@ export class ChunkRenderer {
     // Clear references
     mesh.geometry = undefined as any
     mesh.material = undefined as any
-    
+
     this.meshPool.push(mesh)
   }
 
