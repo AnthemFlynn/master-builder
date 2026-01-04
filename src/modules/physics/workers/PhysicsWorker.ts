@@ -3,7 +3,7 @@ import { MovementVector } from '../../domain/MovementVector.ts'
 import { CollisionDetector } from '../application/CollisionDetector.ts'
 import { WorkerVoxelQuery } from '../../../shared/workers/WorkerVoxelQuery'
 import { PlayerMode } from '../../player/domain/PlayerMode.ts'
-import { ChunkData } from '../../../shared/domain/ChunkData.ts'
+import { ChunkColumn } from '../../../shared/domain/ChunkColumn.ts'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate.ts'
 import { MovementController } from '../application/MovementController.ts'
 import { initializeBlockRegistry } from '../../../modules/world/blocks/index.ts'
@@ -33,12 +33,14 @@ function handleUpdateChunks(chunksToAdd: Record<string, ArrayBuffer>, chunksToRe
     workerVoxelQuery.removeChunk(key)
   }
 
-  // Add new/modified chunks
+  // Add new/modified chunks (using native sparse format)
   for (const key in chunksToAdd) {
     const buffer = chunksToAdd[key]
     const [cx, cz] = key.split(',').map(Number)
-    // Replace existing chunk if present (for block modifications)
-    workerVoxelQuery.addChunk(new ChunkData(new ChunkCoordinate(cx, cz), buffer))
+    const coord = new ChunkCoordinate(cx, cz)
+    // Deserialize from native format (sparse sections, much smaller than flat buffer)
+    const chunk = ChunkColumn.deserializeNative(coord, buffer)
+    workerVoxelQuery.addChunk(chunk)
   }
 
   // Send confirmation with current cache state
