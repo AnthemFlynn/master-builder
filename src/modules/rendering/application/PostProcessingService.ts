@@ -10,6 +10,7 @@ import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
 import { ColorGradingShader } from '../shaders/ColorGradingShader'
 import { VolumetricLightShader, projectToScreen } from '../shaders/VolumetricLightShader'
 import { LightRegistry, LightSource } from '../domain/LightRegistry'
+import { EventBus } from '../../../shared/infrastructure/EventBus'
 
 export type QualityPreset = 'ultra' | 'high' | 'medium' | 'low'
 
@@ -86,7 +87,8 @@ export class PostProcessingService {
   constructor(
     private renderer: THREE.WebGLRenderer,
     private scene: THREE.Scene,
-    private camera: THREE.Camera
+    private camera: THREE.Camera,
+    private eventBus?: EventBus
   ) {
     this.lightRegistry = new LightRegistry()
     this.composer = new EffectComposer(renderer)
@@ -96,6 +98,9 @@ export class PostProcessingService {
 
     // Apply default preset
     this.setQualityPreset('high')
+
+    // Wire up event listeners for light registry
+    this.setupEventListeners()
 
     // Handle resize
     window.addEventListener('resize', this.onResize)
@@ -138,6 +143,20 @@ export class PostProcessingService {
     // 6. OutputPass - Final tone mapping
     const outputPass = new OutputPass()
     this.composer.addPass(outputPass)
+  }
+
+  private setupEventListeners(): void {
+    if (!this.eventBus) return
+
+    // Clean up light sources when chunks are unloaded
+    this.eventBus.on('world', 'ChunkUnloadedEvent', (e: any) => {
+      const chunkKey = e.chunkCoord.toKey()
+      this.lightRegistry.removeChunkLights(chunkKey)
+    })
+
+    // Note: Light sources from emissive blocks would be collected during meshing
+    // and emitted with ChunkMeshBuiltEvent. For now, we rely on the sun position
+    // which is always tracked by the LightRegistry.
   }
 
   /**

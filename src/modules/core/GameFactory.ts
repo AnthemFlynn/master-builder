@@ -121,7 +121,7 @@ export function createGameServices(
   const workerPoolSize = performanceConfig?.workerPoolSize ?? PerformanceConfig.getOptimalWorkerCount()
   const worldService = new WorldService(eventBus, workerPoolSize)
   const renderingService = new RenderingService(scene, eventBus)
-  const postProcessingService = new PostProcessingService(renderer, scene, camera)
+  const postProcessingService = new PostProcessingService(renderer, scene, camera, eventBus)
   const playerService = new PlayerService(eventBus)
   const physicsService = new PhysicsService(worldService, playerService, eventBus)
   const inputService = new InputService(eventBus)
