@@ -265,6 +265,9 @@ export async function initializeAsyncServices(
   // Wire graphics settings to PostProcessingService
   services.uiService.setPostProcessingService(services.postProcessingService)
 
+  // Wire input service for controls rebinding
+  services.uiService.setInputService(services.inputService)
+
   // Start auto-save
   services.autoSaveManager.start()
 }

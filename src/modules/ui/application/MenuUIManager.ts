@@ -50,6 +50,8 @@ export interface MenuUICallbacks {
   onQualityPresetChange?: (value: QualityPreset) => void
   /** Post-processing setting changed */
   onPostProcessingChange?: (key: keyof PostProcessingSettings, value: number | boolean) => void
+  /** Controls configuration requested */
+  onControls?: () => void
 }
 
 /**
@@ -418,6 +420,9 @@ export class MenuUIManager {
         },
         onPostProcessingChange: (key, value) => {
           this.callbacks.onPostProcessingChange?.(key, value)
+        },
+        onControls: () => {
+          this.callbacks.onControls?.()
         },
         onBack: () => this.goBack()
       })

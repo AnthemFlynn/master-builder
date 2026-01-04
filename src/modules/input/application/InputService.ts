@@ -143,6 +143,94 @@ export class InputService implements IInputQuery {
     return Array.from(this.actions.values())
   }
 
+  /**
+   * Set a new binding for an action (replaces first binding)
+   */
+  setBinding(actionName: string, binding: KeyBinding): void {
+    if (!this.actions.has(actionName)) {
+      console.warn(`Cannot set binding. Action "${actionName}" not registered.`)
+      return
+    }
+    this.actionBindings.set(actionName, [binding])
+    this.saveBindings()
+  }
+
+  /**
+   * Clear all bindings for an action
+   */
+  clearBindings(actionName: string): void {
+    this.actionBindings.set(actionName, [])
+    this.saveBindings()
+  }
+
+  /**
+   * Reset all bindings to defaults
+   */
+  resetToDefaults(): void {
+    for (const [name, action] of this.actions) {
+      if (action.defaultKey) {
+        const binding: KeyBinding = {
+          key: action.defaultKey,
+          ctrl: action.defaultModifiers?.ctrl ?? false,
+          shift: action.defaultModifiers?.shift ?? false,
+          alt: action.defaultModifiers?.alt ?? false
+        }
+        this.actionBindings.set(name, [binding])
+      } else {
+        this.actionBindings.set(name, [])
+      }
+    }
+    this.saveBindings()
+  }
+
+  /**
+   * Check if a key is already bound to another action
+   */
+  findConflict(key: string, excludeAction?: string): string | null {
+    for (const [name, bindings] of this.actionBindings.entries()) {
+      if (name === excludeAction) continue
+      if (bindings.some(b => b.key === key)) {
+        return name
+      }
+    }
+    return null
+  }
+
+  /**
+   * Save bindings to localStorage
+   */
+  private saveBindings(): void {
+    const data: Record<string, KeyBinding[]> = {}
+    for (const [name, bindings] of this.actionBindings) {
+      data[name] = bindings
+    }
+    try {
+      localStorage.setItem('kb_keybindings', JSON.stringify(data))
+    } catch (e) {
+      console.warn('Failed to save keybindings:', e)
+    }
+  }
+
+  /**
+   * Load bindings from localStorage
+   */
+  loadBindings(): void {
+    try {
+      const saved = localStorage.getItem('kb_keybindings')
+      if (saved) {
+        const data = JSON.parse(saved) as Record<string, KeyBinding[]>
+        for (const [name, bindings] of Object.entries(data)) {
+          if (this.actions.has(name)) {
+            this.actionBindings.set(name, bindings)
+          }
+        }
+        console.log('⌨️ Loaded saved keybindings')
+      }
+    } catch (e) {
+      console.warn('Failed to load keybindings:', e)
+    }
+  }
+
   getCurrentState(): GameState {
     return this.currentState
   }

@@ -14,7 +14,7 @@ import { EventBus } from '../../../shared/infrastructure/EventBus'
 
 export type QualityPreset = 'ultra' | 'high' | 'medium' | 'low'
 
-interface PresetConfig {
+export interface PresetConfig {
   ssaoEnabled: boolean
   ssaoKernelRadius: number
   volumetricEnabled: boolean
@@ -25,7 +25,7 @@ interface PresetConfig {
   bloomThreshold: number
 }
 
-const PRESETS: Record<QualityPreset, PresetConfig> = {
+export const PRESETS: Record<QualityPreset, PresetConfig> = {
   ultra: {
     ssaoEnabled: true,
     ssaoKernelRadius: 16,

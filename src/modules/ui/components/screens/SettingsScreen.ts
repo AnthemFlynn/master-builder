@@ -3,6 +3,7 @@
 import { createPanel } from '../base/Panel'
 import { createButton } from '../base/Button'
 import { createRibbonTitle } from '../base/RibbonTitle'
+import { PRESETS } from '../../../rendering/application/PostProcessingService'
 
 /**
  * SettingsScreen - Game settings and preferences
@@ -215,6 +216,28 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     onChange: (v) => {
       qualityPreset = v as QualityPreset
       onQualityPresetChange?.(qualityPreset)
+
+      // Sync PP sliders to preset values
+      const preset = PRESETS[qualityPreset]
+      pp.ssaoEnabled = preset.ssaoEnabled
+      pp.ssaoIntensity = preset.ssaoKernelRadius
+      pp.volumetricEnabled = preset.volumetricEnabled
+      pp.bloomStrength = preset.bloomStrength
+      pp.bloomThreshold = preset.bloomThreshold
+
+      // Update UI controls to reflect preset values
+      ssaoEnabledRow.setValue(preset.ssaoEnabled)
+      ssaoIntensityRow.setValue(preset.ssaoKernelRadius)
+      volumetricEnabledRow.setValue(preset.volumetricEnabled)
+      bloomStrengthRow.setValue(preset.bloomStrength * 100)
+      bloomThresholdRow.setValue(preset.bloomThreshold * 100)
+
+      // Trigger callbacks to sync with PostProcessingService
+      onPostProcessingChange?.('ssaoEnabled', preset.ssaoEnabled)
+      onPostProcessingChange?.('ssaoIntensity', preset.ssaoKernelRadius)
+      onPostProcessingChange?.('volumetricEnabled', preset.volumetricEnabled)
+      onPostProcessingChange?.('bloomStrength', preset.bloomStrength)
+      onPostProcessingChange?.('bloomThreshold', preset.bloomThreshold)
     }
   })
   graphicsSection.appendChild(qualityRow.element)

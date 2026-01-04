@@ -9,6 +9,7 @@ import { CreativeModalManager } from '../components/CreativeModalManager'
 import { SaveLoadModal } from '../components/SaveLoadModal'
 import { PortalOverlay } from '../components/PortalOverlay'
 import { ControlHints } from '../components/ControlHints'
+import { createControlsModal, ControlsModalComponent } from '../components/ControlsModal'
 import { InventoryService } from '../../inventory/application/InventoryService'
 import { InventoryBank } from '../../inventory/domain/InventoryState'
 import { DebugOverlay } from './DebugOverlay'
@@ -18,6 +19,7 @@ import { PersistenceService } from '../../persistence/application/PersistenceSer
 import { WorldManager } from '../../persistence/application/WorldManager'
 import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from '../../persistence/domain/commands/LoadGameCommand'
+import { InputService } from '../../input/application/InputService'
 
 interface Position {
   x: number
@@ -43,10 +45,12 @@ export class UIService implements IUIQuery {
   private radialMenuManager: RadialMenuManager
   private creativeModalManager: CreativeModalManager
   private saveLoadModal: SaveLoadModal | null = null
+  private controlsModal: ControlsModalComponent | null = null
   private portalOverlay: PortalOverlay
   private controlHints: ControlHints
   private debugOverlay: DebugOverlay
   private commandBus: CommandBus | null = null
+  private inputService: InputService | null = null
   private hasShownHints = false  // Track if hints were shown this session
 
   constructor(
@@ -301,6 +305,41 @@ export class UIService implements IUIQuery {
    */
   setWorldManager(worldManager: WorldManager): void {
     this.menuUIManager.setWorldManager(worldManager)
+  }
+
+  /**
+   * Set InputService for controls configuration
+   * Creates the ControlsModal and wires up the settings button
+   */
+  setInputService(inputService: InputService): void {
+    this.inputService = inputService
+
+    // Load any saved keybindings
+    inputService.loadBindings()
+
+    // Create the controls modal
+    this.controlsModal = createControlsModal({
+      inputService,
+      onClose: () => {
+        this.controlsModal?.hide()
+      }
+    })
+
+    // Wire up the "Configure Controls" button in SettingsScreen
+    const manager = this.menuUIManager as any
+    if (manager.settingsScreen) {
+      // If settings screen already exists, we can't easily add the callback
+      // It will be set on next creation
+    }
+
+    // Set the onControls callback for future settings screen creations
+    if (manager.callbacks) {
+      manager.callbacks.onControls = () => {
+        this.controlsModal?.show()
+      }
+    }
+
+    console.log('✅ Input service wired to UI (controls rebinding enabled)')
   }
 
   /**
