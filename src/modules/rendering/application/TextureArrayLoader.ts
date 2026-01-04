@@ -107,11 +107,18 @@ export class TextureArrayLoader {
 
     this.textureArray.format = THREE.RGBAFormat
     this.textureArray.type = THREE.UnsignedByteType
-    this.textureArray.minFilter = THREE.NearestMipmapLinearFilter
-    this.textureArray.magFilter = THREE.NearestFilter // Pixelated look
+    // LinearMipmapLinearFilter (trilinear) reduces shimmering on distant high-contrast blocks
+    // NearestMipmapLinearFilter caused aliasing artifacts at distance
+    this.textureArray.minFilter = THREE.LinearMipmapLinearFilter
+    this.textureArray.magFilter = THREE.NearestFilter // Pixelated look up close
     this.textureArray.wrapS = THREE.RepeatWrapping
     this.textureArray.wrapT = THREE.RepeatWrapping
     this.textureArray.generateMipmaps = true
+    
+    // Fix for blurry textures at distance/angles (Anisotropic Filtering)
+    // We hardcode 16 as standard for PC; mobile might need lower, but Three.js clamps it automatically
+    this.textureArray.anisotropy = 16
+    
     this.textureArray.needsUpdate = true
 
     this.isLoaded = true
