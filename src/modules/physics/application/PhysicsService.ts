@@ -125,7 +125,8 @@ export class PhysicsService {
         const coord = new ChunkCoordinate(cx, cz)
         const chunk = this.voxels.getChunk(coord)
         if (chunk) {
-          chunksToAdd[key] = chunk.getSharedBuffer()
+          // Use native format (sparse sections) - much smaller than flat 400KB buffer
+          chunksToAdd[key] = chunk.serializeNative()
         }
       }
     }
