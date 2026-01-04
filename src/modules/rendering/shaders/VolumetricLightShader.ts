@@ -13,14 +13,15 @@ export const VolumetricLightShader = {
   uniforms: {
     tDiffuse: { value: null },
     tDepth: { value: null },
-    lightPositions: { value: [] as THREE.Vector2[] },  // Screen-space positions
-    lightColors: { value: [] as THREE.Vector3[] },
+    // Fixed-size arrays (GLSL requires fixed array sizes)
+    lightPositions: { value: Array.from({ length: 16 }, () => new THREE.Vector2(0.5, 0.5)) },
+    lightColors: { value: Array.from({ length: 16 }, () => new THREE.Vector3(1, 1, 1)) },
     lightCount: { value: 0 },
-    density: { value: 0.8 },
-    weight: { value: 0.4 },
-    decay: { value: 0.95 },
+    density: { value: 0.3 },
+    weight: { value: 0.15 },
+    decay: { value: 0.97 },
     samples: { value: 80 },
-    exposure: { value: 0.3 }
+    exposure: { value: 0.08 }
   },
 
   vertexShader: /* glsl */ `

@@ -32,9 +32,9 @@ const PRESETS: Record<QualityPreset, PresetConfig> = {
     volumetricEnabled: true,
     volumetricSamples: 80,
     volumetricMaxLights: 16,
-    bloomStrength: 1.8,
-    bloomRadius: 1.2,
-    bloomThreshold: 0.3
+    bloomStrength: 0.5,
+    bloomRadius: 0.5,
+    bloomThreshold: 0.85
   },
   high: {
     ssaoEnabled: true,
@@ -42,9 +42,9 @@ const PRESETS: Record<QualityPreset, PresetConfig> = {
     volumetricEnabled: true,
     volumetricSamples: 50,
     volumetricMaxLights: 8,
-    bloomStrength: 1.6,
-    bloomRadius: 1.0,
-    bloomThreshold: 0.35
+    bloomStrength: 0.4,
+    bloomRadius: 0.4,
+    bloomThreshold: 0.9
   },
   medium: {
     ssaoEnabled: true,
@@ -52,9 +52,9 @@ const PRESETS: Record<QualityPreset, PresetConfig> = {
     volumetricEnabled: true,
     volumetricSamples: 30,
     volumetricMaxLights: 1,  // Sun only
-    bloomStrength: 1.4,
-    bloomRadius: 0.8,
-    bloomThreshold: 0.4
+    bloomStrength: 0.3,
+    bloomRadius: 0.3,
+    bloomThreshold: 0.92
   },
   low: {
     ssaoEnabled: false,
@@ -62,9 +62,9 @@ const PRESETS: Record<QualityPreset, PresetConfig> = {
     volumetricEnabled: false,
     volumetricSamples: 0,
     volumetricMaxLights: 0,
-    bloomStrength: 1.0,
-    bloomRadius: 0.5,
-    bloomThreshold: 0.5
+    bloomStrength: 0.0,
+    bloomRadius: 0.0,
+    bloomThreshold: 1.0
   }
 }
 
@@ -179,7 +179,10 @@ export class PostProcessingService {
     if (!this.volumetricPass) return
 
     const config = PRESETS[this.currentPreset]
-    if (!config.volumetricEnabled) return
+    if (!config.volumetricEnabled) {
+      this.volumetricPass.uniforms.lightCount.value = 0
+      return
+    }
 
     const cameraPos = (this.camera as THREE.PerspectiveCamera).position
     const lights = this.lightRegistry.getNearestLights(cameraPos, config.volumetricMaxLights)
@@ -187,20 +190,20 @@ export class PostProcessingService {
     const width = window.innerWidth
     const height = window.innerHeight
 
-    // Project light positions to screen space
-    const screenPositions: THREE.Vector2[] = []
-    const colors: THREE.Vector3[] = []
+    // Get existing uniform arrays (fixed size of 16)
+    const positions = this.volumetricPass.uniforms.lightPositions.value as THREE.Vector2[]
+    const colors = this.volumetricPass.uniforms.lightColors.value as THREE.Vector3[]
 
-    for (const light of lights) {
+    // Update array elements in-place
+    for (let i = 0; i < lights.length && i < 16; i++) {
+      const light = lights[i]
       const screenPos = projectToScreen(light.position, this.camera, width, height)
-      screenPositions.push(screenPos)
-      colors.push(new THREE.Vector3(light.color.r, light.color.g, light.color.b))
+      positions[i].copy(screenPos)
+      colors[i].set(light.color.r, light.color.g, light.color.b)
     }
 
     // Update shader uniforms
-    this.volumetricPass.uniforms.lightPositions.value = screenPositions
-    this.volumetricPass.uniforms.lightColors.value = colors
-    this.volumetricPass.uniforms.lightCount.value = lights.length
+    this.volumetricPass.uniforms.lightCount.value = Math.min(lights.length, 16)
     this.volumetricPass.uniforms.samples.value = config.volumetricSamples
   }
 
