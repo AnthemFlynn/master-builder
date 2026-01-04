@@ -393,15 +393,15 @@ export class MenuUIManager {
         volume: 0.5,
         qualityPreset: 'high',
         postProcessing: {
-          enabled: false,  // Disabled by default for clean baseline
-          bloomStrength: 0.1,
-          bloomThreshold: 0.95,
-          ssaoEnabled: false,
+          enabled: true,
+          bloomStrength: 0.15,
+          bloomThreshold: 0.9,
+          ssaoEnabled: true,
           ssaoIntensity: 8,
-          volumetricEnabled: false,
+          volumetricEnabled: false,  // Keep disabled - causes instability
           volumetricExposure: 0.02,
-          saturation: 1.0,
-          contrast: 1.0,
+          saturation: 1.05,
+          contrast: 1.02,
           brightness: 1.0
         },
         onRenderDistanceChange: (value) => {

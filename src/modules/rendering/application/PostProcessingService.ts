@@ -29,22 +29,22 @@ const PRESETS: Record<QualityPreset, PresetConfig> = {
   ultra: {
     ssaoEnabled: true,
     ssaoKernelRadius: 16,
-    volumetricEnabled: false,  // Disabled - causes lighting instability
+    volumetricEnabled: false,  // Disabled - causes instability when camera moves
     volumetricSamples: 80,
     volumetricMaxLights: 16,
-    bloomStrength: 0.15,
-    bloomRadius: 0.3,
-    bloomThreshold: 0.95
+    bloomStrength: 0.2,
+    bloomRadius: 0.4,
+    bloomThreshold: 0.85
   },
   high: {
     ssaoEnabled: true,
     ssaoKernelRadius: 12,
-    volumetricEnabled: false,  // Disabled - causes lighting instability
+    volumetricEnabled: false,
     volumetricSamples: 50,
     volumetricMaxLights: 8,
-    bloomStrength: 0.1,
-    bloomRadius: 0.25,
-    bloomThreshold: 0.95
+    bloomStrength: 0.15,
+    bloomRadius: 0.3,
+    bloomThreshold: 0.9
   },
   medium: {
     ssaoEnabled: true,
@@ -52,9 +52,9 @@ const PRESETS: Record<QualityPreset, PresetConfig> = {
     volumetricEnabled: false,
     volumetricSamples: 30,
     volumetricMaxLights: 1,
-    bloomStrength: 0.05,
-    bloomRadius: 0.2,
-    bloomThreshold: 0.97
+    bloomStrength: 0.1,
+    bloomRadius: 0.25,
+    bloomThreshold: 0.92
   },
   low: {
     ssaoEnabled: false,
@@ -82,7 +82,11 @@ export class PostProcessingService {
   private colorGradingPass: ShaderPass
 
   private currentPreset: QualityPreset = 'high'
-  private enabled = false  // Disabled by default - user can enable in Settings
+  private enabled = true
+
+  // Store original renderer settings to restore when PP disabled
+  private originalToneMapping: THREE.ToneMapping
+  private originalToneMappingExposure: number
 
   constructor(
     private renderer: THREE.WebGLRenderer,
@@ -92,6 +96,14 @@ export class PostProcessingService {
   ) {
     this.lightRegistry = new LightRegistry()
     this.composer = new EffectComposer(renderer)
+
+    // Store original renderer tone mapping settings
+    this.originalToneMapping = renderer.toneMapping
+    this.originalToneMappingExposure = renderer.toneMappingExposure
+
+    // When using EffectComposer, disable renderer tone mapping
+    // OutputPass will handle tone mapping instead (prevents double processing)
+    renderer.toneMapping = THREE.NoToneMapping
 
     // Build the pass pipeline
     this.setupPipeline()
@@ -105,7 +117,7 @@ export class PostProcessingService {
     // Handle resize
     window.addEventListener('resize', this.onResize)
 
-    console.log('✨ PostProcessingService initialized')
+    console.log('✨ PostProcessingService initialized (tone mapping via OutputPass)')
   }
 
   private setupPipeline(): void {
@@ -164,8 +176,17 @@ export class PostProcessingService {
    */
   render(): void {
     if (!this.enabled) {
+      // Restore renderer tone mapping for direct rendering
+      this.renderer.toneMapping = this.originalToneMapping
+      this.renderer.toneMappingExposure = this.originalToneMappingExposure
       this.renderer.render(this.scene, this.camera)
       return
+    }
+
+    // Ensure renderer tone mapping is disabled when using composer
+    // (OutputPass handles tone mapping)
+    if (this.renderer.toneMapping !== THREE.NoToneMapping) {
+      this.renderer.toneMapping = THREE.NoToneMapping
     }
 
     // Update volumetric light positions
