@@ -393,12 +393,12 @@ export class MenuUIManager {
         volume: 0.5,
         qualityPreset: 'high',
         postProcessing: {
-          enabled: true,
+          enabled: false,  // Disabled by default for clean baseline
           bloomStrength: 0.1,
           bloomThreshold: 0.95,
-          ssaoEnabled: true,
-          ssaoIntensity: 12,
-          volumetricEnabled: false,  // Disabled by default - causes instability
+          ssaoEnabled: false,
+          ssaoIntensity: 8,
+          volumetricEnabled: false,
           volumetricExposure: 0.02,
           saturation: 1.0,
           contrast: 1.0,

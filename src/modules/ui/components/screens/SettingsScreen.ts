@@ -89,13 +89,13 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
   let volume = initialVolume
   let qualityPreset = initialQualityPreset
 
-  // Post-processing defaults (conservative - volumetric disabled to prevent instability)
+  // Post-processing defaults - DISABLED by default for clean baseline
   const ppDefaults: PostProcessingSettings = {
-    enabled: true,
+    enabled: false,  // Off by default - user can enable in Settings
     bloomStrength: 0.1,
     bloomThreshold: 0.95,
-    ssaoEnabled: true,
-    ssaoIntensity: 12,
+    ssaoEnabled: false,
+    ssaoIntensity: 8,
     volumetricEnabled: false,
     volumetricExposure: 0.02,
     saturation: 1.0,

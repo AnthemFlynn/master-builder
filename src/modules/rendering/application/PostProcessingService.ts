@@ -82,7 +82,7 @@ export class PostProcessingService {
   private colorGradingPass: ShaderPass
 
   private currentPreset: QualityPreset = 'high'
-  private enabled = true
+  private enabled = false  // Disabled by default - user can enable in Settings
 
   constructor(
     private renderer: THREE.WebGLRenderer,
