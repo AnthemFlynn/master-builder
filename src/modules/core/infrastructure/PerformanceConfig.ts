@@ -34,9 +34,10 @@ export class PerformanceConfig {
   frameBudgetMs: number = 3
 
   // LOD distance thresholds (in chunks)
-  lodLevel0Max: number = 2.0
-  lodLevel1Max: number = 4.0
-  lodLevel2Max: number = 6.0
+  // LOD 0 = full detail with AO, LOD 1 = AO enabled but simplified, LOD 2+ = no AO
+  lodLevel0Max: number = 5.0
+  lodLevel1Max: number = 7.0
+  lodLevel2Max: number = 10.0
 
   // LOD transition settings
   lodTransitionMs: number = 300
@@ -106,9 +107,9 @@ export class PerformanceConfig {
   resetToDefaults(): void {
     this.workerPoolSize = getOptimalWorkerCount()
     this.frameBudgetMs = 3
-    this.lodLevel0Max = 2.0
-    this.lodLevel1Max = 4.0
-    this.lodLevel2Max = 6.0
+    this.lodLevel0Max = 5.0
+    this.lodLevel1Max = 7.0
+    this.lodLevel2Max = 10.0
     this.lodTransitionMs = 300
     this.lodCacheSize = 30
     this.lodHysteresis = 0.5

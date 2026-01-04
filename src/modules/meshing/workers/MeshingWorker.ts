@@ -96,9 +96,9 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
       }
 
       // LOD Level optimizations:
-      // Level 0: Full detail (AO enabled)
-      // Level 1+: Skip AO calculation for faster meshing
-      if (lodLevel >= 1) {
+      // Level 0-1: Full detail with AO (worth the 2ms cost for visual depth)
+      // Level 2+: Skip AO for distant chunks (performance over quality)
+      if (lodLevel >= 2) {
         vertexBuilder.setSkipAO(true)
       }
 
