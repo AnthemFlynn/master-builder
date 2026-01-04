@@ -17,11 +17,13 @@ import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstan
 // Extracted classes
 import { ChunkStorage } from './ChunkStorage'
 import { ChunkGenerator } from './ChunkGenerator'
+import { WorldStreamer, WorldStreamerConfig } from './WorldStreamer'
 
 export class WorldService implements IVoxelQuery {
   // Extracted components
   private chunkStorage: ChunkStorage
   private chunkGenerator: ChunkGenerator
+  private worldStreamer: WorldStreamer
 
   // Dependencies
   private environmentService?: EnvironmentService
@@ -31,7 +33,11 @@ export class WorldService implements IVoxelQuery {
   private lightingDebounceTimer: ReturnType<typeof setTimeout> | null = null
   private readonly LIGHTING_DEBOUNCE_MS = 50 // Batch lighting updates
 
-  constructor(private eventBus?: EventBus, workerPoolSize?: number) {
+  constructor(
+    private eventBus?: EventBus,
+    workerPoolSize?: number,
+    streamerConfig?: Partial<WorldStreamerConfig>
+  ) {
     // Create extracted components
     this.chunkStorage = new ChunkStorage(eventBus)
     this.chunkGenerator = new ChunkGenerator({
@@ -39,6 +45,21 @@ export class WorldService implements IVoxelQuery {
       eventBus: eventBus!,
       workerCount: workerPoolSize
     })
+
+    // Create world streamer with default config (can be overridden)
+    const defaultStreamerConfig: WorldStreamerConfig = {
+      renderDistance: streamerConfig?.renderDistance ?? 8,
+      unloadDistance: streamerConfig?.unloadDistance ?? 12,
+      unloadInterval: streamerConfig?.unloadInterval ?? 30000
+    }
+    this.worldStreamer = new WorldStreamer(
+      {
+        chunkStorage: this.chunkStorage,
+        chunkGenerator: this.chunkGenerator,
+        eventBus: eventBus!
+      },
+      defaultStreamerConfig
+    )
 
     // Wire up lighting callback
     this.chunkGenerator.setOnChunkGenerated((coord) => {
@@ -76,6 +97,41 @@ export class WorldService implements IVoxelQuery {
 
   getWorkerUtilization(): { busy: number; total: number } {
     return this.chunkGenerator.getWorkerUtilization()
+  }
+
+  // === Delegation to WorldStreamer ===
+
+  getStreamer(): WorldStreamer {
+    return this.worldStreamer
+  }
+
+  /**
+   * Update player position for chunk streaming
+   * Returns true if player moved to a new chunk
+   */
+  updatePlayerChunk(chunkX: number, chunkZ: number, currentTime: number): boolean {
+    return this.worldStreamer.updatePlayerPosition(chunkX, chunkZ, currentTime)
+  }
+
+  /**
+   * Set render distance for chunk streaming
+   */
+  setRenderDistance(distance: number): void {
+    this.worldStreamer.setRenderDistance(distance)
+  }
+
+  /**
+   * Get render distance
+   */
+  getRenderDistance(): number {
+    return this.worldStreamer.getRenderDistance()
+  }
+
+  /**
+   * Get streaming stats for debugging
+   */
+  getStreamingStats(): { loaded: number; renderDistance: number; unloadDistance: number } {
+    return this.worldStreamer.getStats()
   }
 
   // === Delegation to ChunkStorage ===

@@ -17,10 +17,8 @@ import { CommandBus } from '../../../shared/infrastructure/CommandBus'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../shared/domain/ChunkCoordinate'
 import { GameServices, createGameServices, setupDebugHelpers } from '../GameFactory'
-import { GenerateChunkCommand } from '../domain/commands/GenerateChunkCommand'
 import { MovementVector } from '../../physics/domain/MovementVector'
 import { GameState } from '../../../shared/domain/GameState'
-import { generateSpiralOrder } from '../../world/infrastructure/ChunkPriorityQueue'
 import { SaveGameCommand } from '../../persistence/domain/commands/SaveGameCommand'
 import { LoadGameCommand } from '../../persistence/domain/commands/LoadGameCommand'
 import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../shared/constants/ChunkConstants'
@@ -45,14 +43,8 @@ export class GameOrchestrator {
   public stateCoordinator: SessionStateCoordinator
 
   // Game state
-  private previousChunk = new ChunkCoordinate(0, 0)
   private renderDistance = 8  // Increased from 4 for larger visible world
-  private unloadDistance = 12 // Unload chunks further out than render distance
   private lastUpdateTime = performance.now()
-  private lastChunkUnloadTime = performance.now()
-  private chunkUnloadInterval = 30000 // Increased from 10s to 30s - less aggressive
-  private lastChunkFillTime = performance.now()
-  private chunkFillInterval = 30000
 
   // FPS smoothing
   private frameTimeHistory: number[] = []
@@ -90,8 +82,10 @@ export class GameOrchestrator {
           this.services.modificationTracker.clear()
         },
         generateChunksAround: (x: number, z: number) => {
-          const centerChunk = new ChunkCoordinate(Math.floor(x / CHUNK_WIDTH), Math.floor(z / CHUNK_DEPTH))
-          this.generateChunksInRenderDistance(centerChunk)
+          const chunkX = Math.floor(x / CHUNK_WIDTH)
+          const chunkZ = Math.floor(z / CHUNK_DEPTH)
+          // Use WorldStreamer via WorldService
+          this.services.worldService.getStreamer().loadChunksAround(new ChunkCoordinate(chunkX, chunkZ))
         },
         hasLoadedChunks: () => this.services.worldService.getLoadedChunkCount() > 0,
         getCurrentWorldId: () => 'default'
@@ -120,6 +114,8 @@ export class GameOrchestrator {
       commandBus: this.services.commandBus,
       camera: this.camera
     })
+    // Configure WorldStreamer with render distance
+    this.services.worldService.setRenderDistance(this.renderDistance)
     this.loadingManager.setRenderDistance(this.renderDistance)
 
     this.inputManager = new InputSetupManager({
@@ -154,12 +150,6 @@ export class GameOrchestrator {
     this.stateCoordinator.initialize()
 
     console.log('GameOrchestrator: All modules initialized')
-
-    // Set initial chunk reference
-    this.previousChunk = new ChunkCoordinate(
-      Math.floor(this.camera.position.x / CHUNK_WIDTH),
-      Math.floor(this.camera.position.z / CHUNK_DEPTH)
-    )
   }
 
   /**
@@ -216,33 +206,11 @@ export class GameOrchestrator {
       return
     }
 
-    // Update chunks based on camera position
-    const newChunk = new ChunkCoordinate(
-      Math.floor(this.camera.position.x / CHUNK_WIDTH),
-      Math.floor(this.camera.position.z / CHUNK_DEPTH)
-    )
-
-    if (!newChunk.equals(this.previousChunk)) {
-      this.generateChunksInRenderDistance(newChunk)
-      this.previousChunk = newChunk
-    }
-
-    // Periodically unload distant chunks (use larger unload distance to reduce popping)
-    if (now - this.lastChunkUnloadTime > this.chunkUnloadInterval) {
-      const unloadedCount = this.services.worldService.unloadChunksOutsideRadius(newChunk, this.unloadDistance)
-      if (unloadedCount > 0) {
-        console.log('Unloaded ' + unloadedCount + ' chunks outside distance ' + this.unloadDistance)
-      }
-      this.lastChunkUnloadTime = now
-    }
-
-    // Periodically fill missing chunks
-    if (now - this.lastChunkFillTime > this.chunkFillInterval) {
-      if (this.hasMissingChunks(newChunk)) {
-        this.generateChunksInRenderDistance(newChunk)
-      }
-      this.lastChunkFillTime = now
-    }
+    // Update chunk streaming via WorldStreamer
+    // This handles loading new chunks around player and unloading distant ones
+    const chunkX = Math.floor(this.camera.position.x / CHUNK_WIDTH)
+    const chunkZ = Math.floor(this.camera.position.z / CHUNK_DEPTH)
+    this.services.worldService.updatePlayerChunk(chunkX, chunkZ, now)
 
     // Periodically update LOD levels for all loaded chunks
     if (now - this.lastLODUpdateTime > this.lodUpdateInterval) {
@@ -327,26 +295,6 @@ export class GameOrchestrator {
 
     this.services.physicsService.update(movement, this.camera, deltaTime)
     this.camera.position.copy(this.services.playerService.getPosition())
-  }
-
-  private generateChunksInRenderDistance(centerChunk: ChunkCoordinate): void {
-    const spiralOrder = generateSpiralOrder(centerChunk, this.renderDistance)
-    for (const coord of spiralOrder) {
-      this.services.commandBus.send(new GenerateChunkCommand(coord, this.renderDistance))
-    }
-  }
-
-  private hasMissingChunks(centerChunk: ChunkCoordinate): boolean {
-    const distance = this.renderDistance
-    for (let x = -distance; x <= distance; x++) {
-      for (let z = -distance; z <= distance; z++) {
-        const coord = new ChunkCoordinate(centerChunk.x + x, centerChunk.z + z)
-        if (!this.services.worldService.getChunk(coord)) {
-          return true
-        }
-      }
-    }
-    return false
   }
 
   /**
