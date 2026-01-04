@@ -304,6 +304,27 @@ export class UIService implements IUIQuery {
   }
 
   /**
+   * Set PostProcessingService for graphics settings
+   * Wires up settings callbacks to the post-processing service
+   */
+  setPostProcessingService(postProcessingService: {
+    setQualityPreset: (preset: 'ultra' | 'high' | 'medium' | 'low') => void
+    setBloomStrength: (strength: number) => void
+  }): void {
+    // Update MenuUIManager callbacks to wire to PostProcessingService
+    const manager = this.menuUIManager as any
+    if (manager.callbacks) {
+      manager.callbacks.onQualityPresetChange = (value: 'ultra' | 'high' | 'medium' | 'low') => {
+        postProcessingService.setQualityPreset(value)
+      }
+      manager.callbacks.onBloomStrengthChange = (value: number) => {
+        postProcessingService.setBloomStrength(value)
+      }
+    }
+    console.log('✅ Graphics settings wired to PostProcessingService')
+  }
+
+  /**
    * Get MenuUIManager (for direct access when needed)
    */
   getMenuUIManager(): MenuUIManager {

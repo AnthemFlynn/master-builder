@@ -16,7 +16,7 @@ const scene = core.scene
 const renderer = core.renderer
 
 // Initialize game (all modules)
-const game = new GameOrchestrator(scene, camera)
+const game = new GameOrchestrator(scene, camera, core.getWebGLRenderer())
 
 // Initialize async services and start game
 async function initializeGame() {
@@ -96,7 +96,8 @@ let lastOverrunWarning = 0
       uiService.updateFPS()
     }
 
-    renderer.render(scene, camera)
+    // Render with post-processing
+    game.getPostProcessingService().render()
 
     // Frame budget enforcement: warn if we're taking too long
     const frameEnd = performance.now()

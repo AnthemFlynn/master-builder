@@ -14,6 +14,8 @@ import { createRibbonTitle } from '../base/RibbonTitle'
  * - Controls/Keybindings
  */
 
+export type QualityPreset = 'ultra' | 'high' | 'medium' | 'low'
+
 export interface SettingsScreenOptions {
   /** Initial render distance */
   renderDistance?: number
@@ -21,12 +23,20 @@ export interface SettingsScreenOptions {
   fov?: number
   /** Initial volume (0-1) */
   volume?: number
+  /** Initial quality preset */
+  qualityPreset?: QualityPreset
+  /** Initial bloom strength */
+  bloomStrength?: number
   /** Called when render distance changes */
   onRenderDistanceChange?: (value: number) => void
   /** Called when FOV changes */
   onFovChange?: (value: number) => void
   /** Called when volume changes */
   onVolumeChange?: (value: number) => void
+  /** Called when quality preset changes */
+  onQualityPresetChange?: (value: QualityPreset) => void
+  /** Called when bloom strength changes */
+  onBloomStrengthChange?: (value: number) => void
   /** Called when Controls button clicked */
   onControls?: () => void
   /** Called when back/close */
@@ -41,6 +51,8 @@ export interface SettingsScreenComponent {
   setRenderDistance: (value: number) => void
   setFov: (value: number) => void
   setVolume: (value: number) => void
+  setQualityPreset: (value: QualityPreset) => void
+  setBloomStrength: (value: number) => void
 }
 
 export function createSettingsScreen(options: SettingsScreenOptions): SettingsScreenComponent {
@@ -48,9 +60,13 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     renderDistance: initialRenderDistance = 6,
     fov: initialFov = 50,
     volume: initialVolume = 0.5,
+    qualityPreset: initialQualityPreset = 'high',
+    bloomStrength: initialBloomStrength = 1.6,
     onRenderDistanceChange,
     onFovChange,
     onVolumeChange,
+    onQualityPresetChange,
+    onBloomStrengthChange,
     onControls,
     onBack
   } = options
@@ -58,6 +74,8 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
   let renderDistance = initialRenderDistance
   let fov = initialFov
   let volume = initialVolume
+  let qualityPreset = initialQualityPreset
+  let bloomStrength = initialBloomStrength
 
   // Container
   const container = document.createElement('div')
@@ -156,6 +174,38 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     }
   })
   graphicsSection.appendChild(fovRow.element)
+
+  // Quality Preset Dropdown
+  const qualityRow = createDropdownRow({
+    label: 'Quality Preset',
+    value: qualityPreset,
+    options: [
+      { value: 'ultra', label: 'Ultra' },
+      { value: 'high', label: 'High' },
+      { value: 'medium', label: 'Medium' },
+      { value: 'low', label: 'Low' }
+    ],
+    onChange: (v) => {
+      qualityPreset = v as QualityPreset
+      onQualityPresetChange?.(qualityPreset)
+    }
+  })
+  graphicsSection.appendChild(qualityRow.element)
+
+  // Bloom Strength Slider
+  const bloomRow = createSliderRow({
+    label: 'Bloom Intensity',
+    value: bloomStrength * 10,  // Scale for UI (0.5-2.5 -> 5-25)
+    min: 5,
+    max: 25,
+    step: 1,
+    formatValue: (v) => `${(v / 10).toFixed(1)}`,
+    onChange: (v) => {
+      bloomStrength = v / 10
+      onBloomStrengthChange?.(bloomStrength)
+    }
+  })
+  graphicsSection.appendChild(bloomRow.element)
 
   settingsContainer.appendChild(graphicsSection)
 
@@ -266,6 +316,16 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     volumeRow.setValue(Math.round(value * 100))
   }
 
+  const setQualityPreset = (value: QualityPreset) => {
+    qualityPreset = value
+    qualityRow.setValue(value)
+  }
+
+  const setBloomStrength = (value: number) => {
+    bloomStrength = value
+    bloomRow.setValue(value * 10)
+  }
+
   return {
     element: container,
     show,
@@ -273,7 +333,9 @@ export function createSettingsScreen(options: SettingsScreenOptions): SettingsSc
     destroy,
     setRenderDistance,
     setFov,
-    setVolume
+    setVolume,
+    setQualityPreset,
+    setBloomStrength
   }
 }
 
@@ -440,6 +502,106 @@ function createSliderRow(options: SliderRowOptions): SliderRowComponent {
       value = v
       slider.value = String(v)
       valueEl.textContent = formatValue(v)
+    }
+  }
+}
+
+interface DropdownRowOptions {
+  label: string
+  value: string
+  options: { value: string; label: string }[]
+  onChange?: (value: string) => void
+}
+
+interface DropdownRowComponent {
+  element: HTMLElement
+  setValue: (value: string) => void
+}
+
+function createDropdownRow(options: DropdownRowOptions): DropdownRowComponent {
+  const {
+    label,
+    value: initialValue,
+    options: dropdownOptions,
+    onChange
+  } = options
+
+  let value = initialValue
+
+  const row = document.createElement('div')
+  row.className = 'kb-settings-row'
+  row.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  `
+
+  // Label row
+  const labelRow = document.createElement('div')
+  labelRow.style.cssText = `
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  `
+
+  const labelEl = document.createElement('span')
+  labelEl.textContent = label
+  labelEl.style.cssText = `
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--text-light);
+  `
+
+  labelRow.appendChild(labelEl)
+
+  // Dropdown
+  const select = document.createElement('select')
+  select.style.cssText = `
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--wood-dark);
+    border: 2px solid var(--wood-medium);
+    border-radius: 4px;
+    color: var(--text-light);
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  `
+
+  // Add options
+  for (const opt of dropdownOptions) {
+    const optionEl = document.createElement('option')
+    optionEl.value = opt.value
+    optionEl.textContent = opt.label
+    if (opt.value === initialValue) {
+      optionEl.selected = true
+    }
+    select.appendChild(optionEl)
+  }
+
+  select.addEventListener('change', () => {
+    value = select.value
+    onChange?.(value)
+  })
+
+  select.addEventListener('focus', () => {
+    select.style.borderColor = 'var(--button-green)'
+  })
+
+  select.addEventListener('blur', () => {
+    select.style.borderColor = 'var(--wood-medium)'
+  })
+
+  row.appendChild(labelRow)
+  row.appendChild(select)
+
+  return {
+    element: row,
+    setValue: (v: string) => {
+      value = v
+      select.value = v
     }
   }
 }

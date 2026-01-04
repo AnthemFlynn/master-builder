@@ -16,6 +16,7 @@ import { EventBus } from '../../shared/infrastructure/EventBus'
 import { WorldService } from '../world/application/WorldService'
 import { MeshingService } from '../meshing/application/MeshingService'
 import { RenderingService } from '../rendering/application/RenderingService'
+import { PostProcessingService } from '../rendering/application/PostProcessingService'
 import { PlayerService } from '../player/application/PlayerService'
 import { PhysicsService } from '../physics/application/PhysicsService'
 import { InputService } from '../input/application/InputService'
@@ -57,6 +58,7 @@ export interface GameServices {
   worldService: WorldService
   meshingService: MeshingService
   renderingService: RenderingService
+  postProcessingService: PostProcessingService
   playerService: PlayerService
   physicsService: PhysicsService
   inputService: InputService
@@ -99,6 +101,7 @@ export interface OrchestratorCallbacks {
 export function createGameServices(
   scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
+  renderer: THREE.WebGLRenderer,
   callbacks: OrchestratorCallbacks,
   performanceConfig?: PerformanceConfig
 ): GameServices {
@@ -118,6 +121,7 @@ export function createGameServices(
   const workerPoolSize = performanceConfig?.workerPoolSize ?? PerformanceConfig.getOptimalWorkerCount()
   const worldService = new WorldService(eventBus, workerPoolSize)
   const renderingService = new RenderingService(scene, eventBus)
+  const postProcessingService = new PostProcessingService(renderer, scene, camera, eventBus)
   const playerService = new PlayerService(eventBus)
   const physicsService = new PhysicsService(worldService, playerService, eventBus)
   const inputService = new InputService(eventBus)
@@ -206,6 +210,7 @@ export function createGameServices(
     worldService,
     meshingService,
     renderingService,
+    postProcessingService,
     playerService,
     physicsService,
     inputService,
@@ -256,6 +261,9 @@ export async function initializeAsyncServices(
     services.thumbnailCapture.setRenderer(renderer)
     console.log('✅ ThumbnailCapture initialized')
   }
+
+  // Wire graphics settings to PostProcessingService
+  services.uiService.setPostProcessingService(services.postProcessingService)
 
   // Start auto-save
   services.autoSaveManager.start()

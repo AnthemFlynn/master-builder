@@ -57,10 +57,11 @@ export class GameOrchestrator {
 
   constructor(
     private scene: THREE.Scene,
-    private camera: THREE.PerspectiveCamera
+    private camera: THREE.PerspectiveCamera,
+    private renderer: THREE.WebGLRenderer
   ) {
     // Create all services via factory (pass performance config for worker pool sizing)
-    this.services = createGameServices(scene, camera, {
+    this.services = createGameServices(scene, camera, renderer, {
       requestPointerLock: () => this.services.cameraControls.lock(),
       exitPointerLock: () => this.services.cameraControls.unlock(),
       getPlayerPosition: () => this.services.playerService.getPosition(),
@@ -374,6 +375,7 @@ export class GameOrchestrator {
   getInventoryService() { return this.services.inventoryService }
   getPersistenceService() { return this.services.persistenceService }
   getSessionManager() { return this.services.sessionManager }
+  getPostProcessingService() { return this.services.postProcessingService }
 
   // Debug methods
   enableEventTracing(): void { this.services.eventBus.enableTracing() }

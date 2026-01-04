@@ -57,4 +57,11 @@ export default class Core {
 
     console.log('🎨 Renderer initialized with shadow mapping')
   }
+
+  /**
+   * Get the WebGL renderer for post-processing
+   */
+  getWebGLRenderer(): THREE.WebGLRenderer {
+    return this.renderer as THREE.WebGLRenderer
+  }
 }
