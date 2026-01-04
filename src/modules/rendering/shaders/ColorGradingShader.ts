@@ -11,10 +11,10 @@ export const ColorGradingShader = {
 
   uniforms: {
     tDiffuse: { value: null },
-    saturation: { value: 1.1 },
-    contrast: { value: 1.05 },
-    brightness: { value: 1.0 },
-    vibrance: { value: 0.15 }
+    saturation: { value: 1.0 },   // Neutral - no change
+    contrast: { value: 1.0 },     // Neutral - no change
+    brightness: { value: 1.0 },   // Neutral - no change
+    vibrance: { value: 0.0 }      // Disabled - can cause washout
   },
 
   vertexShader: /* glsl */ `

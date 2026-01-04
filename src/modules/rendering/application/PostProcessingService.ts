@@ -29,32 +29,32 @@ const PRESETS: Record<QualityPreset, PresetConfig> = {
   ultra: {
     ssaoEnabled: true,
     ssaoKernelRadius: 16,
-    volumetricEnabled: true,
+    volumetricEnabled: false,  // Disabled - causes lighting instability
     volumetricSamples: 80,
     volumetricMaxLights: 16,
-    bloomStrength: 0.5,
-    bloomRadius: 0.5,
-    bloomThreshold: 0.85
+    bloomStrength: 0.15,
+    bloomRadius: 0.3,
+    bloomThreshold: 0.95
   },
   high: {
     ssaoEnabled: true,
     ssaoKernelRadius: 12,
-    volumetricEnabled: true,
+    volumetricEnabled: false,  // Disabled - causes lighting instability
     volumetricSamples: 50,
     volumetricMaxLights: 8,
-    bloomStrength: 0.4,
-    bloomRadius: 0.4,
-    bloomThreshold: 0.9
+    bloomStrength: 0.1,
+    bloomRadius: 0.25,
+    bloomThreshold: 0.95
   },
   medium: {
     ssaoEnabled: true,
     ssaoKernelRadius: 8,
-    volumetricEnabled: true,
+    volumetricEnabled: false,
     volumetricSamples: 30,
-    volumetricMaxLights: 1,  // Sun only
-    bloomStrength: 0.3,
-    bloomRadius: 0.3,
-    bloomThreshold: 0.92
+    volumetricMaxLights: 1,
+    bloomStrength: 0.05,
+    bloomRadius: 0.2,
+    bloomThreshold: 0.97
   },
   low: {
     ssaoEnabled: false,
