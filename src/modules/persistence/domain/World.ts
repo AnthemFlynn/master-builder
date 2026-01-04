@@ -20,7 +20,7 @@ export interface World {
   name: string                            // User-given name, e.g., "My Kingdom"
   seed: number                            // Terrain generation seed
   worldType: string                       // "default" | "flat" | "caves" | "forest" | "crystals"
-  gameMode: 'creative' | 'survival'       // Creative has flight + infinite blocks
+  gameMode: 'creative'                     // Always creative - this is a building game
   createdAt: number                       // Timestamp when created
   lastPlayed: number                      // Timestamp of last session
   totalPlayTime: number                   // Total seconds played across all sessions
@@ -35,7 +35,7 @@ export interface CreateWorldParams {
   name: string
   seed?: number                           // Auto-generated if not provided
   worldType?: string                      // Defaults to "default"
-  gameMode?: 'creative' | 'survival'      // Defaults to "creative"
+  gameMode?: 'creative'                   // Always "creative" - this is a building game
   settings?: Partial<WorldSettings>
 }
 
@@ -43,7 +43,7 @@ export interface CreateWorldParams {
  * Default settings for new worlds
  */
 export const DEFAULT_WORLD_SETTINGS: WorldSettings = {
-  renderDistance: 6,
+  renderDistance: 4,
   difficulty: 'peaceful'
 }
 

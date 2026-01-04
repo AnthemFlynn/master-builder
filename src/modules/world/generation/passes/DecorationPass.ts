@@ -1,8 +1,9 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
-import { createNoise2D } from 'simplex-noise'
+import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 import { SeededRandom } from '../utils/SeededRandom'
+import { CHUNK_WIDTH, CHUNK_DEPTH, SEA_LEVEL } from '../../../../shared/constants/ChunkConstants'
 
 /**
  * DecorationPass - Places vegetation decorations (grass, flowers, mushrooms, pumpkins)
@@ -10,6 +11,10 @@ import { SeededRandom } from '../utils/SeededRandom'
  */
 export class DecorationPass implements GenerationPass {
   readonly name = 'DecorationPass'
+
+  // Cached noise function (created once, reused for all chunks)
+  private decorationNoise: NoiseFunction2D | null = null
+  private cachedSeed: number | null = null
 
   // Default flower types when biome doesn't specify
   private readonly DEFAULT_FLOWERS = [
@@ -31,10 +36,16 @@ export class DecorationPass implements GenerationPass {
     const rng = new SeededRandom(
       context.seed + context.chunkCoord.x * 73 + context.chunkCoord.z * 151 + 9000
     )
-    const decorationNoise = createNoise2D(() => context.seed + 8000)
 
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    // Use cached noise (or create if seed changed)
+    if (!this.decorationNoise || this.cachedSeed !== context.seed) {
+      this.decorationNoise = createNoise2D(() => context.seed + 8000)
+      this.cachedSeed = context.seed
+    }
+    const decorationNoise = this.decorationNoise
+
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const surface = context.surfaceMap.get(`${x},${z}`)
         if (!surface) continue
 
@@ -50,8 +61,8 @@ export class DecorationPass implements GenerationPass {
         if (!biome) continue
 
         const surfaceY = surface.y
-        const worldX = context.chunkCoord.x * 24 + x
-        const worldZ = context.chunkCoord.z * 24 + z
+        const worldX = context.chunkCoord.x * CHUNK_WIDTH + x
+        const worldZ = context.chunkCoord.z * CHUNK_DEPTH + z
 
         // Use noise for natural clustering
         const clusterNoise = (decorationNoise(worldX * 0.1, worldZ * 0.1) + 1) / 2
@@ -177,7 +188,7 @@ export class DecorationPass implements GenerationPass {
     for (const [dx, dz] of adjacentOffsets) {
       const ax = x + dx
       const az = z + dz
-      if (ax >= 0 && ax < 24 && az >= 0 && az < 24) {
+      if (ax >= 0 && ax < CHUNK_WIDTH && az >= 0 && az < CHUNK_DEPTH) {
         const block = context.getBlock(ax, y, az)
         if (block !== BlockType.air && block !== BlockType.cactus) {
           return false
@@ -194,7 +205,7 @@ export class DecorationPass implements GenerationPass {
     for (const [dx, dz] of offsets) {
       const nx = x + dx
       const nz = z + dz
-      if (nx >= 0 && nx < 24 && nz >= 0 && nz < 24) {
+      if (nx >= 0 && nx < CHUNK_WIDTH && nz >= 0 && nz < CHUNK_DEPTH) {
         // Check at surface level and one below
         if (context.getBlock(nx, y, nz) === BlockType.water) return true
         if (context.getBlock(nx, y - 1, nz) === BlockType.water) return true
@@ -204,10 +215,8 @@ export class DecorationPass implements GenerationPass {
   }
 
   private placeUnderwaterVegetation(context: GenerationContext, rng: SeededRandom): void {
-    const SEA_LEVEL = 63
-
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const surface = context.surfaceMap.get(`${x},${z}`)
         if (!surface) continue
 

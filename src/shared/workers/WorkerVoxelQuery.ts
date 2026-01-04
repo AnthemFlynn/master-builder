@@ -3,6 +3,7 @@ import { ChunkCoordinate } from '../domain/ChunkCoordinate'
 import { ChunkData } from '../domain/ChunkData'
 import { IVoxelQuery } from '../ports/IVoxelQuery'
 import { blockRegistry } from '../../modules/world/blocks'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../constants/ChunkConstants'
 
 /**
  * WorkerVoxelQuery - IVoxelQuery implementation for use in Web Workers.
@@ -16,13 +17,13 @@ export class WorkerVoxelQuery implements IVoxelQuery {
     }
 
     getBlockType(worldX: number, worldY: number, worldZ: number): number {
-        const cx = Math.floor(worldX / 24)
-        const cz = Math.floor(worldZ / 24)
+        const cx = Math.floor(worldX / CHUNK_WIDTH)
+        const cz = Math.floor(worldZ / CHUNK_DEPTH)
         const coord = new ChunkCoordinate(cx, cz)
         const chunk = this.chunks.get(coord.toKey())
         if (!chunk) return -1
-        const lx = ((worldX % 24) + 24) % 24
-        const lz = ((worldZ % 24) + 24) % 24
+        const lx = ((worldX % CHUNK_WIDTH) + CHUNK_WIDTH) % CHUNK_WIDTH
+        const lz = ((worldZ % CHUNK_DEPTH) + CHUNK_DEPTH) % CHUNK_DEPTH
         return chunk.getBlockId(lx, worldY, lz)
     }
 
@@ -63,6 +64,14 @@ export class WorkerVoxelQuery implements IVoxelQuery {
 
     clear(): void {
         this.chunks.clear()
+    }
+
+    removeChunk(key: string): void {
+        this.chunks.delete(key)
+    }
+
+    getChunkKeys(): string[] {
+        return Array.from(this.chunks.keys())
     }
 
     /**

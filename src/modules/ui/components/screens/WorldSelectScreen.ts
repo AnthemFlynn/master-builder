@@ -20,6 +20,8 @@ export interface WorldSelectScreenOptions {
   onSelectWorld: (world: World) => void
   /** Called when quick-play is clicked */
   onPlayWorld: (world: World) => void
+  /** Called when delete is clicked */
+  onDeleteWorld?: (world: World) => void
   /** Called when Create World is clicked */
   onCreateWorld: () => void
   /** Called when Back is clicked */
@@ -39,6 +41,7 @@ export function createWorldSelectScreen(options: WorldSelectScreenOptions): Worl
     worlds: initialWorlds,
     onSelectWorld,
     onPlayWorld,
+    onDeleteWorld,
     onCreateWorld,
     onBack
   } = options
@@ -152,7 +155,8 @@ export function createWorldSelectScreen(options: WorldSelectScreenOptions): Worl
       const card = createWorldCard({
         world,
         onClick: (w) => onSelectWorld(w),
-        onPlay: (w) => onPlayWorld(w)
+        onPlay: (w) => onPlayWorld(w),
+        onDelete: onDeleteWorld ? (w) => onDeleteWorld(w) : undefined
       })
       worldsList.appendChild(card)
     })

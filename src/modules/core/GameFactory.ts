@@ -41,6 +41,7 @@ import { LoadGameHandler } from '../persistence/application/handlers/LoadGameHan
 import { SessionManager, SessionManagerCallbacks } from '../persistence/application/SessionManager'
 import { WorldManager } from '../persistence/application/WorldManager'
 import { ThumbnailCapture } from '../persistence/application/ThumbnailCapture'
+import { PerformanceConfig } from './infrastructure/PerformanceConfig'
 
 /**
  * All services and infrastructure created by the factory
@@ -98,7 +99,8 @@ export interface OrchestratorCallbacks {
 export function createGameServices(
   scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
-  callbacks: OrchestratorCallbacks
+  callbacks: OrchestratorCallbacks,
+  performanceConfig?: PerformanceConfig
 ): GameServices {
   // Create camera controls
   const cameraControls = new PointerLockControls(camera, document.body)
@@ -112,10 +114,12 @@ export function createGameServices(
   const modificationTracker = new ModificationTracker(eventBus)
 
   // Create core services (in dependency order)
-  const worldService = new WorldService(eventBus)
+  // Pass worker pool size from config (or use hardware-based default)
+  const workerPoolSize = performanceConfig?.workerPoolSize ?? PerformanceConfig.getOptimalWorkerCount()
+  const worldService = new WorldService(eventBus, workerPoolSize)
   const renderingService = new RenderingService(scene, eventBus)
   const playerService = new PlayerService(eventBus)
-  const physicsService = new PhysicsService(worldService, playerService)
+  const physicsService = new PhysicsService(worldService, playerService, eventBus)
   const inputService = new InputService(eventBus)
   const inventoryService = new InventoryService(eventBus)
 
@@ -233,17 +237,25 @@ export async function initializeAsyncServices(
   // Initialize WorldManager (uses same DB, handles migration)
   await services.worldManager.initialize()
 
+  // Wire up UI services immediately after persistence is ready
+  // (before rendering, so UI works even if rendering fails)
+  services.uiService.setPersistence(services.commandBus, services.persistenceService)
+  services.uiService.setWorldManager(services.worldManager)
+
+  // Initialize rendering (loads texture arrays)
+  // Wrapped in try-catch so rendering failures don't break the game
+  try {
+    await services.renderingService.initialize()
+    console.log('✅ RenderingService initialized (texture arrays loaded)')
+  } catch (error) {
+    console.error('⚠️ RenderingService initialization failed (game will continue):', error)
+  }
+
   // Set up thumbnail capture with renderer
   if (renderer) {
     services.thumbnailCapture.setRenderer(renderer)
     console.log('✅ ThumbnailCapture initialized')
   }
-
-  // Wire up save/load modal now that persistence is ready
-  services.uiService.setPersistence(services.commandBus, services.persistenceService)
-
-  // Wire WorldManager to UIService for new menu system
-  services.uiService.setWorldManager(services.worldManager)
 
   // Start auto-save
   services.autoSaveManager.start()

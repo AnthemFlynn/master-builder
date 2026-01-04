@@ -22,7 +22,8 @@ export default class Core {
     this.camera.updateProjectionMatrix()
     // Spawn higher to be above new terrain generation (terrain ~35-60, trees can reach ~65)
     this.camera.position.set(12, 120, 12)
-    this.camera.lookAt(12, 60, 0)
+    // Look toward the horizon (same Y level, far away) for better first impression
+    this.camera.lookAt(100, 120, 100)
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight

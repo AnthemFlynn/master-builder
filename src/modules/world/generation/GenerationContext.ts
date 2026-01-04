@@ -3,6 +3,7 @@ import { WorldDefinition } from '../domain/WorldDefinition'
 import { BlockType } from '../domain/BlockType'
 import { SurfaceBiome, UndergroundBiome } from './biomes/BiomeTypes'
 import type { IslandConfig } from './OrganicIslandGenerator'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../shared/constants/ChunkConstants'
 
 interface SurfaceInfo {
   y: number
@@ -32,8 +33,8 @@ export class GenerationContext {
   // Island configs for inter-island cave system
   private islandConfigs: IslandConfig[] = []
 
-  private readonly size: number = 24
-  private readonly height: number = 256
+  private readonly size: number = CHUNK_WIDTH
+  private readonly height: number = CHUNK_HEIGHT
   private data: Uint8Array
   private _cachedBlockTypes: number[][][] | null = null
 
@@ -62,7 +63,7 @@ export class GenerationContext {
   ) {
     this.seed = worldDef.meta.seed
 
-    // Initialize 24x24 heightmap (simple 2D array is safe)
+    // Initialize heightmap (simple 2D array is safe)
     this.heightMap = []
     for (let x = 0; x < this.size; x++) {
       this.heightMap[x] = []
@@ -85,7 +86,7 @@ export class GenerationContext {
 
     // Initialize Uint8Array for block storage (guaranteed to work when bundled)
     // Pattern matches ChunkData.ts for consistency
-    const length = this.size * this.height * this.size  // 24 * 256 * 24 = 147,456
+    const length = this.size * this.height * this.size  // CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_DEPTH
     this.data = new Uint8Array(length)  // All values default to 0 (BlockType.air)
 
     // Debug logging disabled for performance
@@ -140,7 +141,7 @@ export class GenerationContext {
     const originalHeight = this.heightMap[x]?.[z] ?? 0
 
     // Scan from top to find first solid block
-    for (let y = 255; y >= 0; y--) {
+    for (let y = this.height - 1; y >= 0; y--) {
       const block = this.getBlock(x, y, z)
       if (block !== BlockType.air) {
         this.surfaceMap.set(`${x},${z}`, {

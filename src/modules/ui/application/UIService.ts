@@ -8,6 +8,7 @@ import { RadialMenuManager } from '../components/RadialMenuManager'
 import { CreativeModalManager } from '../components/CreativeModalManager'
 import { SaveLoadModal } from '../components/SaveLoadModal'
 import { PortalOverlay } from '../components/PortalOverlay'
+import { ControlHints } from '../components/ControlHints'
 import { InventoryService } from '../../inventory/application/InventoryService'
 import { InventoryBank } from '../../inventory/domain/InventoryState'
 import { DebugOverlay } from './DebugOverlay'
@@ -43,8 +44,10 @@ export class UIService implements IUIQuery {
   private creativeModalManager: CreativeModalManager
   private saveLoadModal: SaveLoadModal | null = null
   private portalOverlay: PortalOverlay
+  private controlHints: ControlHints
   private debugOverlay: DebugOverlay
   private commandBus: CommandBus | null = null
+  private hasShownHints = false  // Track if hints were shown this session
 
   constructor(
     private eventBus: EventBus,
@@ -108,6 +111,7 @@ export class UIService implements IUIQuery {
     })
 
     this.portalOverlay = new PortalOverlay()
+    this.controlHints = new ControlHints({ autoHideMs: 10000 })
     this.debugOverlay = new DebugOverlay(performanceMonitor, options.getPlayerPosition)
 
     // Wire up the "Load Game" button (modal will be set later)
@@ -195,6 +199,17 @@ export class UIService implements IUIQuery {
         this.creativeModalManager.show()
     } else {
         this.creativeModalManager.hide()
+    }
+
+    // Control Hints - show once when first entering game
+    if (newState === GameState.PLAYING && !this.hasShownHints) {
+        // Delay slightly to let the game fully load
+        setTimeout(() => {
+          this.controlHints.show()
+        }, 1000)
+        this.hasShownHints = true
+    } else if (newState !== GameState.PLAYING) {
+        this.controlHints.hide()
     }
 
     // Emit event

@@ -8,6 +8,7 @@ import { SandPatchDecorator } from '../decorators/SandPatchDecorator'
 import { RockDecorator } from '../decorators/RockDecorator'
 import { BiomeGenerator } from '../domain/biomes/BiomeGenerator'
 import { BiomeDefinition } from '../domain/biomes/types'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../shared/constants/ChunkConstants'
 
 export class NoiseGenerator {
   private noise: ImprovedNoise
@@ -27,14 +28,14 @@ export class NoiseGenerator {
   }
 
   populate(chunk: ChunkData, coord: ChunkCoordinate): void {
-    const chunkWorldX = coord.x * 24
-    const chunkWorldZ = coord.z * 24
+    const chunkWorldX = coord.x * CHUNK_WIDTH
+    const chunkWorldZ = coord.z * CHUNK_DEPTH
     const heightMap: number[][] = Array.from({ length: chunk.size }, () => new Array(chunk.size).fill(0))
     const biomeMap: BiomeDefinition[][] = Array.from({ length: chunk.size }, () => new Array(chunk.size))
 
     // 1. Calculate Biomes & Heightmap
-    for (let localX = 0; localX < 24; localX++) {
-      for (let localZ = 0; localZ < 24; localZ++) {
+    for (let localX = 0; localX < CHUNK_WIDTH; localX++) {
+      for (let localZ = 0; localZ < CHUNK_DEPTH; localZ++) {
         const worldX = chunkWorldX + localX
         const worldZ = chunkWorldZ + localZ
         
@@ -49,15 +50,15 @@ export class NoiseGenerator {
     }
 
     // 2. Fill Blocks
-    for (let localX = 0; localX < 24; localX++) {
-      for (let localZ = 0; localZ < 24; localZ++) {
+    for (let localX = 0; localX < CHUNK_WIDTH; localX++) {
+      for (let localZ = 0; localZ < CHUNK_DEPTH; localZ++) {
         const height = heightMap[localX][localZ]
         const biome = biomeMap[localX][localZ]
-        
+
         // Pick Surface Block (e.g. Stone on steep cliffs, else Biome Surface)
         const surfaceBlock = this.pickSurfaceBlock(localX, localZ, heightMap, biome)
 
-        for (let localY = 0; localY < 256; localY++) {
+        for (let localY = 0; localY < CHUNK_HEIGHT; localY++) {
           let blockType: BlockType | -1 = -1  // Air
 
           if (localY === 0) {

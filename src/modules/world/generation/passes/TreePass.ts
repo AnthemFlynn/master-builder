@@ -1,11 +1,16 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
-import { createNoise2D } from 'simplex-noise'
+import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 import { SeededRandom } from '../utils/SeededRandom'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../../shared/constants/ChunkConstants'
 
 export class TreePass implements GenerationPass {
   readonly name = 'TreePass'
+
+  // Cached noise function (created once, reused for all chunks)
+  private noise: NoiseFunction2D | null = null
+  private cachedSeed: number | null = null
 
   execute(context: GenerationContext): void {
     // Get deterministic tree positions (grid-based with jitter)
@@ -30,9 +35,15 @@ export class TreePass implements GenerationPass {
     }
   }
 
-  private getTreePositions(coord: ChunkCoordinate, seed: number, baseSpacing: number): Array<{x: number, z: number}> {
+  private getTreePositions(coord: { x: number, z: number }, seed: number, baseSpacing: number): Array<{x: number, z: number}> {
     const positions: Array<{x: number, z: number}> = []
-    const noise = createNoise2D(() => seed + 3000)
+
+    // Use cached noise (or create if seed changed)
+    if (!this.noise || this.cachedSeed !== seed) {
+      this.noise = createNoise2D(() => seed + 3000)
+      this.cachedSeed = seed
+    }
+    const noise = this.noise
 
     // Grid-based with noise jitter (prevents perfect grid)
     for (let gx = -1; gx < 4; gx++) {
@@ -48,7 +59,7 @@ export class TreePass implements GenerationPass {
         const z = Math.floor(gridZ + jitterZ)
 
         // Only include if within chunk bounds
-        if (x >= 0 && x < 24 && z >= 0 && z < 24) {
+        if (x >= 0 && x < CHUNK_WIDTH && z >= 0 && z < CHUNK_DEPTH) {
           positions.push({ x, z })
         }
       }

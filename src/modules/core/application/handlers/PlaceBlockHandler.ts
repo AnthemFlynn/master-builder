@@ -4,6 +4,7 @@ import { WorldService } from '../../../world/application/WorldService'
 import { EventBus } from '../../../../shared/infrastructure/EventBus'
 import { ChunkCoordinate } from '../../../../shared/domain/ChunkCoordinate'
 import { PlayerService } from '../../../player/application/PlayerService' // Import PlayerService
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../../shared/constants/ChunkConstants'
 
 export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
   constructor(
@@ -25,7 +26,7 @@ export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
     const targetBlockZ = Math.floor(z)
 
     // Validate Y position
-    if (targetBlockY < 0 || targetBlockY > 255) {
+    if (targetBlockY < 0 || targetBlockY >= CHUNK_HEIGHT) {
       console.warn(`Attempted to place block at invalid Y: ${targetBlockY}`)
       return
     }
@@ -71,8 +72,8 @@ export class PlaceBlockHandler implements CommandHandler<PlaceBlockCommand> {
 
     // Calculate chunk coordinate
     const chunkCoord = new ChunkCoordinate(
-      Math.floor(x / 24),
-      Math.floor(z / 24)
+      Math.floor(x / CHUNK_WIDTH),
+      Math.floor(z / CHUNK_DEPTH)
     )
 
     const position = {

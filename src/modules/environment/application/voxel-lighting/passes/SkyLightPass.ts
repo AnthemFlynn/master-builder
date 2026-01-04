@@ -4,19 +4,20 @@ import { ChunkData } from '../../../../../shared/domain/ChunkData'
 import { ChunkCoordinate } from '../../../../../shared/domain/ChunkCoordinate'
 import { IVoxelQuery } from '../../../../../shared/ports/IVoxelQuery'
 import { ILightStorage } from '../../../../../shared/ports/ILightStorage'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../../../shared/constants/ChunkConstants'
 
 export class SkyLightPass implements ILightingPass {
   execute(lightData: ChunkData, voxels: IVoxelQuery, coord: ChunkCoordinate, storage: ILightStorage): void {
-    const worldX = coord.x * 24
-    const worldZ = coord.z * 24
+    const worldX = coord.x * CHUNK_WIDTH
+    const worldZ = coord.z * CHUNK_DEPTH
 
     // Vertical shadow pass: trace from top to bottom
-    for (let localX = 0; localX < 24; localX++) {
-      for (let localZ = 0; localZ < 24; localZ++) {
+    for (let localX = 0; localX < CHUNK_WIDTH; localX++) {
+      for (let localZ = 0; localZ < CHUNK_DEPTH; localZ++) {
         let skyLight = 15  // Start at full brightness
 
         // Scan from top to bottom
-        for (let localY = 255; localY >= 0; localY--) {
+        for (let localY = CHUNK_HEIGHT - 1; localY >= 0; localY--) {
           // Attenuate light based on block absorption
           const absorption = voxels.getLightAbsorption(
             worldX + localX,

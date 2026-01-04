@@ -1,14 +1,36 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
-import { createNoise2D } from 'simplex-noise'
+import { createNoise2D, NoiseFunction2D } from 'simplex-noise'
 import { OrganicIslandGenerator } from '../OrganicIslandGenerator'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../../shared/constants/ChunkConstants'
 
 export class TerrainPass implements GenerationPass {
   readonly name = 'TerrainPass'
 
   // Organic island generator (replaces hardcoded circular islands)
   private organicGenerator: OrganicIslandGenerator | null = null
+  private cachedSeed: number | null = null
+
+  // Cached noise functions for climate (created once, reused for all chunks)
+  private tempNoise: NoiseFunction2D | null = null
+  private humidNoise: NoiseFunction2D | null = null
+
+  /**
+   * Pre-initialize the island generator with a given seed
+   * Call this ONCE per worker to avoid expensive lazy initialization
+   */
+  warmup(seed: number): void {
+    if (this.organicGenerator) return  // Already initialized
+
+    this.cachedSeed = seed
+    this.organicGenerator = new OrganicIslandGenerator(seed)
+    this.organicGenerator.initialize()
+
+    // Also pre-initialize climate noise functions
+    this.tempNoise = createNoise2D(() => seed + 5000)
+    this.humidNoise = createNoise2D(() => seed + 6000)
+  }
 
   execute(context: GenerationContext): void {
     const { terrain } = context.worldDef
@@ -16,7 +38,7 @@ export class TerrainPass implements GenerationPass {
     if (terrain.generator === 'flat') {
       this.generateFlat(context, terrain.baseHeight)
     } else {
-      // Initialize organic island generator with world seed
+      // Initialize organic island generator if not pre-warmed
       if (!this.organicGenerator) {
         this.organicGenerator = new OrganicIslandGenerator(context.seed)
         this.organicGenerator.initialize()
@@ -30,8 +52,8 @@ export class TerrainPass implements GenerationPass {
   }
 
   private generateFlat(context: GenerationContext, height: number): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         context.heightMap[x][z] = height
       }
     }
@@ -46,15 +68,15 @@ export class TerrainPass implements GenerationPass {
     const islands = this.organicGenerator.getAllIslands()
     context.setIslandConfigs(islands)
 
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
-        const worldX = context.chunkCoord.x * 24 + x
-        const worldZ = context.chunkCoord.z * 24 + z
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
+        const worldX = context.chunkCoord.x * CHUNK_WIDTH + x
+        const worldZ = context.chunkCoord.z * CHUNK_DEPTH + z
 
         // Use organic island generator for height
         const result = this.organicGenerator.getIslandHeight(worldX, worldZ)
 
-        context.heightMap[x][z] = Math.floor(Math.max(1, Math.min(255, result.height)))
+        context.heightMap[x][z] = Math.floor(Math.max(1, Math.min(CHUNK_HEIGHT - 1, result.height)))
       }
     }
   }
@@ -64,16 +86,22 @@ export class TerrainPass implements GenerationPass {
   }
 
   private generateClimateData(context: GenerationContext): void {
-    const tempNoise = createNoise2D(() => context.seed + 5000)
-    const humidNoise = createNoise2D(() => context.seed + 6000)
+    // Use cached noise functions (or create if not warmed up)
+    if (!this.tempNoise || this.cachedSeed !== context.seed) {
+      this.tempNoise = createNoise2D(() => context.seed + 5000)
+      this.humidNoise = createNoise2D(() => context.seed + 6000)
+      this.cachedSeed = context.seed
+    }
+    const tempNoise = this.tempNoise
+    const humidNoise = this.humidNoise!
 
     // Get island configurations from organic generator
     const islands = this.organicGenerator?.getAllIslands() ?? []
 
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
-        const worldX = context.chunkCoord.x * 24 + x
-        const worldZ = context.chunkCoord.z * 24 + z
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
+        const worldX = context.chunkCoord.x * CHUNK_WIDTH + x
+        const worldZ = context.chunkCoord.z * CHUNK_DEPTH + z
         const height = context.heightMap[x][z]
 
         // Find closest island
@@ -121,11 +149,11 @@ export class TerrainPass implements GenerationPass {
   }
 
   private fillTerrain(context: GenerationContext): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const height = Math.floor(context.heightMap[x][z])
         context.setBlock(x, 0, z, BlockType.bedrock)
-        for (let y = 1; y <= height && y < 256; y++) {
+        for (let y = 1; y <= height && y < CHUNK_HEIGHT; y++) {
           context.setBlock(x, y, z, BlockType.stone)
         }
       }
@@ -133,8 +161,8 @@ export class TerrainPass implements GenerationPass {
   }
 
   private initializeSurfaceMap(context: GenerationContext): void {
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const height = Math.floor(context.heightMap[x][z])
         context.surfaceMap.set(`${x},${z}`, {
           y: height,

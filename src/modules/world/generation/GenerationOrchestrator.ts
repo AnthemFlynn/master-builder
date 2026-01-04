@@ -3,6 +3,7 @@ import { ChunkData } from '../../../shared/domain/ChunkData'
 import { WorldDefinition } from '../domain/WorldDefinition'
 import { GenerationContext } from './GenerationContext'
 import { GenerationPass } from './passes/GenerationPass'
+import { CHUNK_WIDTH, CHUNK_DEPTH, CHUNK_HEIGHT } from '../../../shared/constants/ChunkConstants'
 
 export class GenerationOrchestrator {
   constructor(
@@ -27,12 +28,12 @@ export class GenerationOrchestrator {
 
     // Use minY/maxY optimization to skip empty vertical space
     const minY = Math.max(0, context.minY)
-    const maxY = Math.min(255, context.maxY)
+    const maxY = Math.min(CHUNK_HEIGHT - 1, context.maxY)
 
     // Copy blocks to chunk using accessor methods (only non-empty Y range)
-    for (let x = 0; x < 24; x++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
       for (let y = minY; y <= maxY; y++) {
-        for (let z = 0; z < 24; z++) {
+        for (let z = 0; z < CHUNK_DEPTH; z++) {
           const blockType = context.getBlock(x, y, z)
           if (blockType !== 0) {  // Skip air for efficiency
             chunk.setBlockId(x, y, z, blockType)

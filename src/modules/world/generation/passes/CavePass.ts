@@ -1,7 +1,8 @@
 import { GenerationPass } from './GenerationPass'
 import { GenerationContext } from '../GenerationContext'
 import { BlockType } from '../../domain/BlockType'
-import { createNoise3D } from 'simplex-noise'
+import { createNoise3D, NoiseFunction3D } from 'simplex-noise'
+import { CHUNK_WIDTH, CHUNK_DEPTH } from '../../../../shared/constants/ChunkConstants'
 
 /**
  * CavePass - Underground cave networks with walkable entrances
@@ -25,22 +26,30 @@ export class CavePass implements GenerationPass {
   private readonly CAVE_CEILING = 40
   private readonly CAVE_FLOOR = 10
 
+  // Cached noise function (created once per worker, reused for all chunks)
+  private noise: NoiseFunction3D | null = null
+  private cachedSeed: number | null = null
+
   execute(context: GenerationContext): void {
     if (!this.ENABLED) {
       return  // Caves disabled
     }
     const chunkX = context.chunkCoord.x
     const chunkZ = context.chunkCoord.z
-    const worldX = chunkX * 24
-    const worldZ = chunkZ * 24
+    const worldX = chunkX * CHUNK_WIDTH
+    const worldZ = chunkZ * CHUNK_DEPTH
 
-    // 3D noise for caves
-    const noise = createNoise3D(() => context.seed + 1000)
+    // Cache noise function (only create once per seed)
+    if (!this.noise || this.cachedSeed !== context.seed) {
+      this.noise = createNoise3D(() => context.seed + 1000)
+      this.cachedSeed = context.seed
+    }
+    const noise = this.noise
     let carved = 0
 
     // 1. Carve underground cave network (Y=10-40)
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const wx = worldX + x
         const wz = worldZ + z
 
@@ -65,9 +74,10 @@ export class CavePass implements GenerationPass {
     // 3. Add lighting
     const lights = this.addCaveLighting(context)
 
-    if (carved > 0 || entrances > 0) {
-      console.log(`🕳️ CavePass chunk(${chunkX},${chunkZ}): carved=${carved}, entrances=${entrances}, lights=${lights}`)
-    }
+    // Verbose logging disabled for performance
+    // if (carved > 0 || entrances > 0) {
+    //   console.log(`🕳️ CavePass chunk(${chunkX},${chunkZ}): carved=${carved}, entrances=${entrances}, lights=${lights}`)
+    // }
   }
 
   /**
@@ -82,8 +92,8 @@ export class CavePass implements GenerationPass {
     let entranceCount = 0
 
     // Look for coastline positions (terrain just above sea level)
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         const wx = worldX + x
         const wz = worldZ + z
 
@@ -126,7 +136,7 @@ export class CavePass implements GenerationPass {
           const tz = z + dir.dz * step
 
           // Stay in chunk bounds
-          if (tx < 0 || tx >= 24 || tz < 0 || tz >= 24) break
+          if (tx < 0 || tx >= CHUNK_WIDTH || tz < 0 || tz >= CHUNK_DEPTH) break
 
           // Descend every 2 steps
           if (step > 0 && step % 2 === 0) {
@@ -139,7 +149,7 @@ export class CavePass implements GenerationPass {
               const perpX = dir.dz !== 0 ? tx + w : tx
               const perpZ = dir.dx !== 0 ? tz + w : tz
 
-              if (perpX < 0 || perpX >= 24 || perpZ < 0 || perpZ >= 24) continue
+              if (perpX < 0 || perpX >= CHUNK_WIDTH || perpZ < 0 || perpZ >= CHUNK_DEPTH) continue
 
               const carveY = currentY + h
               if (carveY >= this.OCEAN_FLOOR) {
@@ -170,8 +180,8 @@ export class CavePass implements GenerationPass {
   private addCaveLighting(context: GenerationContext): number {
     let lightCount = 0
 
-    for (let x = 0; x < 24; x++) {
-      for (let z = 0; z < 24; z++) {
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      for (let z = 0; z < CHUNK_DEPTH; z++) {
         // Lights every 6 blocks
         if ((x + z) % 6 !== 0) continue
 

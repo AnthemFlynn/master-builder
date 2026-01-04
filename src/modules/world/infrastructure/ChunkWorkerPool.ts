@@ -43,6 +43,19 @@ export class ChunkWorkerPool {
     return this.pool.getUtilization()
   }
 
+  /**
+   * Set the world type for all workers (must be called before generating chunks)
+   */
+  async setWorldType(worldType: string, seed?: number): Promise<void> {
+    const message = {
+      type: 'SET_WORLD_TYPE',
+      worldType,
+      seed
+    }
+    await this.pool.broadcast(message)
+    console.log(`🌍 All ${this.pool.getWorkerCount()} workers set to world type: ${worldType}`)
+  }
+
   terminate(): void {
     this.pool.terminate()
   }

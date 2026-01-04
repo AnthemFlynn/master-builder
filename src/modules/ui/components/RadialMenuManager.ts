@@ -29,8 +29,6 @@ export class RadialMenuManager {
     this.container.style.height = '100%'
     this.container.style.pointerEvents = 'none' 
     this.container.style.zIndex = '1000'
-    // DEBUG: Border to verify existence
-    this.container.style.border = '5px solid red'
 
     this.canvas = document.createElement('canvas')
     this.container.appendChild(this.canvas)
@@ -51,6 +49,8 @@ export class RadialMenuManager {
 
   hide(): void {
     console.log('RadialMenu: hide() called')
+    // Select the hovered item before hiding
+    this.selectHovered()
     this.isVisible = false
     this.container.classList.add('hidden')
   }
@@ -94,9 +94,37 @@ export class RadialMenuManager {
     return { hoveredBank, hoveredItem }
   }
   
-  handleClick(): number | null {
+  /**
+   * Called when menu is closing - selects the currently hovered item/bank
+   * Returns the selected block ID or null if nothing selected
+   */
+  selectHovered(): number | null {
     if (!this.isVisible) return null
-    return null 
+
+    const { hoveredBank, hoveredItem } = this.calculateHoverState()
+
+    // If hovering an item in the outer ring, select that block
+    if (hoveredItem !== -1) {
+      const banks = this.inventory.getAllBanks()
+      const targetBankIndex = this.lastHoveredBank !== -1 ? this.lastHoveredBank : this.inventory.getActiveBank().id
+      const targetBank = banks[targetBankIndex]
+
+      if (targetBank && targetBank.slots[hoveredItem] > 0) {
+        // Switch to the bank and select the slot
+        this.inventory.setActiveBank(targetBankIndex)
+        this.inventory.setSelectedSlot(hoveredItem)
+        console.log(`RadialMenu: Selected bank ${targetBankIndex}, slot ${hoveredItem}, block ${targetBank.slots[hoveredItem]}`)
+        return targetBank.slots[hoveredItem]
+      }
+    }
+
+    // If hovering a bank (inner ring), just switch to that bank
+    if (hoveredBank !== -1) {
+      this.inventory.setActiveBank(hoveredBank)
+      console.log(`RadialMenu: Switched to bank ${hoveredBank}`)
+    }
+
+    return null
   }
 
   private resize(): void {

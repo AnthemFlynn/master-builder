@@ -40,7 +40,8 @@ export class HUDManager {
   show(): void {
     this.crosshair.classList.remove('hidden')
     this.fpsDisplay?.classList.remove('hidden')
-    // this.bagDisplay?.classList.remove('hidden') // User requested to hide hotbar
+    // Note: bagDisplay (hotbar) is hidden - we use radial sunburst menu instead
+    // this.bagDisplay?.classList.remove('hidden')
   }
 
   hide(): void {

@@ -5,7 +5,7 @@ import { WorldLoader } from '../application/WorldLoader'
 import { GenerationOrchestrator } from '../generation/GenerationOrchestrator'
 import { TerrainPass } from '../generation/passes/TerrainPass'
 import { WaterPass } from '../generation/passes/WaterPass'
-import { CavePass } from '../generation/passes/CavePass'
+import { CaveSystemPass } from '../generation/passes/CaveSystemPass'
 import { BiomePass } from '../generation/passes/BiomePass'
 import { TreePass } from '../generation/passes/TreePass'
 import { DecorationPass } from '../generation/passes/DecorationPass'
@@ -14,51 +14,89 @@ import { OrePass } from '../generation/passes/OrePass'
 // Initialize blocks definitions
 initializeBlockRegistry()
 
-// Initialize world loader and orchestrator using promise for proper async handling
+// Current world type and orchestrator
+let currentWorldType = 'default'
 let orchestratorPromise: Promise<GenerationOrchestrator> | null = null
 
 function getOrchestrator(): Promise<GenerationOrchestrator> {
   if (!orchestratorPromise) {
-    orchestratorPromise = initializeOrchestrator()
+    orchestratorPromise = initializeOrchestrator(currentWorldType)
   }
   return orchestratorPromise
 }
 
-async function initializeOrchestrator(): Promise<GenerationOrchestrator> {
-  const loader = new WorldLoader()
-  const worldDef = await loader.load('/worlds/default.json')
+async function initializeOrchestrator(worldType: string): Promise<GenerationOrchestrator> {
+  const startTime = performance.now()
 
-  // MINECRAFT-STYLE WORLD GENERATION
-  // Pass ordering:
-  // 1. TerrainPass - Generate heightmap with continentalness (oceans, land, mountains)
+  const loader = new WorldLoader()
+  const worldPath = `/worlds/${worldType}.json`
+  const worldDef = await loader.load(worldPath)
+
+  // WORLD GENERATION PIPELINE
+  // Pass ordering (caves LAST to punch through surface features):
+  // 1. TerrainPass - Generate heightmap with islands and volcanoes
   // 2. WaterPass - Fill sea level (Y=63), beaches on gentle slopes
-  // 3. CavePass - Carve cave systems
-  // 4. OrePass - Place ore veins (coal, iron, gold, diamond)
-  // 5. BiomePass - Apply surface materials based on climate
-  // 6. TreePass - Place trees based on biome
-  // 7. DecorationPass - Place grass, flowers, mushrooms, cacti
+  // 3. OrePass - Place ore veins (coal, iron, gold, diamond)
+  // 4. BiomePass - Apply surface materials based on climate
+  // 5. TreePass - Place trees based on biome
+  // 6. DecorationPass - Place grass, flowers, mushrooms, cacti
+  // 7. CaveSystemPass - Carve volcanic lava tube networks (LAST)
+
+  // Create passes - pre-warm expensive generators
+  const terrainPass = new TerrainPass()
+
+  // Pre-initialize OrganicIslandGenerator (expensive: ~10-20ms)
+  // Do this once per worker instead of lazily on first chunk
+  const warmupStart = performance.now()
+  terrainPass.warmup(worldDef.meta.seed)
+  const warmupEnd = performance.now()
+
   const orchestrator = new GenerationOrchestrator(worldDef, [
-    new TerrainPass(),
+    terrainPass,
     new WaterPass(),
-    new CavePass(),
     new OrePass(),
     new BiomePass(),
     new TreePass(),
-    new DecorationPass()
+    new DecorationPass(),
+    new CaveSystemPass()  // Caves run LAST to carve through everything
   ])
 
-  console.log(`🌍 World loaded: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
-  console.log(`🌍 Generation pipeline: Terrain → Water → Caves → Ores → Biomes → Trees → Decorations`)
+  const endTime = performance.now()
+  console.log(`🌍 Worker initialized in ${(endTime - startTime).toFixed(1)}ms (warmup: ${(warmupEnd - warmupStart).toFixed(1)}ms)`)
+  console.log(`🌍 World: ${worldDef.meta.name} (seed: ${worldDef.meta.seed})`)
+  console.log(`🌍 Pipeline: Terrain → Water → Ores → Biomes → Trees → Decorations → CaveSystem`)
 
   return orchestrator
 }
 
-// Start initialization immediately
+// Start initialization immediately with default world
 getOrchestrator()
 
 self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   try {
     const msg = e.data
+
+    if (msg.type === 'SET_WORLD_TYPE') {
+      const { worldType, seed } = msg
+
+      // Only reinitialize if world type changed
+      if (worldType !== currentWorldType) {
+        console.log(`🌍 Worker switching world type: ${currentWorldType} → ${worldType}`)
+        currentWorldType = worldType
+        // Reset orchestrator to force reinitialization
+        orchestratorPromise = null
+        // Pre-initialize with new world type
+        await getOrchestrator()
+      }
+
+      const response: MainMessage = {
+        type: 'WORLD_TYPE_SET',
+        worldType,
+        success: true
+      }
+      self.postMessage(response)
+      return
+    }
 
     if (msg.type === 'GENERATE_CHUNK') {
       const startTime = performance.now()
@@ -92,7 +130,12 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
       self.postMessage(response, [buffer])
     }
   } catch (error) {
-    console.error('[ChunkWorker] Error processing message:', error)
+    // Enhanced error logging to debug issues
+    const errorDetails = error instanceof Error
+      ? { message: error.message, stack: error.stack, name: error.name }
+      : { raw: String(error) }
+    console.error('[ChunkWorker] Error processing message:', errorDetails.message || errorDetails.raw)
+    console.error('[ChunkWorker] Stack trace:', errorDetails.stack || 'N/A')
     self.postMessage({
       type: 'CHUNK_ERROR',
       error: error instanceof Error ? error.message : String(error)

@@ -3,10 +3,12 @@ import * as THREE from 'three'
 import { EventBus } from '../../../shared/infrastructure/EventBus'
 import { ChunkRenderer } from './ChunkRenderer'
 import { MaterialSystem } from './MaterialSystem'
+import { VegetationRenderer } from './VegetationRenderer'
 
 export class RenderingService {
   private chunkRenderer: ChunkRenderer
   private materialSystem: MaterialSystem
+  private vegetationRenderer: VegetationRenderer
 
   constructor(
     private scene: THREE.Scene,
@@ -14,6 +16,30 @@ export class RenderingService {
   ) {
     this.materialSystem = new MaterialSystem()
     this.chunkRenderer = new ChunkRenderer(scene, this.materialSystem, eventBus)
+    this.vegetationRenderer = new VegetationRenderer(scene, eventBus)
+  }
+
+  /**
+   * Initialize the rendering service (loads texture arrays)
+   * Call this after block registry is populated
+   */
+  async initialize(): Promise<void> {
+    await this.materialSystem.initialize()
+    await this.vegetationRenderer.initialize()
+  }
+
+  /**
+   * Update vegetation animation (call each frame)
+   */
+  update(deltaTime: number): void {
+    this.vegetationRenderer.update(deltaTime)
+  }
+
+  /**
+   * Get the texture layer lookup function for use in workers
+   */
+  getTextureLayerLookup(): (name: string) => number {
+    return this.materialSystem.getTextureLayerLookup()
   }
 
   // Public API is minimal - rendering is event-driven

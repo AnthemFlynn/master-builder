@@ -10,6 +10,11 @@ export class BlockRegistry {
   private textureLoader?: THREE.TextureLoader
   private textureBasePath = '/textures/block/'
 
+  // Pooled color object to avoid allocations in getFaceColor
+  private static readonly _pooledColor = new THREE.Color()
+  // Reusable RGB object for non-allocating color queries
+  private static readonly _pooledRGB = { r: 0, g: 0, b: 0 }
+
   /**
    * Register a block definition
    */
@@ -96,33 +101,95 @@ export class BlockRegistry {
     })
   }
 
-  getBaseColor(id: number): THREE.Color {
+  /**
+   * Get base color as RGB object (non-allocating, for hot paths like meshing)
+   * WARNING: Returns a shared object - copy values immediately, don't store reference
+   */
+  getBaseColorRGB(id: number): { r: number; g: number; b: number } {
     const block = this.get(id)
+    const rgb = BlockRegistry._pooledRGB
     if (block?.baseColor) {
-      return new THREE.Color(block.baseColor.r, block.baseColor.g, block.baseColor.b)
+      rgb.r = block.baseColor.r
+      rgb.g = block.baseColor.g
+      rgb.b = block.baseColor.b
+    } else {
+      rgb.r = 0.7
+      rgb.g = 0.7
+      rgb.b = 0.7
     }
-    return new THREE.Color(0.7, 0.7, 0.7)
+    return rgb
   }
 
-  getFaceColor(id: number, normal: { x: number, y: number, z: number }): THREE.Color {
+  /**
+   * Get face color as RGB object (non-allocating, for hot paths like meshing)
+   * WARNING: Returns a shared object - copy values immediately, don't store reference
+   */
+  getFaceColorRGB(id: number, normal: { x: number, y: number, z: number }): { r: number; g: number; b: number } {
     const block = this.get(id)
+    const rgb = BlockRegistry._pooledRGB
+
     if (!block?.faceColors) {
-      return this.getBaseColor(id)
+      return this.getBaseColorRGB(id)
     }
     if (normal.y === 1 && block.faceColors.top) {
-      return new THREE.Color(block.faceColors.top.r, block.faceColors.top.g, block.faceColors.top.b)
+      rgb.r = block.faceColors.top.r
+      rgb.g = block.faceColors.top.g
+      rgb.b = block.faceColors.top.b
+      return rgb
     }
     if (normal.y === -1 && block.faceColors.bottom) {
-      return new THREE.Color(block.faceColors.bottom.r, block.faceColors.bottom.g, block.faceColors.bottom.b)
+      rgb.r = block.faceColors.bottom.r
+      rgb.g = block.faceColors.bottom.g
+      rgb.b = block.faceColors.bottom.b
+      return rgb
     }
     if ((normal.x !== 0 || normal.z !== 0) && block.faceColors.side) {
-      return new THREE.Color(block.faceColors.side.r, block.faceColors.side.g, block.faceColors.side.b)
+      rgb.r = block.faceColors.side.r
+      rgb.g = block.faceColors.side.g
+      rgb.b = block.faceColors.side.b
+      return rgb
     }
-    return this.getBaseColor(id)
+    return this.getBaseColorRGB(id)
+  }
+
+  /**
+   * Get base color as THREE.Color (allocates - avoid in hot paths)
+   * @deprecated Use getBaseColorRGB() in hot paths like meshing
+   */
+  getBaseColor(id: number): THREE.Color {
+    const rgb = this.getBaseColorRGB(id)
+    return BlockRegistry._pooledColor.setRGB(rgb.r, rgb.g, rgb.b).clone()
+  }
+
+  /**
+   * Get face color as THREE.Color (allocates - avoid in hot paths)
+   * @deprecated Use getFaceColorRGB() in hot paths like meshing
+   */
+  getFaceColor(id: number, normal: { x: number, y: number, z: number }): THREE.Color {
+    const rgb = this.getFaceColorRGB(id, normal)
+    return BlockRegistry._pooledColor.setRGB(rgb.r, rgb.g, rgb.b).clone()
   }
 
   getSideOverlay(id: number) {
     return this.blocks.get(id)?.sideOverlay
+  }
+
+  /**
+   * Get all unique texture names from all registered blocks
+   * Used to build the texture array
+   */
+  getAllTextureNames(): string[] {
+    const textureSet = new Set<string>()
+    for (const block of this.blocks.values()) {
+      if (typeof block.textures === 'string') {
+        textureSet.add(block.textures)
+      } else if (Array.isArray(block.textures)) {
+        for (const tex of block.textures) {
+          textureSet.add(tex)
+        }
+      }
+    }
+    return Array.from(textureSet)
   }
 
   getTextureForFace(id: number, faceIndex: number): string {

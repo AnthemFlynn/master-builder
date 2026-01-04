@@ -1,95 +1,165 @@
+// src/modules/rendering/application/MaterialSystem.ts
+/**
+ * MaterialSystem - Manages materials for voxel rendering
+ *
+ * Supports both legacy format and SOTA packed vertex format (12 bytes per vertex).
+ * Uses texture arrays (DataArrayTexture) for efficient rendering.
+ */
 import * as THREE from 'three'
 import { blockRegistry } from '../../../modules/world/blocks'
+import { textureArrayLoader } from './TextureArrayLoader'
+import {
+  createOpaqueMaterial,
+  createTransparentMaterial,
+  createVegetationMaterial,
+  createPackedOpaqueMaterial,
+  createPackedTransparentMaterial,
+  updateFogUniforms
+} from '../shaders/VoxelShader'
 
 export class MaterialSystem {
-  // Separate caches for opaque and transparent materials
-  private opaqueMaterials = new Map<string, THREE.Material>()
-  private transparentMaterials = new Map<string, THREE.Material>()
-  private readonly maxCacheSize = 500
+  // Legacy shared materials
+  private opaqueMaterial: THREE.ShaderMaterial | null = null
+  private transparentMaterial: THREE.ShaderMaterial | null = null
+  private vegetationMaterial: THREE.ShaderMaterial | null = null
 
-  constructor() {}
+  // Packed shared materials (SOTA)
+  private packedOpaqueMaterial: THREE.ShaderMaterial | null = null
+  private packedTransparentMaterial: THREE.ShaderMaterial | null = null
 
-  /**
-   * Get material for OPAQUE geometry (solid blocks)
-   */
-  getOpaqueMaterial(materialKey: string): THREE.Material {
-    let mat = this.opaqueMaterials.get(materialKey)
-    if (mat) {
-      // LRU: Move to end
-      this.opaqueMaterials.delete(materialKey)
-      this.opaqueMaterials.set(materialKey, mat)
-      return mat
-    }
+  // Fallback materials
+  private fallbackOpaque: THREE.MeshBasicMaterial
+  private fallbackTransparent: THREE.MeshBasicMaterial
 
-    const [blockTypeStr, faceIndexStr] = materialKey.split(':')
-    const blockType = Number(blockTypeStr)
-    const faceIndex = Number(faceIndexStr)
+  private isInitialized = false
+  private initPromise: Promise<void> | null = null
 
-    mat = blockRegistry.createMaterialForFace(blockType, faceIndex)
-    mat.vertexColors = true
-    mat.side = THREE.FrontSide
-    mat.transparent = false
-    mat.depthWrite = true
+  // Cache texture array for packed material creation
+  private textureArray: THREE.DataArrayTexture | null = null
 
-    this.evictOldest(this.opaqueMaterials)
-    this.opaqueMaterials.set(materialKey, mat)
-    return mat
+  constructor() {
+    this.fallbackOpaque = new THREE.MeshBasicMaterial({
+      color: 0x888888,
+      vertexColors: true
+    })
+    this.fallbackTransparent = new THREE.MeshBasicMaterial({
+      color: 0x4488ff,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.7
+    })
   }
 
-  /**
-   * Get material for TRANSPARENT geometry (water, glass, vegetation)
-   */
+  async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.doInitialize()
+    return this.initPromise
+  }
+
+  private async doInitialize(): Promise<void> {
+    console.log('🎨 MaterialSystem: Loading texture array...')
+
+    const textureNames = blockRegistry.getAllTextureNames()
+    console.log(`📦 Found ${textureNames.length} unique textures`)
+
+    await textureArrayLoader.loadTextures(textureNames)
+
+    this.textureArray = textureArrayLoader.getTextureArray()
+    if (!this.textureArray) {
+      console.error('❌ MaterialSystem: Failed to create texture array')
+      return
+    }
+
+    // Create legacy shared materials
+    this.opaqueMaterial = createOpaqueMaterial(this.textureArray)
+    this.transparentMaterial = createTransparentMaterial(this.textureArray)
+    this.vegetationMaterial = createVegetationMaterial(this.textureArray)
+
+    // Create packed shared materials (using 0,0,0 offset as base)
+    this.packedOpaqueMaterial = createPackedOpaqueMaterial(this.textureArray, new THREE.Vector3(0, 0, 0))
+    this.packedTransparentMaterial = createPackedTransparentMaterial(this.textureArray, new THREE.Vector3(0, 0, 0))
+
+    // Mark all as shared
+    this.opaqueMaterial.userData.shared = true
+    this.transparentMaterial.userData.shared = true
+    this.vegetationMaterial.userData.shared = true
+    this.packedOpaqueMaterial.userData.shared = true
+    this.packedTransparentMaterial.userData.shared = true
+
+    this.isInitialized = true
+    console.log('✅ MaterialSystem: Texture array materials ready (legacy + packed)')
+  }
+
+  // === Legacy Material Methods ===
+
+  getOpaqueMaterial(_materialKey?: string): THREE.Material {
+    if (!this.isInitialized || !this.opaqueMaterial) {
+      return this.fallbackOpaque
+    }
+    return this.opaqueMaterial
+  }
+
   getTransparentMaterial(materialKey: string): THREE.Material {
-    let mat = this.transparentMaterials.get(materialKey)
-    if (mat) {
-      // LRU: Move to end
-      this.transparentMaterials.delete(materialKey)
-      this.transparentMaterials.set(materialKey, mat)
-      return mat
+    if (!this.isInitialized) {
+      return this.fallbackTransparent
     }
 
-    const [blockTypeStr, faceIndexStr] = materialKey.split(':')
-    const blockType = Number(blockTypeStr)
-
-    // Cross-billboard (vegetation)
-    if (faceIndexStr === 'cross') {
-      mat = blockRegistry.createMaterialForFace(blockType, 0)
-      mat.vertexColors = true
-      mat.side = THREE.FrontSide
-      mat.transparent = true
-      mat.alphaTest = 0.5  // Cutout transparency for vegetation
-      mat.depthWrite = true  // Vegetation uses alpha test, can write depth
-    } else {
-      // Water, glass, ice - true alpha blending
-      const faceIndex = Number(faceIndexStr)
-      mat = blockRegistry.createMaterialForFace(blockType, faceIndex)
-      mat.vertexColors = true
-      mat.side = THREE.FrontSide  // Only front faces - prevents self Z-fighting from DoubleSide
-      mat.transparent = true
-      mat.opacity = 0.7  // Semi-transparent
-      mat.depthWrite = false  // Don't write to depth buffer (allows seeing through)
+    if (materialKey.endsWith(':cross')) {
+      return this.vegetationMaterial || this.fallbackTransparent
     }
 
-    this.evictOldest(this.transparentMaterials)
-    this.transparentMaterials.set(materialKey, mat)
-    return mat
+    return this.transparentMaterial || this.fallbackTransparent
   }
 
-  private evictOldest(cache: Map<string, THREE.Material>): void {
-    if (cache.size >= this.maxCacheSize) {
-      const oldestKey = cache.keys().next().value
-      const oldestMaterial = cache.get(oldestKey)
-      if (oldestMaterial) {
-        oldestMaterial.dispose()
-        cache.delete(oldestKey)
-      }
+  // === Packed Material Methods (SOTA 12-byte vertices) ===
+
+  getPackedOpaqueMaterial(): THREE.Material {
+    return this.packedOpaqueMaterial || this.fallbackOpaque
+  }
+
+  getPackedTransparentMaterial(): THREE.Material {
+    return this.packedTransparentMaterial || this.fallbackTransparent
+  }
+
+  // === Utility Methods ===
+
+  getTextureLayerIndex(textureName: string): number {
+    return textureArrayLoader.getLayerIndex(textureName)
+  }
+
+  getTextureLayerLookup(): (name: string) => number {
+    return (name: string) => textureArrayLoader.getLayerIndex(name)
+  }
+
+  updateFog(fogColor: THREE.Color, fogNear: number, fogFar: number): void {
+    if (this.opaqueMaterial) {
+      updateFogUniforms(this.opaqueMaterial, fogColor, fogNear, fogFar)
     }
+    if (this.transparentMaterial) {
+      updateFogUniforms(this.transparentMaterial, fogColor, fogNear, fogFar)
+    }
+    if (this.vegetationMaterial) {
+      updateFogUniforms(this.vegetationMaterial, fogColor, fogNear, fogFar)
+    }
+  }
+
+  isReady(): boolean {
+    return this.isInitialized
   }
 
   dispose(): void {
-    for (const mat of this.opaqueMaterials.values()) mat.dispose()
-    for (const mat of this.transparentMaterials.values()) mat.dispose()
-    this.opaqueMaterials.clear()
-    this.transparentMaterials.clear()
+    this.opaqueMaterial?.dispose()
+    this.transparentMaterial?.dispose()
+    this.vegetationMaterial?.dispose()
+    this.fallbackOpaque.dispose()
+    this.fallbackTransparent.dispose()
+    textureArrayLoader.dispose()
+
+    this.opaqueMaterial = null
+    this.transparentMaterial = null
+    this.vegetationMaterial = null
+    this.textureArray = null
+    this.isInitialized = false
+    this.initPromise = null
   }
 }

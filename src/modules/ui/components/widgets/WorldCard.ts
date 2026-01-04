@@ -18,6 +18,8 @@ export interface WorldCardOptions {
   onClick?: (world: World) => void
   /** Called when play button is clicked */
   onPlay?: (world: World) => void
+  /** Called when delete button is clicked */
+  onDelete?: (world: World) => void
   /** Additional CSS classes */
   className?: string
 }
@@ -28,6 +30,7 @@ export function createWorldCard(options: WorldCardOptions): HTMLElement {
     selected = false,
     onClick,
     onPlay,
+    onDelete,
     className = ''
   } = options
 
@@ -104,22 +107,30 @@ export function createWorldCard(options: WorldCardOptions): HTMLElement {
   meta.className = 'kb-world-card-meta'
   meta.style.cssText = `
     display: flex;
-    gap: var(--space-md);
+    gap: var(--space-sm);
     font-family: var(--font-family);
     font-size: var(--font-size-xs);
     color: var(--text-muted);
+    flex-wrap: wrap;
+    align-items: center;
   `
 
   // Last played
   const lastPlayed = document.createElement('span')
   lastPlayed.textContent = formatTimeAgo(world.lastPlayed)
-
-  // Play time
-  const playTime = document.createElement('span')
-  playTime.textContent = formatPlayTime(world.totalPlayTime)
-
   meta.appendChild(lastPlayed)
-  meta.appendChild(playTime)
+
+  // World type (if not default)
+  if (world.worldType && world.worldType !== 'default') {
+    const sep2 = document.createElement('span')
+    sep2.textContent = '•'
+    sep2.style.opacity = '0.5'
+    meta.appendChild(sep2)
+
+    const worldType = document.createElement('span')
+    worldType.textContent = formatWorldType(world.worldType)
+    meta.appendChild(worldType)
+  }
 
   info.appendChild(name)
   info.appendChild(meta)
@@ -157,6 +168,45 @@ export function createWorldCard(options: WorldCardOptions): HTMLElement {
     onPlay?.(world)
   })
 
+  // Delete button (only if onDelete provided)
+  let deleteBtn: HTMLButtonElement | null = null
+  if (onDelete) {
+    deleteBtn = document.createElement('button')
+    deleteBtn.className = 'kb-world-card-delete'
+    deleteBtn.textContent = '🗑'
+    deleteBtn.title = 'Delete World'
+    deleteBtn.style.cssText = `
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      font-size: 14px;
+      color: var(--text-light);
+      background: var(--wood-medium);
+      border: 2px solid var(--wood-dark);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+      align-self: center;
+      opacity: 0.7;
+    `
+
+    deleteBtn.addEventListener('mouseenter', () => {
+      deleteBtn!.style.background = 'var(--danger-red)'
+      deleteBtn!.style.borderColor = '#a33'
+      deleteBtn!.style.opacity = '1'
+    })
+    deleteBtn.addEventListener('mouseleave', () => {
+      deleteBtn!.style.background = 'var(--wood-medium)'
+      deleteBtn!.style.borderColor = 'var(--wood-dark)'
+      deleteBtn!.style.opacity = '0.7'
+    })
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onDelete(world)
+    })
+  }
+
   // Hover effects
   card.addEventListener('mouseenter', () => {
     if (!selected) {
@@ -178,6 +228,9 @@ export function createWorldCard(options: WorldCardOptions): HTMLElement {
   card.appendChild(thumbnail)
   card.appendChild(info)
   card.appendChild(playBtn)
+  if (deleteBtn) {
+    card.appendChild(deleteBtn)
+  }
 
   return card
 }
@@ -200,4 +253,15 @@ function formatPlayTime(ms: number): string {
   if (hours > 0) return `${hours}h ${minutes}m`
   if (minutes > 0) return `${minutes}m`
   return 'New'
+}
+
+function formatWorldType(type: string): string {
+  const types: Record<string, string> = {
+    'default': '🏔️ Default',
+    'flat': '🟩 Flat',
+    'caves': '🕳️ Caves',
+    'forest': '🌲 Forest',
+    'crystals': '💎 Crystals'
+  }
+  return types[type] || type
 }
